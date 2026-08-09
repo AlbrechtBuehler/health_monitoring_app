@@ -10270,8 +10270,16 @@ async function ghPull(){
   try{
     const r=await fetch(ghUrl()+ghRef(),{headers:ghHead({"Accept":"application/vnd.github.object+json"}),cache:"no-store"});
     if(r.status===404){
-      _ghSha=null; _pullOk=true;   // Datei fehlt noch - das erste Speichern legt sie an
-      setConn("on",(ghCfg.file||"monitoring.json")+" (neu)");
+      // ACHTUNG, das ist die Falle: Bei einem PRIVATEN Repo antwortet GitHub auch dann
+      // mit 404, wenn der Token keinen Zugriff hat. "Datei gibt es nicht" und "du darfst
+      // nicht" sehen von aussen identisch aus - GitHub verraet absichtlich nicht, ob das
+      // Repo existiert. Vorher hat das Tool jedes 404 als "Datei noch nicht angelegt"
+      // gelesen, die Ampel auf gruen gestellt und das Schreiben freigegeben. Ein Blick
+      // auf das Repo selbst trennt die beiden Faelle in einer einzigen Anfrage.
+      const rr=await fetch("https://api.github.com/repos/"+ghCfg.repo,{headers:ghHead(),cache:"no-store"});
+      if(!rr.ok) throw ghErr("KeinZugriff","HTTP "+rr.status+" auf das Repo");
+      _ghSha=null; _pullOk=true;   // Repo erreichbar, Datei fehlt wirklich - Sichern legt sie an
+      setConn("on",(ghCfg.file||"monitoring.json")+" – Datei fehlt, wird beim Sichern angelegt");
       return true;
     }
     if(r.status===401||r.status===403) throw ghErr("TokenAbgelehnt","HTTP "+r.status);
@@ -10399,6 +10407,11 @@ function schreibGrund(e){
     return "GitHub hat den Zugang abgelehnt. Der Token ist abgelaufen, wurde widerrufen, oder er hat keine Schreibrechte auf dieses Repo.";
   if(n==="NichtGefunden")
     return "Das Repo oder die Datei gibt es unter diesem Namen nicht. Schreibweise pruefen (owner/name).";
+  if(n==="KeinZugriff")
+    return "GitHub findet dieses Repository nicht – oder dein Token darf nicht darauf zugreifen. "+
+           "Bei einem privaten Repo sieht beides gleich aus. Pruefe zweierlei: die Schreibweise "+
+           "owner/name, und ob der Token GENAU DIESES Repo freigegeben hat (Repository access) "+
+           "mit dem Recht «Contents: Read and write».";
   if(n==="Konflikt")
     return "Im Repo steht ein neuerer Stand, und auch der zweite Versuch ist gescheitert. Lade ueber das Zahnrad neu und trage den Wert erneut ein.";
   if(n==="KeinJSON")
