@@ -288,6 +288,25 @@
   #exportModal input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   #entryModal input[type=date],#entryModal input[type=number],#entryModal input[type=text],#entryModal select,
   #ghModal input[type=text],#ghModal input[type=password]{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;color-scheme:dark}
+  #ghModal input{width:100%;height:44px;font-size:15px}
+  .gh-lab{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:14px 0 5px}
+  .gh-hint{font-size:12px;color:var(--faint);margin-top:5px;line-height:1.45}
+  .gh-zwei{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .gh-zwei>*{min-width:0}
+  .gh-akte{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .gh-akt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;
+    min-height:48px;padding:10px 14px;background:none;border:0;border-top:1px solid var(--line2);
+    color:var(--ink);font-family:inherit;font-size:14px;text-align:left;cursor:pointer}
+  .gh-akt:first-child{border-top:0}
+  .gh-akt:hover{background:var(--surface2)}
+  .gh-akt-still{cursor:default;color:var(--muted)}
+  .gh-akt-still:hover{background:none}
+  .gh-akt-r{font-size:12px;color:var(--faint);text-align:right;flex-shrink:0}
+  #ghForget{color:var(--high)}
+  .gh-msg{font-size:13px;color:var(--muted);margin-top:12px;min-height:18px;line-height:1.45}
+  .gh-msg.schlecht{color:var(--high)}
+  /* Zweispaltig bleibt auch auf dem Handy: einspaltig wuchs der Dialog auf 920 px
+     und passte in kein Fenster mehr. Beide Werte sind kurz. */
   #entryModal input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   .en-sec{border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .en-sec.open{border-color:var(--accent)}
@@ -927,9 +946,9 @@
 <div id="chartTip" hidden></div>
   <header class="topbar">
     <div>
-      <div class="eyebrow">Monitoring · Burgdorf</div>
+      <div class="eyebrow" id="kopfOrt">Monitoring</div>
       <h1>MOPP+ | <span id="updated">—</span></h1>
-      <p class="sub">Albrecht Bühlers Monitoring APP</p>
+      <p class="sub" id="kopfName">Monitoring APP</p>
     </div>
     <div class="topbar-btns no-print">
       <!-- Der Verbinden-Knopf ist geteilt: eine Datei, ein STATE, beide Welten. -->
@@ -1199,7 +1218,7 @@ const STATE={
   updated:"—",
   patient:{name:""},
   domain:{from:""},
-  weight:{unit:"kg",heightCm:181,goal1:100,goal2:80,startRef:132.6,points:[]},
+  weight:{unit:"kg",heightCm:null,goal1:null,goal2:null,startRef:null,points:[]},
   body:{unit:"cm",points:[]},
   hba1cLab:[],
   lab:{params:[],panels:[]},
@@ -3729,7 +3748,23 @@ return {render,renderMetrics,activeWeekKey,teller,mealStats,weekBalance,macros,w
 // Der gesamte auswertende/rendernde Code steckt in boot(). boot() laeuft erst,
 // wenn Daten da sind (nach dem Verbinden mit der JSON). So startet das Tool leer
 // und die verbundene JSON ist die alleinige Datenquelle (SSOT).
+// Name und Ort stehen in den Daten, nicht im Code. Vor dem Verbinden zeigt der Kopf
+// darum nur "Monitoring" - erst die geladene Datei macht ihn persoenlich. Gilt auch
+// fuer den Arzt-Export, der boot() ebenfalls durchlaeuft.
+function _kopfFuellen(){
+  const P=(STATE&&STATE.patient)||{};
+  const nEl=document.getElementById("kopfName");
+  if(nEl) nEl.textContent = P.name ? (P.name+"s Monitoring APP") : "Monitoring APP";
+  const oEl=document.getElementById("kopfOrt");
+  if(oEl){
+    // Schweizer Adresse: vier Ziffern Postleitzahl, dahinter der Ort. Passt das
+    // Muster nicht, bleibt es bei "Monitoring" - lieber nichts als geraten.
+    const m=/\b\d{4}\s+(.+)$/.exec(String(P.adresse||"").trim());
+    oEl.textContent = m ? ("Monitoring · "+m[1].trim()) : "Monitoring";
+  }
+}
 function boot(){
+  _kopfFuellen();
 // Vorschau -> Detail. EIN Weg fuer alle Diagramme: die Karte zeigt das Bild ohne
 // Bedienung, der Klick oeffnet es gross mit seinen Filtern. Das ist der Grund, warum
 // die Filter heute aus den Karten verschwunden sind – sie standen am falschen Ort.
@@ -10134,6 +10169,7 @@ document.getElementById("updated").textContent=STATE.updated;
 let ghCfg=null;          // {repo:"owner/name", file:"monitoring.json", branch:"main", token:"..."}
 let _ghSha=null;         // Blob-sha des zuletzt gesehenen Standes - der Konfliktschutz
 let _pullOk=false;       // erst nach einem echten Ladevorgang darf geschrieben werden
+let _stand="";           // "Geladen 12:35" / "Gesichert 12:40" - Anzeige im Dialog
 let connected=false;     // echter Verbindungszustand (nur true bei gruener Ampel)
 let saveTimer=null;
 const LS_CFG="mopp.gh.v1";      // Zugang (Repo, Datei, Zweig, Token)
@@ -10257,6 +10293,7 @@ async function ghPull(){
     cacheSave();
     _pullOk=true;
     setConn("on",ghCfg.file);
+    _standSetzen("Geladen");
     return true;
   }catch(e){
     letzterSchreibfehler={ok:false,name:(e&&e.name)||"Fehler",grund:schreibGrund(e)};
@@ -10309,6 +10346,7 @@ async function _writeFileEcht(){
     await ghPush(false);
     cacheSave();
     setConn("on",ghCfg.file);
+    _standSetzen("Gesichert");
     letzterSchreibfehler={ok:true};
     return true;
   }catch(e){
@@ -10389,66 +10427,149 @@ function scheduleSave(){
   saveTimer=setTimeout(writeFile,2500);
 }
 
-// ---- Verbinden-Dialog -------------------------------------------------------
+// ---- Dialog «Daten und Sync» ------------------------------------------------
 // Wird beim ersten Oeffnen gebaut, nicht beim Start: der eingefrorene Arzt-Export
-// fuehrt diesen Teil nie aus und soll auch kein Markup dafuer tragen.
-let _ghModal=null;
+// fuehrt diesen Teil nie aus und traegt das Markup auch nicht mit.
+//
+// Aufbau uebernommen aus PEPAPP, damit beide Werkzeuge sich gleich bedienen:
+// Repository und Token oben, darunter die Handlungen als Liste.
+//
+// «Daten laden» ist der Weg fuer die Wochen-Auswertung: eine von aussen
+// vorbereitete monitoring.json einlesen und in einem Zug ins Repo schreiben.
+// Es gibt bewusst KEINEN Zwischenzustand «geladen, aber nicht gesichert» - der
+// waere beim naechsten Laden lautlos wieder weg.
+let _ghModal=null, _ghDatei=null;
+function _standSetzen(was){
+  const d=new Date();
+  _stand = was+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  const n=_ghModal&&_ghModal.querySelector("#ghStand");
+  if(n) n.textContent=_stand;
+}
+function _ghZeile(id,titel,rechts){
+  return '<button type="button" class="gh-akt" id="'+id+'"><span>'+titel+'</span>'+
+         '<span class="gh-akt-r">'+rechts+'</span></button>';
+}
 function _ghDialog(){
   if(_ghModal) return _ghModal;
   const m=document.createElement("div");
   m.className="modal-bg"; m.id="ghModal"; m.hidden=true;
   m.innerHTML=
-    '<div class="modal" role="dialog" aria-modal="true" aria-label="Datenspeicher verbinden" style="max-width:470px">'+
-      '<div class="modal-head"><h2>Datenspeicher verbinden</h2>'+
+    '<div class="modal" role="dialog" aria-modal="true" aria-label="Daten und Sync" style="max-width:520px">'+
+      '<div class="modal-head"><h2>Daten und Sync</h2>'+
       '<button class="modal-x" id="ghClose" aria-label="Schliessen">×</button></div>'+
       '<div class="modal-body">'+
-        '<label style="display:block;font-size:13px;color:var(--muted);margin:10px 0 4px">Repo (owner/name)</label>'+
-        '<input type="text" id="ghRepo" placeholder="AlbrechtBuehler/mopp-data" style="width:100%;height:44px;font-size:15px" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<label style="display:block;font-size:13px;color:var(--muted);margin:14px 0 4px">Datei</label>'+
-        '<input type="text" id="ghFile" placeholder="monitoring.json" style="width:100%;height:44px;font-size:15px" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<label style="display:block;font-size:13px;color:var(--muted);margin:14px 0 4px">Zweig</label>'+
-        '<input type="text" id="ghBranch" placeholder="main" style="width:100%;height:44px;font-size:15px" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<label style="display:block;font-size:13px;color:var(--muted);margin:14px 0 4px">Token</label>'+
-        '<input type="password" id="ghToken" placeholder="github_pat_…" style="width:100%;height:44px;font-size:15px" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<p style="font-size:12px;color:var(--faint);line-height:1.5;margin:12px 0 0">Der Token bleibt in diesem Browser und wird nirgendwo sonst hingeschickt. '+
-        'Fein granularer Token, nur auf dieses eine Repo, Recht «Contents: Read and write».</p>'+
-        '<div id="ghMsg" style="font-size:13px;margin-top:12px;min-height:18px"></div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px">'+
-          '<button class="btn" id="ghForget" style="border-color:var(--high);color:var(--high)">Trennen</button>'+
-          '<div style="display:flex;gap:8px">'+
-            '<button class="btn" id="ghCancel">Abbrechen</button>'+
-            '<button class="btn exp-go" id="ghSave">Verbinden</button>'+
-          '</div>'+
+        '<div class="gh-lab">Datenrepository</div>'+
+        '<input type="text" id="ghRepo" placeholder="benutzer/datenrepo" autocapitalize="off" autocorrect="off" spellcheck="false">'+
+        '<div class="gh-hint">Privates Repo mit der monitoring.json. Speichern verbindet neu.</div>'+
+        '<div class="gh-zwei">'+
+          '<div><div class="gh-lab">Datei</div>'+
+          '<input type="text" id="ghFile" placeholder="monitoring.json" autocapitalize="off" autocorrect="off" spellcheck="false"></div>'+
+          '<div><div class="gh-lab">Zweig</div>'+
+          '<input type="text" id="ghBranch" placeholder="main" autocapitalize="off" autocorrect="off" spellcheck="false"></div>'+
+        '</div>'+
+        '<div class="gh-lab">Zugriffs-Token</div>'+
+        '<input type="password" id="ghToken" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false">'+
+        '<div class="gh-hint">Braucht Schreibrecht auf Inhalte. Bleibt nur in diesem Browser.</div>'+
+        '<div class="gh-lab" style="margin-top:20px">Aktionen</div>'+
+        '<div class="gh-akte">'+
+          '<div class="gh-akt gh-akt-still"><span>Stand</span><span class="gh-akt-r" id="ghStand">—</span></div>'+
+          _ghZeile("ghPullBtn","Jetzt laden","von GitHub")+
+          _ghZeile("ghPushBtn","Jetzt sichern","zu GitHub")+
+          _ghZeile("ghDown","Daten sichern","JSON")+
+          _ghZeile("ghUp","Daten laden","JSON")+
+          _ghZeile("ghForget","Trennen","Zugang und Kopie löschen")+
+        '</div>'+
+        '<div id="ghMsg"></div>'+
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">'+
+          '<button class="btn" id="ghCancel">Schliessen</button>'+
+          '<button class="btn exp-go" id="ghSave">Speichern</button>'+
         '</div>'+
       '</div>'+
     '</div>';
   document.body.appendChild(m);
+  const q=s=>m.querySelector(s);
   const zu=()=>{ m.hidden=true; };
-  m.querySelector("#ghClose").onclick=zu;
-  m.querySelector("#ghCancel").onclick=zu;
+  const sag=(t,schlecht)=>{ const n=q("#ghMsg"); n.textContent=t; n.className=schlecht?"gh-msg schlecht":"gh-msg"; };
+  q("#ghClose").onclick=zu; q("#ghCancel").onclick=zu;
   m.onclick=e=>{ if(e.target===m) zu(); };
-  m.querySelector("#ghForget").onclick=()=>{
-    ghCfg=null; _ghSha=null; _pullOk=false; ghSaveCfg(null);
-    setConn("off"); zu();
+
+  // Datei-Eingang fuer «Daten laden». Einer fuer alle Aufrufe, sonst haengen nach
+  // dem dritten Klick drei unsichtbare Felder im Dokument.
+  _ghDatei=document.createElement("input");
+  _ghDatei.type="file"; _ghDatei.accept=".json,application/json"; _ghDatei.style.display="none";
+  m.appendChild(_ghDatei);
+
+  function cfgAusFeldern(){
+    const repo=q("#ghRepo").value.trim();
+    const file=q("#ghFile").value.trim()||"monitoring.json";
+    const branch=q("#ghBranch").value.trim()||"main";
+    const token=q("#ghToken").value.trim();
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ sag("Das Repository muss owner/name heissen.",true); return null; }
+    if(!token){ sag("Ohne Token geht es nicht.",true); return null; }
+    return {repo:repo,file:file,branch:branch,token:token};
+  }
+
+  q("#ghSave").onclick=async ()=>{
+    const c=cfgAusFeldern(); if(!c) return;
+    sag("Verbinde…");
+    const vorher=ghCfg;
+    ghCfg=c; _ghSha=null; _pullOk=false;
+    if(await ghPull()){ ghSaveCfg(ghCfg); sag(""); zu(); }
+    else{ sag((letzterSchreibfehler||{}).grund||"Es hat nicht geklappt.",true); ghCfg=vorher; }
   };
-  m.querySelector("#ghSave").onclick=async ()=>{
-    const repo=m.querySelector("#ghRepo").value.trim();
-    const file=m.querySelector("#ghFile").value.trim()||"monitoring.json";
-    const branch=m.querySelector("#ghBranch").value.trim()||"main";
-    const token=m.querySelector("#ghToken").value.trim();
-    const msg=m.querySelector("#ghMsg");
-    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ msg.style.color="var(--high)"; msg.textContent="Das Repo muss owner/name heissen."; return; }
-    if(!token){ msg.style.color="var(--high)"; msg.textContent="Ohne Token geht es nicht."; return; }
-    msg.style.color="var(--muted)"; msg.textContent="Verbinde…";
-    ghCfg={repo:repo,file:file,branch:branch,token:token};
-    _ghSha=null; _pullOk=false;
-    const ok=await ghPull();
-    if(ok){ ghSaveCfg(ghCfg); zu(); }
-    else{
-      const f=letzterSchreibfehler||{};
-      msg.style.color="var(--high)"; msg.textContent=f.grund||"Es hat nicht geklappt.";
-      ghCfg=null;
+  q("#ghPullBtn").onclick=async ()=>{
+    if(!ghCfg){ sag("Erst Repository und Token speichern.",true); return; }
+    sag("Lädt…");
+    sag(await ghPull() ? "Geladen." : ((letzterSchreibfehler||{}).grund||"Laden fehlgeschlagen."),
+        !_pullOk);
+  };
+  q("#ghPushBtn").onclick=async ()=>{
+    if(!ghCfg){ sag("Erst Repository und Token speichern.",true); return; }
+    sag("Sichert…");
+    const ok=await writeFile();
+    sag(ok ? "Gesichert." : ((letzterSchreibfehler||{}).grund||"Sichern fehlgeschlagen."), !ok);
+  };
+  // Herunterladen geht IMMER - auch ohne Verbindung. Das ist der Notausgang, wenn
+  // GitHub klemmt: die Werte im Fenster in eine Datei retten.
+  q("#ghDown").onclick=()=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(STATE,null,2)],{type:"application/json"}));
+    a.download=(ghCfg&&ghCfg.file)||"monitoring.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    sag("Datei heruntergeladen.");
+  };
+  q("#ghUp").onclick=()=>{ _ghDatei.value=""; _ghDatei.click(); };
+  _ghDatei.onchange=async ()=>{
+    const f=_ghDatei.files&&_ghDatei.files[0]; if(!f) return;
+    let obj;
+    try{ obj=JSON.parse(await f.text()); }
+    catch(e){ sag("Das ist kein gültiges JSON: "+f.name,true); return; }
+    if(!obj||typeof obj!=="object"||Array.isArray(obj)){ sag("Die Datei enthält keinen Datensatz.",true); return; }
+    const n=Object.keys(obj).length;
+    if(!confirm("«"+f.name+"» einlesen?\n\nDer Inhalt ersetzt den ganzen Stand – im Fenster und, wenn "+
+                "eine Verbindung besteht, auch im Repo.\n\n"+n+" Bereiche in der Datei."))
+      return;
+    applyState(obj);
+    cacheSave();
+    if(ghCfg&&_pullOk){
+      sag("Eingelesen, sichert…");
+      const ok=await writeFile();
+      sag(ok ? "Eingelesen und gesichert." : ((letzterSchreibfehler||{}).grund||"Eingelesen, aber NICHT gesichert."), !ok);
+    }else{
+      sag("Eingelesen. Ohne Verbindung steht der Stand nur in diesem Fenster.",true);
     }
+  };
+  q("#ghForget").onclick=()=>{
+    if(!confirm("Trennen?\n\nDer Zugang UND die Kopie der Daten in diesem Browser werden gelöscht. "+
+                "Im Repo bleibt alles stehen.\n\nDie Seite lädt danach neu."))
+      return;
+    ghCfg=null; _ghSha=null; _pullOk=false;
+    ghSaveCfg(null);
+    try{ localStorage.removeItem(LS_CACHE); }catch(e){}
+    // Neu laden statt aufraeumen: nur so ist sicher, dass nichts von den Daten mehr
+    // im Fenster steht. Ausblenden waere kein Weglassen.
+    location.reload();
   };
   _ghModal=m;
   return m;
@@ -10460,21 +10581,15 @@ function _ghOpen(){
   m.querySelector("#ghFile").value=c.file||"monitoring.json";
   m.querySelector("#ghBranch").value=c.branch||"main";
   m.querySelector("#ghToken").value=c.token||"";
-  m.querySelector("#ghMsg").textContent="";
+  m.querySelector("#ghStand").textContent=_stand||"—";
+  const msg=m.querySelector("#ghMsg"); msg.textContent=""; msg.className="gh-msg";
   m.hidden=false;
 }
 
-// Klick auf das Zahnrad: verbunden -> neu laden, sonst -> Dialog.
-if(_connBtn) _connBtn.addEventListener("click",async ()=>{
-  if(ghCfg&&ghCfg.repo&&ghCfg.token){
-    const ok=await ghPull();
-    if(!ok) _ghOpen();
-    return;
-  }
-  _ghOpen();
-});
+// Klick auf das Zahnrad: oeffnet den Dialog. Frueher lud ein Klick bei bestehender
+// Verbindung sofort neu - das ist jetzt die Zeile «Jetzt laden», sichtbar und benannt.
+if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
 
-// Beim Start: Zwischenspeicher sofort zeigen, dann den echten Stand nachholen.
 (async function initConn(){
   // MESSSONDE: echte Daten, aber das volle Werkzeug - nicht eingefroren.
   // Geschrieben wird nichts: es gibt keinen Zugang, writeFile() gibt false zurueck.
