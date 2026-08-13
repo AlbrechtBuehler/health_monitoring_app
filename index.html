@@ -490,7 +490,6 @@
   --k-akzent:#C3CBCF; --k-akzent-h:#DDE4E7; --k-akzent-fg:#24282B; --k-warn:#C9A87C;
   --k-schirm:rgba(13,15,17,.86);
   --k-l0:#DDE3E6; --k-l1:#AAB2B7; --k-l2:#828B90; --k-zweit:#6E777C;
-  --k-teller-g:#6BA184; --k-teller-b:#C4A05E; --k-teller-e:#7B9BB8; --k-leer:#3B4145; --k-ring:#596166;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
 .weltLight *{box-sizing:border-box}
 /* Ein Klassenselektor mit display: schlaegt sonst das hidden-Attribut – so stand der
@@ -545,35 +544,6 @@
 .weltLight .woche-titel{font-size:19px;font-weight:600;letter-spacing:-.02em}
 .weltLight .woche-saetze{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 48px}
 .weltLight .woche-saetze div{font-size:14.5px;color:var(--k-muted)}
-.weltLight .essen{display:flex;flex-direction:column;gap:26px;animation:L-fadeIn .18s ease}
-.weltLight .essen-kopf{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.weltLight .essen-zahl{display:flex;align-items:baseline;gap:10px}
-.weltLight .essen-zahl b{font-size:34px;font-weight:600;letter-spacing:-.03em}
-.weltLight .essen-zahl span{font-size:15px;color:var(--k-muted)}
-.weltLight .essen-satz{font-size:13.5px;color:var(--k-faint)}
-.weltLight .blaettern{display:flex;align-items:center;gap:14px}
-.weltLight .blaettern button{background:none;border:1px solid var(--k-line);border-radius:8px;color:var(--k-muted);font-size:15px;width:34px;height:34px;cursor:pointer;line-height:1}
-.weltLight .blaettern button:hover{border-color:var(--k-akzent);color:var(--k-text)}
-.weltLight .blaettern button[disabled]{color:var(--k-line);cursor:default;border-color:var(--k-line2)}
-.weltLight .blaettern span{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--k-muted);min-width:170px;text-align:center}
-.weltLight .leiste{height:8px;background:var(--k-surface);border-radius:4px;position:relative;overflow:hidden}
-.weltLight .leiste i{position:absolute;left:0;top:0;bottom:0;background:var(--k-l0);border-radius:4px}
-.weltLight .leiste u{position:absolute;top:0;bottom:0;width:2px;background:var(--k-warn)}
-.weltLight .raster{display:grid;grid-template-columns:104px repeat(7,1fr);gap:0 10px;align-items:center}
-.weltLight .tagkopf{text-align:center;padding-bottom:12px}
-.weltLight .tagkopf b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--k-faint);font-weight:400}
-.weltLight .tagkopf.heute b{color:var(--k-akzent)}
-.weltLight .tagkopf i{display:block;font-size:12px;color:var(--k-dim);margin-top:2px;font-style:normal}
-.weltLight .zeilname{font-size:14px;color:var(--k-muted);padding:14px 0}
-.weltLight .zelle{display:flex;justify-content:center;padding:10px 0}
-.weltLight .zelle svg{width:52px;height:52px;display:block}
-.weltLight .zelle path{cursor:pointer}
-.weltLight .legende{display:flex;gap:26px;flex-wrap:wrap;border-top:1px solid var(--k-line2);padding-top:20px;align-items:center}
-.weltLight .legende div{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--k-muted)}
-.weltLight .legende i{width:11px;height:11px;border-radius:3px;display:block}
-.weltLight .legende .hint{margin-left:auto;color:var(--k-dim)}
-.weltLight .teller-bild{border-top:1px solid var(--k-line2);padding-top:22px;display:flex;flex-direction:column;gap:14px}
-.weltLight .teller-bild-kopf{font-size:15px;font-weight:600;letter-spacing:-.015em}
 .weltLight .schirm{position:fixed;inset:0;background:var(--k-schirm);backdrop-filter:blur(3px);z-index:40;display:flex;align-items:flex-start;justify-content:center;padding:40px;overflow:auto}
 .weltLight .schirm>.dialog{margin:auto}
 .weltLight .schirm.frisch{animation:L-fadeIn .16s ease}
@@ -710,8 +680,6 @@
   .weltLight,
 .weltLight .erf-wrap{padding:20px 16px 32px}
   .weltLight .kacheln{grid-template-columns:1fr}
-  .weltLight .raster{grid-template-columns:74px repeat(7,1fr);gap:0 4px}
-  .weltLight .zelle svg{width:100%;height:auto;max-width:44px}
   .weltLight .schirm{padding:14px}
   .weltLight .dialog{padding:22px 18px 18px}
   .weltLight .d-kopf{gap:12px}
@@ -773,7 +741,6 @@
 
   <div class="tabs no-print">
     <button class="tab on" data-tab="lightaus">Auswertung</button>
-    <button class="tab" data-tab="lightessen">Essen</button>
     <span class="tab-trenn"></span>
     <button class="tab" data-tab="overview">Überblick</button>
     <button class="tab" data-tab="glucose">Blutzucker</button>
@@ -792,9 +759,6 @@
       <div class="kacheln" id="kacheln"></div>
       <div class="leerhinweis" id="leerAus" hidden>Noch keine Daten. Oben rechts den <b>Datenspeicher</b> verbinden.</div>
     </section>
-  </div>
-  <div class="panel weltLight welt-flaeche" id="p-lightessen" style="display:none">
-    <section id="pEssen" class="essen"></section>
   </div>
 
   <div class="panel" id="p-overview" style="display:none">
@@ -993,7 +957,7 @@
     var bL=document.getElementById("btnsLight"), bF=document.getElementById("btnsFull");
     if(bL) bL.hidden=!istLight;
     if(bF) bF.hidden=istLight;
-    if(istLight&&window.LIGHT) window.LIGHT.tab(id==="lightessen"?"essen":"aus");
+    if(istLight&&window.LIGHT) window.LIGHT.tab("aus");
     if(typeof CHART!=="undefined") CHART.recheck();
   }
   tabs.forEach(function(t){ t.onclick=function(){ show(t.dataset.tab); }; });
@@ -2524,7 +2488,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   /* ============================================================
      KENNZAHLEN, VARIANTE 2b — ZWEI ETAGEN (Lieferung 5a)
      Etage 1 · ANKER, ueber den Reitern, auf jedem Reiter identisch, Zahl 25 px:
-       Gewicht · Ø Tempo · Im Soll · Teller erfuellt
+       Gewicht · Ø Tempo · Im Soll
      Etage 2 · KONTEXT, im Reiter ueber der Buehne, Zahl 17 px, vier je Reiter.
      Die flachen KPI-Zeilen der Reiter gehen in Etage 2 auf; die drei doppelten Zahlen
      fallen damit weg. Beide Etagen sind klickbar und oeffnen DASSELBE Kennzahl-Modal
@@ -7683,7 +7647,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     var bL=document.getElementById("btnsLight"), bF=document.getElementById("btnsFull");
     if(bL) bL.hidden=!istLight;
     if(bF) bF.hidden=istLight;
-    if(istLight&&window.LIGHT) window.LIGHT.tab(id==="lightessen"?"essen":"aus");
+    if(istLight&&window.LIGHT) window.LIGHT.tab("aus");
     // Diagramme in einem Reiter werden gezeichnet, WAEHREND der Reiter display:none
     // traegt – widthOf() klettert dann bis .wrap und nimmt 1560 statt 1518 px.
     // recheck() uebersprang sie (offsetParent===null). Jetzt messen wir nach, sobald
@@ -9216,7 +9180,7 @@ const SLOTS = [{id:'fr',name:'Frühstück'},{id:'mi',name:'Mittag'},{id:'ab',nam
 /* STATE, ghCfg und connected stehen in Full. Hier bewusst NICHT deklariert –
    eine erneute Deklaration wuerde sie verdecken und Light auf eigenen Daten sitzen
    lassen. Genau diese drei Namen sind die Naht zwischen den Welten. */
-let UI = { tab:'aus', offen:null, view:null, wOff:0, str:null, meds:null, medMeldung:'', hilfe:false,
+let UI = { tab:'aus', offen:null, view:null, str:null, meds:null, medMeldung:'', hilfe:false,
            bzSicht:'alle', bzFenster:30 };
 
 /* ---------- kleine Helfer ---------- */
@@ -9270,9 +9234,6 @@ function mittelAlle(s){ return schnitt(s, 0, s.length); }
 
 /* ---------- Datenzugriff: IMMER live aus STATE, nie gemerkte Referenzen ---------- */
 function W(){ return STATE.weight || {}; }
-function pTeller(){ return (STATE.nutrition && STATE.nutrition.teller) || {}; }
-function tellerAt(is, slot){ return pTeller()[is+'|'+slot] || null; }
-function tellerVoll(p){ return !!(p && p.g && p.b && p.e); }
 
 function serieGewicht(){
   return reiheAus((W().points||[]).map(p => ({ iso:String(p.date).slice(0,10), v:p.value })));
@@ -9364,40 +9325,7 @@ function serieTrinken(){
   return reiheAus(pts);
 }
 
-/* Tellermodell – zwei Sichten, bewusst getrennt und nebeneinander stimmig:
-   rollend  = die letzten sieben Tage bis zum Fensterende (Kachel UND Essen-Reiter)
-   Wochen   = nur ABGESCHLOSSENE Kalenderwochen Mo–So (Balkenbild im Vollbild) */
-function tellerRollend(endeDatum){
-  let n = 0, m = 0, viertel = 0;
-  for(let i=6;i>=0;i--){
-    const is = iso(new Date(endeDatum.getTime() - i*DAY));
-    SLOTS.forEach(s => {
-      const p = tellerAt(is, s.id); m++;
-      if(p){ if(p.g) viertel++; if(p.b) viertel++; if(p.e) viertel++; }
-      if(tellerVoll(p)) n++;
-    });
-  }
-  return { n, m, viertel, viertelMax:m*3 };
-}
 function montagVon(d){ const x = new Date(d.getTime()); const wd = (x.getDay()+6)%7; return new Date(x.getTime() - wd*DAY); }
-function serieTellerWochen(){
-  const keys = Object.keys(pTeller());
-  if(!keys.length) return [];
-  const tage = keys.map(k => vonIso(k.split('|')[0])).sort((a,b)=>a-b);
-  let mo = montagVon(tage[0]);
-  const letzterMo = montagVon(heute());
-  const out = [];
-  for(let t=mo.getTime(); t<letzterMo.getTime(); t+=7*DAY){
-    const start = new Date(t);
-    let n = 0;
-    for(let i=0;i<7;i++){
-      const is = iso(new Date(t + i*DAY));
-      SLOTS.forEach(s => { if(tellerVoll(tellerAt(is, s.id))) n++; });
-    }
-    out.push({ iso:iso(start), d:start, v:n });
-  }
-  return out;
-}
 
 /* ---------- Ziellinie Gewicht: vier Werte, in der JSON unter weight.ziel ---------- */
 function zielWerte(){
@@ -9525,8 +9453,7 @@ function REG(){
   const gs = serieGewicht(), tqs = serieTHQ(),
         sys = serieBD('sys'), dia = serieBD('dia'),
         sls = serieFitbit('schlaf'), scs = serieFitbit('schritte'),
-        tks = serieTrinken(), tw = serieTellerWochen();
-  const roll = tellerRollend(H), rollVor = tellerRollend(new Date(H.getTime()-7*DAY));
+        tks = serieTrinken();
 
   /* Gewicht: Achse laeuft 26 Wochen in die Zukunft, dort liegen Ziel- und Fortschreibung. */
   const ZW = 182;
@@ -9636,16 +9563,6 @@ function REG(){
       s:tks, zone:[2.0,3.2], satz });
   })();
 
-  /* --- 8 Tellermodell --- */
-  (function(){
-    const m = mittelAlle(tw);
-    const satz = 'Eine Mahlzeit zählt, wenn alle drei Teile auf dem Teller waren: die Hälfte Gemüse, '+
-      'ein Viertel Beilage, ein Viertel Eiweiss. Die Zahl oben sind die letzten sieben Tage ('+roll.n+' von '+roll.m+
-      ', '+roll.viertel+' von '+roll.viertelMax+' Vierteln); ein Balken ist eine abgeschlossene Woche'+
-      (tw.length ? ' — im Schnitt '+nf(m,1)+' von 21.' : '. Noch keine abgeschlossene Woche erfasst.');
-    defs.push({ key:'teller', label:'Tellermodell', einheit:'von 21', dez:0, gut:1, farbe:L1,
-      s:tw, woche:true, zone:[15,21], rollA:roll.n, rollB:rollVor.n, start0:13, satz });
-  })();
 
   return defs;
 }
@@ -9661,8 +9578,6 @@ function kachelDaten(d){
   if(d.key==='bd'){
     const l2 = letzterE(d.s2);
     wert = le ? (Math.round(le.v)+'/'+(l2?Math.round(l2.v):'—')) : '—';
-  } else if(d.key==='teller'){
-    wert = String(d.rollA);
   } else if(d.tausend){
     wert = le ? tsd(le.v) : '—';
   } else {
@@ -9672,12 +9587,7 @@ function kachelDaten(d){
   /* Zweite Zeile: Delta ODER Alter. Nie beides, nie keins.
      Das Vergleichsfenster waechst 7 -> 14 -> 28, bis es traegt. */
   let delta = '', dtext = '', dfarbe = 'var(--k-faint)';
-  if(d.key==='teller'){
-    const diff = d.rollA - d.rollB;
-    delta = (diff>=0?'+':'−') + Math.abs(diff);
-    dtext = 'gegenüber den sieben Tagen davor';
-    dfarbe = diff===0 ? 'var(--k-faint)' : (diff>0 ? 'var(--k-l0)' : 'var(--k-warn)');
-  } else {
+  {
     const alter = le ? Math.round((H - le.d)/DAY) : null;
     if(le && alter > 3){
       dtext = altText(alter);
@@ -9787,12 +9697,7 @@ function renderKacheln(){
       '<div class="k-spanne">'+esc(v.spanne)+'</div>'+
     '</button>';
   }).join('');
-  /* Das Tellermodell hat kein Vollbild mehr: der Klick führt dorthin, wo es lebt.
-     Damit steht das Wochenraster nur noch an einer Stelle. */
-  box.querySelectorAll('.kachel').forEach(b => b.addEventListener('click', () => {
-    if(b.dataset.key==='teller'){ zeigeTab('essen'); return; }
-    oeffneVoll(b.dataset.key);
-  }));
+  box.querySelectorAll('.kachel').forEach(b => b.addEventListener('click', () => oeffneVoll(b.dataset.key)));
 }
 
 /* ---------- Karte «Deine Woche» – nur Sonntag und Montag ---------- */
@@ -9811,12 +9716,11 @@ function renderWoche(){
   };
   const g = inWoche(serieGewicht()), bz = inWoche(serieBZ('nue')),
         sc = inWoche(serieFitbit('schritte')), sl = inWoche(serieFitbit('schlaf')),
-        tk = inWoche(serieTrinken()), t = tellerRollend(ende);
+        tk = inWoche(serieTrinken());
   const saetze = [
     'Gewicht: '+nf(g.a,1)+' kg im Schnitt'+(g.a!==null && g.vor!==null
       ? ', '+nf(Math.abs(g.a-g.vor),1)+' kg '+(g.a<g.vor?'leichter':'schwerer')+' als in der Vorwoche.' : '.'),
     'Nüchternwert: '+nf(bz.a,1)+' mmol/l im Schnitt, an '+bz.n+' von sieben Tagen gemessen.',
-    'Teller: '+t.n+' von '+t.m+' Mahlzeiten vollständig, '+t.viertel+' von '+t.viertelMax+' Vierteln belegt.',
     'Bewegung und Schlaf: '+tsd(sc.a===null?null:Math.round(sc.a/100)*100)+' Schritte und '+nf(sl.a,1)+' Stunden im Tagesschnitt.',
     'Trinken: '+nf(tk.a,1)+' Liter am Tag — die Marke liegt bei 2,0.'
   ];
@@ -10105,138 +10009,9 @@ function bindeBedienung(svg, d, n, Wd){
   svg.addEventListener('dblclick', () => { UI.view = startAusschnitt(d); zeichneVoll(); });
 }
 
-/* ============================================================================
-   Reiter «Essen» – nur das Tellermodell
-   ========================================================================== */
-const PFAD = {
-  g:'M24,2.8 A21.2,21.2 0 0,0 24,45.2 Z',
-  b:'M24,2.8 A21.2,21.2 0 0,1 45.2,24 L24,24 Z',
-  e:'M45.2,24 A21.2,21.2 0 0,1 24,45.2 L24,24 Z'
-};
-function fensterTage(){
-  const ende = new Date(heute().getTime() - UI.wOff*7*DAY), out = [];
-  for(let i=6;i>=0;i--){ const d = new Date(ende.getTime() - i*DAY); out.push({ d, iso:iso(d) }); }
-  return out;
-}
-async function tippeViertel(is, slot, teil){
-  if(!STATE.nutrition) STATE.nutrition = {};
-  if(!STATE.nutrition.teller) STATE.nutrition.teller = {};
-  const k = is+'|'+slot;
-  const cur = STATE.nutrition.teller[k] || { g:false, b:false, e:false };
-  const neu = Object.assign({}, cur, { [teil]: !cur[teil] });
-  if(!neu.g && !neu.b && !neu.e) delete STATE.nutrition.teller[k];
-  else STATE.nutrition.teller[k] = neu;
-  renderEssen();
-  renderKacheln();
-  const ok = await writeFile();
-  if(!ok) meldeSchreibfehler();
-}
-function renderEssen(){
-  const box = el('pEssen'), tage = fensterTage(), H = heute(), hIso = iso(H);
-  const ende = tage[6].d;
-  const roll = tellerRollend(ende);
-
-  const kopf = '<div class="essen-kopf">'+
-    '<div style="display:flex;flex-direction:column;gap:6px">'+
-      '<div class="essen-zahl"><b>'+roll.n+'</b><span>von '+roll.m+' Mahlzeiten nach Tellermodell</span></div>'+
-      '<div class="essen-satz">'+
-        (roll.n >= 15 ? 'Über der Marke von 15. Gut so.' : 'Die Marke liegt bei 15 — es fehlen '+(15-roll.n)+'.')+
-        '  ·  '+roll.viertel+' von '+roll.viertelMax+' Vierteln belegt.</div>'+
-    '</div>'+
-    '<div class="blaettern">'+
-      '<button type="button" id="wZurueck" aria-label="sieben Tage zurück">‹</button>'+
-      '<span>'+datK(tage[0].d)+' – '+datK(tage[6].d)+'</span>'+
-      '<button type="button" id="wVor" aria-label="sieben Tage vor"'+(UI.wOff>0?'':' disabled')+'>›</button>'+
-    '</div></div>';
-
-  const leiste = '<div class="leiste"><i style="width:'+(roll.n/roll.m*100).toFixed(1)+'%"></i>'+
-    '<u style="left:'+(15/21*100).toFixed(1)+'%"></u></div>';
-
-  let raster = '<div class="raster"><div></div>';
-  tage.forEach(t => {
-    raster += '<div class="tagkopf'+(t.iso===hIso?' heute':'')+'"><b>'+WT[t.d.getDay()]+'</b><i>'+t.d.getDate()+'.'+(t.d.getMonth()+1)+'.</i></div>';
-  });
-  SLOTS.forEach(z => {
-    raster += '<div class="zeilname">'+z.name+'</div>';
-    tage.forEach(t => {
-      const p = tellerAt(t.iso, z.id) || { g:false, b:false, e:false };
-      const voll = tellerVoll(p);
-      const zukunft = t.d.getTime() > H.getTime();
-      const teile = ['g','b','e'].map(k =>
-        '<path d="'+PFAD[k]+'" fill="'+(p[k] ? 'var(--k-teller-'+k+')' : 'var(--k-leer)')+
-        '" stroke="var(--k-bg)" stroke-width="1.4" data-t="'+t.iso+'" data-s="'+z.id+'" data-p="'+k+'"></path>').join('');
-      raster += '<div class="zelle"><svg viewBox="0 0 48 48" style="opacity:'+(zukunft?'.35':'1')+'">'+
-        '<circle cx="24" cy="24" r="21.2" fill="none" stroke="'+(voll?'var(--k-l0)':'var(--k-ring)')+'" stroke-width="1.6"></circle>'+
-        teile+'</svg></div>';
-    });
-  });
-  raster += '</div>';
-
-  const legende = '<div class="legende">'+
-    '<div><i style="background:var(--k-teller-g)"></i>Hälfte Gemüse oder Salat</div>'+
-    '<div><i style="background:var(--k-teller-b)"></i>Viertel Beilage</div>'+
-    '<div><i style="background:var(--k-teller-e)"></i>Viertel Eiweiss</div>'+
-    '<div class="hint">Auf ein Viertel tippen, um es zu setzen.</div></div>';
-
-  /* Das Bild der abgeschlossenen Wochen. Es steht hier, weil das Tellermodell
-     kein Vollbild mehr hat – und es steht UNTER dem Raster: erst abhaken, dann
-     zurückschauen. Die Daten kommen aus serieTellerWochen(), sonst nirgendwo her. */
-  const bild = '<div class="teller-bild">'+
-    '<div class="teller-bild-kopf">Abgeschlossene Wochen</div>'+
-    '<div id="tellerBild" style="width:100%"></div></div>';
-
-  box.innerHTML = kopf + leiste + raster + bild + legende;
-  el('wZurueck').addEventListener('click', () => { UI.wOff++; renderEssen(); });
-  el('wVor').addEventListener('click', () => { if(UI.wOff>0){ UI.wOff--; renderEssen(); } });
-  box.querySelectorAll('path[data-t]').forEach(p => {
-    p.addEventListener('click', () => tippeViertel(p.dataset.t, p.dataset.s, p.dataset.p));
-  });
-  zeichneTellerBild();
-}
-
-/* Balkenbild: eine Woche ist ein Balken, nur abgeschlossene Kalenderwochen Mo–So.
-   Gerechnet wird nichts – serieTellerWochen() ist die Stelle, hier wird gezeichnet.
-   Die Breite wird gemessen, nicht geraten (wie im Vollbild). */
-function zeichneTellerBild(){
-  const host = el('tellerBild');
-  if(!host) return;
-  const s = serieTellerWochen();
-  if(!s.length){
-    host.innerHTML = '<div class="essen-satz" style="padding:6px 0 2px">Noch keine abgeschlossene Woche — das erste Bild kommt am Montag.</div>';
-    return;
-  }
-  const teil = s.slice(-13), n = teil.length;
-  const Wd = host.clientWidth || 900, T = { l:40, r:16, t:14, b:32, h:200 };
-  const pw = Wd - T.l - T.r, ph = T.h - T.t - T.b;
-  const Y = v => T.t + (1 - v/21)*ph;
-  const X = i => T.l + (n===1 ? pw/2 : (i+0.5)/n*pw);
-  let g = '';
-  [0,7,14,21].forEach(v => {
-    const y = Y(v);
-    g += '<line x1="'+T.l+'" y1="'+y.toFixed(1)+'" x2="'+(Wd-T.r)+'" y2="'+y.toFixed(1)+'" stroke="var(--k-line2)" stroke-width="1"></line>'+
-         '<text x="'+(T.l-10)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" fill="var(--k-dim)" font-size="11" font-family="ui-monospace,Menlo,monospace">'+v+'</text>';
-  });
-  const bw = Math.min(46, pw/n*0.6);
-  teil.forEach((x,i) => {
-    const y = Y(x.v);
-    g += '<rect x="'+(X(i)-bw/2).toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(0, Y(0)-y).toFixed(1)+'" fill="var(--k-l1)" opacity=".82" rx="3"></rect>';
-  });
-  g += '<line x1="'+T.l+'" y1="'+Y(15).toFixed(1)+'" x2="'+(Wd-T.r)+'" y2="'+Y(15).toFixed(1)+'" stroke="var(--k-warn)" stroke-width="1" stroke-dasharray="5 5" opacity=".8"></line>';
-  /* Beschriftung ausdünnen, bis sie passt – lieber jede zweite als übereinander. */
-  const schritt = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw/64))));
-  teil.forEach((x,i) => {
-    if(i % schritt !== 0 && i !== n-1) return;
-    g += '<text x="'+X(i).toFixed(1)+'" y="'+(T.h-T.b+19)+'" text-anchor="middle" fill="var(--k-dim)" font-size="11" font-family="ui-monospace,Menlo,monospace">'+esc(datK(x.d))+'</text>';
-  });
-  host.innerHTML = '<svg width="100%" height="'+T.h+'" viewBox="0 0 '+Wd+' '+T.h+'" style="display:block">'+g+'</svg>'+
-    '<div class="legende-d" style="padding-top:12px">'+
-      '<div><svg width="26" height="12" style="display:block;flex:0 0 auto"><rect x="7" y="0" width="12" height="12" rx="2" fill="var(--k-l1)" opacity=".82"></rect></svg>'+
-        '<span>eine abgeschlossene Woche Montag bis Sonntag</span></div>'+
-      '<div>'+legStrich('var(--k-warn)',1,'5 5')+'<span>Marke bei 15 von 21</span></div>'+
-      '<div style="color:var(--k-dim)">Das Raster oben sind die letzten sieben Tage, dieses Bild die Wochen davor.</div>'+
-    '</div>';
-}
-
+/* Der Reiter «Essen» – das Abhaken des Tellermodells – ist am 13.08.2026 ausgezogen,
+   zusammen mit dem Reiter «Ernährung». Die Daten (nutrition.teller) bleiben in der
+   JSON unberuehrt; hier wird sie nur nicht mehr gelesen und nicht mehr geschrieben. */
 /* Schreiben in STATE – leere Felder werden nicht geschrieben.
    EINE Schreibstelle für den Erfassen-Dialog UND den Streifen an der Kachel. */
 function schreibeWerte(D, d){
@@ -10332,14 +10107,12 @@ function zeigeTab(t){
      nur noch seinen inneren Zustand und zeichnet – das Ein- und Ausblenden der
      Flaechen macht show() oben. */
   UI.tab = t;
-  if(t==='essen'){ UI.wOff = 0; renderEssen(); }
 }
 function renderAlles(){
   const H = heute();
   el('heuteText').textContent = WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear();
   renderWoche();
   renderKacheln();
-  if(UI.tab==='essen') renderEssen();
   if(UI.offen) renderVoll();
 }
 
@@ -10607,7 +10380,7 @@ function legendeVoll(d){
    ========================================================================== */
 const EXP = { anliegen:['','',''], zeitraum:'alles',
               teile:{ kennzahlen:true, einzel:true, labor:true, meds:true, docs:true } };
-const EXPF = { gewicht:'d0', thq:'d0', bz:'d1', bd:'d2', schlaf:'d0', schritte:'d1', trinken:'d2', teller:'d1' };
+const EXPF = { gewicht:'d0', thq:'d0', bz:'d1', bd:'d2', schlaf:'d0', schritte:'d1', trinken:'d2' };
 
 function letzterTermin(){
   const t = (STATE.termine||[]).filter(x => x && x.date)
@@ -11106,8 +10879,6 @@ function renderHilfe(){
         'Speichern macht ihn zur gefüllten Raute — und erst dann rechnet der Satz unter dem Bild neu.</p>'+
       '<p>Beim <b>Blutdruck</b> gehören systolisch und diastolisch zusammen; Puls und Uhrzeit sind freiwillig. '+
         'Mehrere Messungen am selben Tag sind erlaubt, jede mit ihrer Uhrzeit.</p>'+
-      '<p>Das <b>Tellermodell</b> wird nicht eingetippt, sondern abgehakt: Reiter <b>Essen</b>, auf die Viertel '+
-        'tippen. Sind alle drei gesetzt, bekommt der Teller einen Ring — das zählt als erfüllte Mahlzeit.</p>'+
       '<p>Gespeichert wird direkt in die <b>monitoring.json</b> im verbundenen Repo. Ohne Verbindung sagt es der Streifen '+
         'und bleibt offen, damit nichts verloren geht.</p>'+
     '</div>'+
@@ -11145,7 +10916,7 @@ document.addEventListener('keydown', e => {
   else if(UI.offen) schliesseVoll();
 });
 let _rz = null;
-window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(() => { if(UI.offen) zeichneVoll(); if(UI.tab==='essen') zeichneTellerBild(); }, 120); });
+window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(() => { if(UI.offen) zeichneVoll(); }, 120); });
 
 /* Kein eigener Start mehr: das Handle holt Full beim Laden, und applyState()
    ruft LIGHT.render() nach. Hier nur das erste Zeichnen mit leerem STATE. */
