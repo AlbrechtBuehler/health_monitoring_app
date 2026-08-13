@@ -286,27 +286,7 @@
   .exp-fix{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--good);flex-shrink:0}
   #exportModal select,#exportModal input[type=date]{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;color-scheme:dark}
   #exportModal input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
-  #entryModal input[type=date],#entryModal input[type=number],#entryModal input[type=text],#entryModal select,
-  #ghModal input[type=text],#ghModal input[type=password]{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;color-scheme:dark}
-  #ghModal input{width:100%;height:44px;font-size:15px}
-  .gh-lab{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:14px 0 5px}
-  .gh-hint{font-size:12px;color:var(--faint);margin-top:5px;line-height:1.45}
-  .gh-zwei{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .gh-zwei>*{min-width:0}
-  .gh-akte{border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .gh-akt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;
-    min-height:48px;padding:10px 14px;background:none;border:0;border-top:1px solid var(--line2);
-    color:var(--ink);font-family:inherit;font-size:14px;text-align:left;cursor:pointer}
-  .gh-akt:first-child{border-top:0}
-  .gh-akt:hover{background:var(--surface2)}
-  .gh-akt-still{cursor:default;color:var(--muted)}
-  .gh-akt-still:hover{background:none}
-  .gh-akt-r{font-size:12px;color:var(--faint);text-align:right;flex-shrink:0}
-  #ghForget{color:var(--high)}
-  .gh-msg{font-size:13px;color:var(--muted);margin-top:12px;min-height:18px;line-height:1.45}
-  .gh-msg.schlecht{color:var(--high)}
-  /* Zweispaltig bleibt auch auf dem Handy: einspaltig wuchs der Dialog auf 920 px
-     und passte in kein Fenster mehr. Beide Werte sind kurz. */
+  #entryModal input[type=date],#entryModal input[type=number],#entryModal input[type=text],#entryModal select{background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;color-scheme:dark}
   #entryModal input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
   .en-sec{border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .en-sec.open{border-color:var(--accent)}
@@ -320,14 +300,10 @@
   .en-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line2)}
   .en-row:last-child{border-bottom:0}
   .en-row label{font-size:13px;color:var(--muted)}
-  .en-row input{width:110px;height:44px;font-size:14px}
+  .en-row input{width:110px;height:32px;font-size:13px}
   .en-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
   .en-grid .en-cell label{font-size:12px;color:var(--faint);display:block;margin-bottom:3px}
-  .en-grid .en-cell input{width:100%;height:44px;font-size:14px}
-  .bp-grid{display:grid;grid-template-columns:92px 1fr 1fr 1fr 40px;gap:8px;align-items:center}
-  .bp-grid>*{min-width:0}
-  .bp-grid input{width:100%;height:44px;font-size:14px}
-  @media (max-width:560px){ .bp-grid{grid-template-columns:68px 1fr 1fr 1fr 36px;gap:6px} }
+  .en-grid .en-cell input{width:100%;height:34px;font-size:13px}
 
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:20px}
 
@@ -450,8 +426,6 @@
 
   .chron .ce{padding:10px 0;border-top:1px solid var(--line2)} .chron .ce:first-child{border-top:0;padding-top:0}
   .chron .kw{font-family:var(--mono);font-size:11px;color:var(--faint)} .chron p{margin:2px 0 0;font-size:13.5px}
-  .chron3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-  @media (max-width:560px){ .chron3{grid-template-columns:1fr} }
 
   .note{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--line2)}
   .note:first-of-type{border-top:0;padding-top:0}
@@ -780,8 +754,7 @@
 .weltLight .legende .hint{margin-left:auto;color:var(--k-dim)}
 .weltLight .teller-bild{border-top:1px solid var(--k-line2);padding-top:22px;display:flex;flex-direction:column;gap:14px}
 .weltLight .teller-bild-kopf{font-size:15px;font-weight:600;letter-spacing:-.015em}
-.weltLight .schirm{position:fixed;inset:0;background:var(--k-schirm);backdrop-filter:blur(3px);z-index:40;display:flex;align-items:flex-start;justify-content:center;padding:40px;overflow:auto}
-.weltLight .schirm>.dialog{margin:auto}
+.weltLight .schirm{position:fixed;inset:0;background:var(--k-schirm);backdrop-filter:blur(3px);z-index:40;display:flex;align-items:center;justify-content:center;padding:40px}
 .weltLight .schirm.frisch{animation:L-fadeIn .16s ease}
 .weltLight .dialog.mit-erf{max-width:1440px}
 .weltLight .dialog{width:100%;max-width:1120px;background:var(--k-surface2);border:1px solid var(--k-line);border-radius:16px;padding:32px 36px 26px;display:flex;flex-direction:column;gap:22px}
@@ -792,21 +765,12 @@
 .weltLight .d-wert b{font-size:36px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
 .weltLight .d-wert span{font-size:16px;color:var(--k-muted)}
 .weltLight .d-fuss{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;flex-wrap:wrap}
-.weltLight .d-satz{font-size:12px;line-height:1.55;color:var(--k-dim);max-width:76ch}
+.weltLight .d-satz{font-size:14.5px;color:var(--k-muted);max-width:64ch}
 .weltLight .d-hint{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:var(--k-dim)}
 .weltLight .zielform{display:flex;gap:20px;flex-wrap:wrap;border-top:1px solid var(--k-line2);padding-top:16px;align-items:flex-end}
 .weltLight .zielform label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--k-dim)}
 .weltLight .zielform input{width:74px;font-size:16px;font-weight:600;color:var(--k-text);background:none;border:0;border-bottom:1px solid var(--k-line);padding:0 0 4px;outline:none;font-variant-numeric:tabular-nums}
 .weltLight .zielform input:focus{border-bottom-color:var(--k-akzent)}
-/* Umschalter im Blutzucker-Modal. Der aktive Zustand haengt an der Klasse .an und
-   NICHT nur an einer Farbe – ein Test soll ihn ablesen koennen, ohne Hintergruende
-   zu vergleichen (beide Zustaende haben einen). */
-.weltLight .schaltreihe{display:flex;flex-wrap:wrap;gap:14px 34px;align-items:center}
-.weltLight .schaltgrp{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.weltLight .schaltgrp>span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--k-faint)}
-.weltLight .schalt{font-size:13px;color:var(--k-muted);background:none;border:1px solid var(--k-line);border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;letter-spacing:.005em}
-.weltLight .schalt:hover{border-color:var(--k-akzent);color:var(--k-text)}
-.weltLight .schalt.an{color:var(--k-akzent-fg);background:var(--k-akzent);border-color:var(--k-akzent);font-weight:600}
 .weltLight .vollschirm{position:fixed;inset:0;background:var(--k-bg);z-index:50;display:flex;flex-direction:column;animation:L-fadeIn .16s ease;overflow:auto}
 .weltLight .erf-wrap{width:100%;max-width:1320px;margin:0 auto;padding:30px 34px 40px;display:flex;flex-direction:column;gap:26px;flex:1 1 auto;animation:L-riseIn .2s ease}
 .weltLight .erf-kopf{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;border-bottom:1px solid var(--k-line2);padding-bottom:20px}
@@ -946,13 +910,13 @@
 <div id="chartTip" hidden></div>
   <header class="topbar">
     <div>
-      <div class="eyebrow" id="kopfOrt">Monitoring</div>
+      <div class="eyebrow">Monitoring · Burgdorf</div>
       <h1>MOPP+ | <span id="updated">—</span></h1>
-      <p class="sub" id="kopfName">Monitoring APP</p>
+      <p class="sub">Albrecht Bühlers Monitoring APP</p>
     </div>
     <div class="topbar-btns no-print">
       <!-- Der Verbinden-Knopf ist geteilt: eine Datei, ein STATE, beide Welten. -->
-      <button class="btn conn" id="connBtn" aria-label="Datenspeicher verbinden" title="Mit dem Datenspeicher verbinden">
+      <button class="btn conn" id="connBtn" aria-label="Mit Datei verbinden" title="Mit Monitoring.json verbinden">
         <span class="conn-dot" id="connDot"></span><span id="connGear">⚙</span>
       </button>
       <!-- Werkzeuge der Welt Light. Sichtbar nur auf ihren Reitern. -->
@@ -997,7 +961,7 @@
     <section id="pAus">
       <div id="wocheKarte"></div>
       <div class="kacheln" id="kacheln"></div>
-      <div class="leerhinweis" id="leerAus" hidden>Noch keine Daten. Oben rechts den <b>Datenspeicher</b> verbinden.</div>
+      <div class="leerhinweis" id="leerAus" hidden>Noch keine Daten. Oben rechts die <b>Monitoring.json</b> verbinden.</div>
     </section>
   </div>
   <div class="panel weltLight welt-flaeche" id="p-lightessen" style="display:none">
@@ -1169,7 +1133,7 @@
     <div class="modal-body">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
         <label style="font-size:13px;color:var(--muted)">Datum</label>
-        <input type="date" id="entryDate" style="height:44px;font-size:14px">
+        <input type="date" id="entryDate" style="height:36px;font-size:14px">
       </div>
       <div id="entrySections" style="display:flex;flex-direction:column;gap:8px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px">
@@ -1218,7 +1182,7 @@ const STATE={
   updated:"—",
   patient:{name:""},
   domain:{from:""},
-  weight:{unit:"kg",heightCm:null,goal1:null,goal2:null,startRef:null,points:[]},
+  weight:{unit:"kg",heightCm:181,goal1:100,goal2:80,startRef:132.6,points:[]},
   body:{unit:"cm",points:[]},
   hba1cLab:[],
   lab:{params:[],panels:[]},
@@ -1228,7 +1192,6 @@ const STATE={
   glucose:{
     unit:"mmol/L",scaleMin:3.5,scaleMax:11.0,
     th:{critLow:3.0,low:3.9,preHigh:7.2,postHigh:10.0,critHigh:12.0},
-    referenz:{low:3.9,avg:5.5,high:7.8},
     slots:["nüchtern","nach Frühstück","vor Mittag","nach Mittag","vor Abend","nach Abend"],
     slotType:{"nüchtern":"pre","nach Frühstück":"post","vor Mittag":"pre","nach Mittag":"post","vor Abend":"pre","nach Abend":"post"},
     days:[],
@@ -3748,23 +3711,7 @@ return {render,renderMetrics,activeWeekKey,teller,mealStats,weekBalance,macros,w
 // Der gesamte auswertende/rendernde Code steckt in boot(). boot() laeuft erst,
 // wenn Daten da sind (nach dem Verbinden mit der JSON). So startet das Tool leer
 // und die verbundene JSON ist die alleinige Datenquelle (SSOT).
-// Name und Ort stehen in den Daten, nicht im Code. Vor dem Verbinden zeigt der Kopf
-// darum nur "Monitoring" - erst die geladene Datei macht ihn persoenlich. Gilt auch
-// fuer den Arzt-Export, der boot() ebenfalls durchlaeuft.
-function _kopfFuellen(){
-  const P=(STATE&&STATE.patient)||{};
-  const nEl=document.getElementById("kopfName");
-  if(nEl) nEl.textContent = P.name ? (P.name+"s Monitoring APP") : "Monitoring APP";
-  const oEl=document.getElementById("kopfOrt");
-  if(oEl){
-    // Schweizer Adresse: vier Ziffern Postleitzahl, dahinter der Ort. Passt das
-    // Muster nicht, bleibt es bei "Monitoring" - lieber nichts als geraten.
-    const m=/\b\d{4}\s+(.+)$/.exec(String(P.adresse||"").trim());
-    oEl.textContent = m ? ("Monitoring · "+m[1].trim()) : "Monitoring";
-  }
-}
 function boot(){
-  _kopfFuellen();
 // Vorschau -> Detail. EIN Weg fuer alle Diagramme: die Karte zeigt das Bild ohne
 // Bedienung, der Klick oeffnet es gross mit seinen Filtern. Das ist der Grund, warum
 // die Filter heute aus den Karten verschwunden sind – sie standen am falschen Ort.
@@ -8480,7 +8427,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   addBtn.onclick=()=>openEdit(null);
   head.appendChild(h);head.appendChild(addBtn);root.appendChild(head);
 
-  const box=el("div","chron3");
+  const box=el("div");box.style.cssText="display:grid;grid-template-columns:repeat(3,1fr);gap:10px";
   function renderCards(){
     box.innerHTML="";
     STATE.review.forEach((r,idx)=>{
@@ -9978,7 +9925,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     fuss.appendChild(add);
     const sp=document.createElement("button"); sp.className="btn exp-go"; sp.textContent="Plan speichern";
     sp.onclick=async function(){
-      if(typeof connected!=="undefined"&&!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
+      if(typeof connected!=="undefined"&&!connected){ alert("Bitte zuerst mit der Monitoring.json verbinden (Zahnrad oben)."); return; }
       M.liste=M.liste.filter(function(m){ return String(m.name||"").trim()!==""; });
       const ok=await writeFile(); boot();
       if(ok) alert("Gespeichert."); else if(typeof meldeSchreibfehler==="function") meldeSchreibfehler();
@@ -10152,28 +10099,14 @@ document.getElementById("updated").textContent=STATE.updated;
 })();
 } // Ende boot()
 
-// ================= Datenkanal (GitHub Contents API) =================
-// SSOT: Eine JSON in einem privaten Repo haelt alle Daten. Das Tool startet mit dem
-// Zwischenspeicher des Browsers (sofort sichtbar) und holt dann den echten Stand nach.
-// Ampel am Zahnrad: rot = nicht verbunden, orange = arbeitet, gruen = Stand geladen.
-//
-// Warum ueberhaupt: die File System Access API gibt es auf keinem Handy-Browser.
-// Mit dem Netzweg laeuft dasselbe Werkzeug auf jedem Geraet - und der ganze
-// InvalidStateError-/PINNED-Komplex kann nicht mehr entstehen, weil keine Datei
-// mehr angefasst wird.
-//
-// Die Schnittstelle nach innen ist unveraendert geblieben: writeFile() gibt weiter
-// true/false zurueck, setConn() bleibt die eine Wahrheit ueber "verbunden",
-// applyState() bleibt der eine Weg in den STATE. Keine der Aufrufstellen im Tool
-// wurde angefasst.
-let ghCfg=null;          // {repo:"owner/name", file:"monitoring.json", branch:"main", token:"..."}
-let _ghSha=null;         // Blob-sha des zuletzt gesehenen Standes - der Konfliktschutz
-let _pullOk=false;       // erst nach einem echten Ladevorgang darf geschrieben werden
-let _stand="";           // "Geladen 12:35" / "Gesichert 12:40" - Anzeige im Dialog
-let connected=false;     // echter Verbindungszustand (nur true bei gruener Ampel)
-let saveTimer=null;
-const LS_CFG="mopp.gh.v1";      // Zugang (Repo, Datei, Zweig, Token)
-const LS_CACHE="mopp.cache.v1"; // letzter geladener Stand
+// ================= Datei-Verbindung (File System Access API) =================
+// SSOT: Die verbundene JSON haelt alle Daten. Das Tool startet leer; erst nach dem
+// Verbinden werden die Werte gerendert. Muster uebernommen aus dem Wochenplaner
+// (dort erprobt): Datei-Handle in IndexedDB, Auto-Save mit Debounce.
+// Ampel am Zahnrad: rot = nicht verbunden, orange = speichert, gruen = verbunden.
+let fileHandle=null, saveTimer=null;
+let connected=false;  // echter Verbindungszustand (nur true bei gruener Ampel). fileHandle allein reicht NICHT – nach Reload ist er gesetzt, aber noch nicht aktiv verbunden.
+const FS_SUPPORTED = typeof window!=="undefined" && "showOpenFilePicker" in window;
 const _connBtn=document.getElementById("connBtn");
 const _connDot=document.getElementById("connDot");
 const _footFile=document.getElementById("footFile");
@@ -10181,66 +10114,41 @@ const _footFile=document.getElementById("footFile");
 function setConn(state,name){
   // state: "off" (rot) | "busy" (orange) | "on" (gruen)
   connected = (state==="on");   // die eine Wahrheit ueber "wirklich verbunden"
-  if(!_connBtn) return;
   _connBtn.classList.remove("on","busy");
   if(state==="on")   _connBtn.classList.add("on");
   if(state==="busy") _connBtn.classList.add("busy");
-  _connBtn.title = state==="on" ? ("Verbunden mit "+(name||"Datenspeicher")+" – klicken zum Neuladen")
-                 : state==="busy" ? "Arbeitet…"
-                 : "Mit dem Datenspeicher verbinden";
-  if(_footFile) _footFile.textContent = (state==="on"&&name) ? ("· verbunden mit "+name) : "";
+  _connBtn.title = state==="on" ? ("Verbunden mit "+(name||"Datei")+" – klicken zum Neuladen")
+                 : state==="busy" ? "Speichert…"
+                 : "Mit Monitoring.json verbinden";
+  _footFile.textContent = (state==="on"&&name) ? ("· verbunden mit "+name) : "";
 }
 
-// ---- Zugang: liegt im Browser, nicht im Code ------------------------------
-function ghLoadCfg(){
-  try{ const t=localStorage.getItem(LS_CFG); return t?JSON.parse(t):null; }catch(e){ return null; }
+function idb(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open("monitoring-fs",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("handles");
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
 }
-function ghSaveCfg(c){
-  try{ if(c) localStorage.setItem(LS_CFG,JSON.stringify(c)); else localStorage.removeItem(LS_CFG); }catch(e){}
+async function saveHandle(h){
+  try{ const db=await idb();
+    await new Promise((res,rej)=>{ const tx=db.transaction("handles","readwrite");
+      tx.objectStore("handles").put(h,"file"); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); });
+  }catch(e){ console.warn("Handle nicht speicherbar",e); }
 }
-
-// ---- Zwischenspeicher: macht die App ohne Netz lesbar ---------------------
-// Er ist ausdruecklich NICHT die Wahrheit. Geschrieben wird erst, wenn einmal
-// erfolgreich geladen wurde (_pullOk) - sonst koennte ein alter Stand aus dem
-// Zwischenspeicher einen neueren im Repo ueberschreiben.
-function cacheSave(){
-  try{ localStorage.setItem(LS_CACHE,JSON.stringify(STATE)); }catch(e){ console.warn("Zwischenspeicher voll",e); }
+async function loadHandle(){
+  try{ const db=await idb();
+    return await new Promise(res=>{ const rq=db.transaction("handles","readonly").objectStore("handles").get("file"); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null); });
+  }catch(e){ return null; }
 }
-function cacheLoad(){
-  try{ const t=localStorage.getItem(LS_CACHE); return t?JSON.parse(t):null; }catch(e){ return null; }
-}
-
-// ---- Base64 mit Umlauten ---------------------------------------------------
-// atob/btoa arbeiten byteweise. Ohne TextEncoder/TextDecoder wird aus "Frühstück"
-// beim ersten Speichern Zeichensalat - und zwar unumkehrbar in der Datei.
-function b64dec(s){
-  const bin=atob(String(s||"").replace(/\s/g,""));
-  const b=new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) b[i]=bin.charCodeAt(i);
-  return new TextDecoder("utf-8").decode(b);
-}
-function b64enc(t){
-  const b=new TextEncoder().encode(t);
-  let s="";
-  for(let i=0;i<b.length;i+=0x8000) s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
-  return btoa(s);
+async function verifyPermission(h,write){
+  const opts={mode:write?"readwrite":"read"};
+  if(await h.queryPermission(opts)==="granted") return true;
+  if(await h.requestPermission(opts)==="granted") return true;
+  return false;
 }
 
-function ghErr(name,msg){ const e=new Error(msg); e.name=name; return e; }
-function ghHead(extra){
-  return Object.assign({
-    "Authorization":"Bearer "+ghCfg.token,
-    "Accept":"application/vnd.github+json",
-    "X-GitHub-Api-Version":"2022-11-28"
-  },extra||{});
-}
-function ghUrl(){
-  return "https://api.github.com/repos/"+ghCfg.repo+"/contents/"+
-         String(ghCfg.file||"monitoring.json").split("/").map(encodeURIComponent).join("/");
-}
-function ghRef(){ return "?ref="+encodeURIComponent(ghCfg.branch||"main"); }
-
-// STATE aus der Quelle uebernehmen und rendern. Leert vorher die Container, damit
+// STATE aus der Datei uebernehmen und rendern. Leert vorher die Container, damit
 // ein erneutes boot() keine Dubletten erzeugt.
 function applyState(obj){
   for(const k of Object.keys(STATE)) delete STATE[k];
@@ -10249,7 +10157,9 @@ function applyState(obj){
   // appendChild – ohne Leeren gaebe ein erneutes boot() (Neu-Verbinden) Dubletten.
   // Geprueft, nicht vorausgesetzt: das globale Kennzahlband (#kpis) ist mit der
   // Titelseite aus dem HTML gefallen, dieser Zugriff blieb stehen. Er warf beim
-  // VERBINDEN «Cannot set properties of null» – und riss boot() mit.
+  // VERBINDEN «Cannot set properties of null» – und riss boot() mit, weshalb nach der
+  // Dateiauswahl nichts erschien. Die Messsonde sah es nie: eingefrorene Dateien rufen
+  // boot() direkt und laufen nie durch applyState().
   const _kpiHost=document.getElementById("kpis"); if(_kpiHost) _kpiHost.innerHTML="";
   document.querySelectorAll("[id^='p-'] .card").forEach(c=>{ c.innerHTML=""; });
   if(typeof CHART!=="undefined") CHART.hideTip();
@@ -10258,70 +10168,23 @@ function applyState(obj){
   if(window.LIGHT) window.LIGHT.render();
 }
 
-// ---- Laden ------------------------------------------------------------------
-// Bis 1 MB liefert die Contents-API Inhalt UND sha in einer Anfrage. Darueber ist
-// das content-Feld leer und encoding steht auf "none" - dann wird der Text in einer
-// zweiten Anfrage als Rohdaten geholt. Die monitoring.json hat heute rund 209 000
-// Zeichen; der Ernaehrungsteil waechst um grob 8 KB je Woche, die Grenze kommt also.
-// Sie hier gleich richtig zu behandeln kostet acht Zeilen, spaeter ein halbes Kapitel.
-async function ghPull(){
-  if(!ghCfg||!ghCfg.repo||!ghCfg.token) return false;
-  setConn("busy");
-  try{
-    const r=await fetch(ghUrl()+ghRef(),{headers:ghHead({"Accept":"application/vnd.github.object+json"}),cache:"no-store"});
-    if(r.status===404){
-      // ACHTUNG, das ist die Falle: Bei einem PRIVATEN Repo antwortet GitHub auch dann
-      // mit 404, wenn der Token keinen Zugriff hat. "Datei gibt es nicht" und "du darfst
-      // nicht" sehen von aussen identisch aus - GitHub verraet absichtlich nicht, ob das
-      // Repo existiert. Vorher hat das Tool jedes 404 als "Datei noch nicht angelegt"
-      // gelesen, die Ampel auf gruen gestellt und das Schreiben freigegeben. Ein Blick
-      // auf das Repo selbst trennt die beiden Faelle in einer einzigen Anfrage.
-      const rr=await fetch("https://api.github.com/repos/"+ghCfg.repo,{headers:ghHead(),cache:"no-store"});
-      if(!rr.ok) throw ghErr("KeinZugriff","HTTP "+rr.status+" auf das Repo");
-      _ghSha=null; _pullOk=true;   // Repo erreichbar, Datei fehlt wirklich - Sichern legt sie an
-      setConn("on",(ghCfg.file||"monitoring.json")+" – Datei fehlt, wird beim Sichern angelegt");
-      return true;
-    }
-    if(r.status===401||r.status===403) throw ghErr("TokenAbgelehnt","HTTP "+r.status);
-    if(!r.ok) throw ghErr("Fehler"+r.status,"HTTP "+r.status);
-    const j=await r.json();
-    _ghSha=j.sha||null;
-    let txt;
-    if(j.encoding==="base64"&&j.content) txt=b64dec(j.content);
-    else{
-      const r2=await fetch(ghUrl()+ghRef(),{headers:ghHead({"Accept":"application/vnd.github.raw"}),cache:"no-store"});
-      if(!r2.ok) throw ghErr("Fehler"+r2.status,"HTTP "+r2.status);
-      txt=await r2.text();
-    }
-    if(!txt.trim()){ _pullOk=true; setConn("on",ghCfg.file); return true; } // verbunden, aber leer
-    let obj;
-    try{ obj=JSON.parse(txt); }
-    catch(e){ throw ghErr("KeinJSON","Die Datei im Repo ist kein gueltiges JSON."); }
-    applyState(obj);
-    cacheSave();
-    _pullOk=true;
-    setConn("on",ghCfg.file);
-    _standSetzen("Geladen");
-    return true;
-  }catch(e){
-    letzterSchreibfehler={ok:false,name:(e&&e.name)||"Fehler",grund:schreibGrund(e)};
-    setConn("off");
-    console.warn("Ladefehler",e);
-    return false;
-  }
-}
-
-// ---- Schreiben (Debounce) ---------------------------------------------------
+// Schreiben (Debounce). Wird spaeter von der Eingabe genutzt; der Kanal steht bereits.
 // Der letzte Schreibversuch, damit der Aufrufer sagen kann, WAS schiefging.
-// {ok:true} oder {ok:false, grund:"...", name:"..."}
+// {ok:true} oder {ok:false, grund:"...", name:"NotFoundError"}
 let letzterSchreibfehler=null;
 
-// GIBT ZURUECK, ob geschrieben wurde. Eine Erfolgsmeldung, die nicht am Erfolg
-// haengt, ist schlimmer als keine - das galt fuer den Dateiweg und gilt hier genauso.
-// Reentranz-Schutz wie gehabt: laeuft ein Schreibvorgang, wird der naechste in eine
-// Warteschlange von genau EINEM Platz gelegt; alle weiteren Rufer bekommen dasselbe
-// Versprechen. Mehr als ein Platz waere sinnlos: geschrieben wird immer der GANZE
-// STATE, der wartende Lauf nimmt spaetere Aenderungen also mit.
+// GIBT ZURUECK, ob geschrieben wurde. Vorher hatte writeFile() drei stumme Ausgaenge
+// (kein Handle · Berechtigung verweigert · Ausnahme), und entrySave meldete danach
+// unbedingt «Gespeichert.» – die Ampel stand auf rot und der Kasten sagte, es sei gut.
+// Der Wert stand dann nur im Arbeitsspeicher; beim naechsten Verbinden oder Neuladen
+// ueberschrieb applyState(Dateiinhalt) ihn lautlos. Eine Erfolgsmeldung, die nicht am
+// Erfolg haengt, ist schlimmer als keine.
+// P7 (Lieferung 5e): Reentranz-Schutz. Zwei Speicherauftraege, die sich ueberholen,
+// koennen die JSON halb geschrieben zuruecklassen - createWritable() kuerzt die Datei
+// auf null, bevor der neue Text drin steht. Laeuft ein Schreibvorgang, wird der
+// naechste in eine Warteschlange von genau EINEM Platz gelegt; alle weiteren Rufer
+// bekommen dasselbe Versprechen. Mehr als ein Platz waere sinnlos: geschrieben wird
+// immer der GANZE STATE, der wartende Lauf nimmt spaetere Aenderungen also mit.
 let _wfAktiv=null, _wfWartend=null;
 function writeFile(){
   if(_wfAktiv){
@@ -10337,24 +10200,24 @@ function writeFile(){
   return _wfAktiv;
 }
 async function _writeFileEcht(){
-  if(!ghCfg||!ghCfg.repo||!ghCfg.token){
-    letzterSchreibfehler={ok:false,name:"KeinZugang",
-      grund:"Es ist kein Datenspeicher verbunden."};
-    setConn("off"); return false;
-  }
-  if(!_pullOk){
-    letzterSchreibfehler={ok:false,name:"NichtGeladen",
-      grund:"Der aktuelle Stand wurde noch nicht geladen. Wuerde jetzt geschrieben, koennte ein neuerer Stand im Repo ueberschrieben werden."};
+  if(!fileHandle){
+    letzterSchreibfehler={ok:false,name:"KeinHandle",
+      grund:"Es ist keine Datei verbunden."};
     setConn("off"); return false;
   }
   try{
+    if(!await verifyPermission(fileHandle,true)){
+      letzterSchreibfehler={ok:false,name:"NotAllowedError",
+        grund:"Der Browser hat den Schreibzugriff auf die Datei nicht (mehr) erlaubt."};
+      setConn("off"); return false;
+    }
     setConn("busy");
-    // "Stand" heisst: wann zuletzt gespeichert.
+    // "Stand" heisst: wann zuletzt gespeichert. Vorher wurde hier das im Erfassungs-
+    // dialog eingegebene Datum uebernommen - trug man Werte fuer einen aelteren Tag
+    // nach, sprang der Stand zurueck (daher stand 04.05.2026 in der Datei).
     STATE.updated=(d=>String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear())(new Date());
-    await ghPush(false);
-    cacheSave();
-    setConn("on",ghCfg.file);
-    _standSetzen("Gesichert");
+    await schreibVersuch();
+    setConn("on",fileHandle.name);
     letzterSchreibfehler={ok:true};
     return true;
   }catch(e){
@@ -10365,250 +10228,141 @@ async function _writeFileEcht(){
   }
 }
 
-// Der eigentliche Schreibvorgang, mit EINEM Wiederholungsversuch bei sha-Konflikt.
-// GitHub lehnt ein PUT mit veraltetem sha ab (409/422). Dann wird der aktuelle sha
-// geholt und noch einmal geschrieben. Genau EIN Versuch: schlaegt auch der fehl,
-// liegt es nicht am veralteten sha, und eine Schleife wuerde den Fehler verdecken.
+// Der eigentliche Schreibvorgang, mit EINEM Wiederholungsversuch bei InvalidStateError.
 //
-// OFFEN und bewusst so gebaut wie bei PEPAPP: der Wiederholungsversuch drueckt den
-// lokalen Stand ueber den fremden - der letzte Schreiber gewinnt. Solange nur ein
-// Geraet gleichzeitig schreibt, ist das folgenlos.
-async function ghPush(retry){
+// Gemessen an Albrechts Rechner am 01.08.2026: der Fehler heisst nicht NotFoundError,
+// sondern «InvalidStateError – An operation that depends on state cached in an interface
+// object was made but the state had changed since it was read from disk».
+//
+// Uebersetzt: Chromium merkt sich zu jedem Dateihandle, wie die Datei aussah, als es sie
+// zuletzt gelesen hat (Zeitstempel und Groesse). Aendert OneDrive die Datei danach – und
+// sei es nur beim Synchronisieren –, stimmt dieser gemerkte Zustand nicht mehr, und der
+// Browser verweigert das Schreiben. Das ist eine Schutzmassnahme gegen das Ueberschreiben
+// fremder Aenderungen, kein Defekt.
+//
+// getFile() liest die Datei frisch und bringt den gemerkten Zustand damit auf den Stand
+// der Platte. Danach laesst createWritable() sich oeffnen. Genau EIN Wiederholungs-
+// versuch: schlaegt auch der fehl, liegt es nicht am veralteten Zustand, und eine
+// Schleife wuerde den Fehler nur verdecken.
+async function schreibVersuch(){
   const text=JSON.stringify(STATE,null,2);
-  const body={
-    message:"MOPP "+new Date().toISOString().slice(0,16).replace("T"," "),
-    content:b64enc(text),
-    branch:ghCfg.branch||"main"
-  };
-  if(_ghSha) body.sha=_ghSha;
-  const r=await fetch(ghUrl(),{method:"PUT",headers:ghHead({"Content-Type":"application/json"}),body:JSON.stringify(body)});
-  if((r.status===409||r.status===422)&&!retry){
-    const g=await fetch(ghUrl()+ghRef(),{headers:ghHead(),cache:"no-store"});
-    _ghSha = g.ok ? ((await g.json()).sha||null) : null;
-    return ghPush(true);
+  try{
+    const w=await fileHandle.createWritable();
+    await w.write(text); await w.close();
+  }catch(e){
+    if(!e||e.name!=="InvalidStateError") throw e;
+    console.warn("InvalidStateError – lese die Datei frisch und versuche es noch einmal");
+    await fileHandle.getFile();                 // frischt den gemerkten Zustand auf
+    const w2=await fileHandle.createWritable(); // wirft weiter, wenn es daran nicht lag
+    await w2.write(text); await w2.close();
   }
-  if(r.status===401||r.status===403) throw ghErr("TokenAbgelehnt","HTTP "+r.status);
-  if(r.status===404) throw ghErr("NichtGefunden","HTTP 404");
-  if(r.status===409||r.status===422) throw ghErr("Konflikt","HTTP "+r.status);
-  if(!r.ok) throw ghErr("Fehler"+r.status,"HTTP "+r.status);
-  const j=await r.json();
-  _ghSha=(j.content&&j.content.sha)||null;
 }
 
 // Die Faelle, die in der Praxis auftreten, in Albrechts Worten. Der technische Name
 // steht dahinter – ohne ihn ist eine Rueckfrage nicht fuehrbar.
 function schreibGrund(e){
   const n=(e&&e.name)||"";
-  if(n==="KeinZugang")
-    return "Es ist kein Datenspeicher verbunden. Ueber das Zahnrad Repo und Token eintragen.";
-  if(n==="NichtGeladen")
-    return "Der aktuelle Stand wurde noch nicht geladen. Klick auf das Zahnrad und lade neu, bevor du speicherst.";
-  if(n==="TokenAbgelehnt")
-    return "GitHub hat den Zugang abgelehnt. Der Token ist abgelaufen, wurde widerrufen, oder er hat keine Schreibrechte auf dieses Repo.";
-  if(n==="NichtGefunden")
-    return "Das Repo oder die Datei gibt es unter diesem Namen nicht. Schreibweise pruefen (owner/name).";
-  if(n==="KeinZugriff")
-    return "GitHub findet dieses Repository nicht – oder dein Token darf nicht darauf zugreifen. "+
-           "Bei einem privaten Repo sieht beides gleich aus. Pruefe zweierlei: die Schreibweise "+
-           "owner/name, und ob der Token GENAU DIESES Repo freigegeben hat (Repository access) "+
-           "mit dem Recht «Contents: Read and write».";
-  if(n==="Konflikt")
-    return "Im Repo steht ein neuerer Stand, und auch der zweite Versuch ist gescheitert. Lade ueber das Zahnrad neu und trage den Wert erneut ein.";
-  if(n==="KeinJSON")
-    return "Die Datei im Repo laesst sich nicht als JSON lesen.";
-  if(n==="TypeError"||/Failed to fetch|NetworkError|Load failed/i.test((e&&e.message)||""))
-    return "Keine Verbindung zu GitHub. Pruefe das Netz und versuch es noch einmal.";
+  if(n==="InvalidStateError")
+    return "Die Datei auf der Platte hat sich geaendert, seit der Browser sie zuletzt gelesen hat – das macht OneDrive beim Synchronisieren. Der zweite Versuch hat auch nicht geklappt. Verbinde die Monitoring.json ueber das Zahnrad neu.";
+  if(n==="NotFoundError")
+    return "Die Datei ist unter dem gemerkten Ort nicht mehr da. Das passiert, wenn OneDrive sie beim Synchronisieren neu anlegt.";
+  if(n==="NoModificationAllowedError")
+    return "Die Datei ist gesperrt oder steht nur online zur Verfuegung. In OneDrive «Immer auf diesem Geraet behalten» setzen.";
+  if(n==="NotAllowedError")
+    return "Der Browser hat den Schreibzugriff verfallen lassen.";
   return (e&&e.message)||"Unbekannter Fehler.";
 }
 // Eine Stelle fuer die Fehlermeldung nach dem Speichern. Sie sagt beides: was schiefging
 // UND dass der Wert nur im Fenster steht – das ist die Information, die Albrecht braucht,
-// um ihn nicht durch ein Neuladen zu verlieren.
+// um ihn nicht durch ein Neuverbinden zu verlieren.
 function meldeSchreibfehler(){
   const f=letzterSchreibfehler||{};
   alert("NICHT gespeichert.\n\n"+(f.grund||"Unbekannter Fehler.")+
         "\n(technisch: "+(f.name||"?")+")\n\n"+
         "Deine Eingabe steht nur in diesem Fenster. Sie geht verloren, wenn du neu "+
-        "laedst.\n\n"+
+        "verbindest oder die Seite neu laedst.\n\n"+
         "Notiere sie, verbinde dann ueber das Zahnrad neu und trage sie erneut ein.");
 }
 function scheduleSave(){
-  if(!ghCfg){ setConn("off"); return; }
+  if(!fileHandle){ setConn("off"); return; }
   setConn("busy");
   clearTimeout(saveTimer);
-  // 2500 ms statt 800: ein Netzweg vertraegt kein Dauerfeuer, und die
-  // Ernaehrungsseite loest bei jedem Ziehen einen Speicherauftrag aus.
-  saveTimer=setTimeout(writeFile,2500);
+  saveTimer=setTimeout(writeFile,800);
 }
 
-// ---- Dialog «Daten und Sync» ------------------------------------------------
-// Wird beim ersten Oeffnen gebaut, nicht beim Start: der eingefrorene Arzt-Export
-// fuehrt diesen Teil nie aus und traegt das Markup auch nicht mit.
-//
-// Aufbau uebernommen aus PEPAPP, damit beide Werkzeuge sich gleich bedienen:
-// Repository und Token oben, darunter die Handlungen als Liste.
-//
-// «Daten laden» ist der Weg fuer die Wochen-Auswertung: eine von aussen
-// vorbereitete monitoring.json einlesen und in einem Zug ins Repo schreiben.
-// Es gibt bewusst KEINEN Zwischenzustand «geladen, aber nicht gesichert» - der
-// waere beim naechsten Laden lautlos wieder weg.
-let _ghModal=null, _ghDatei=null;
-function _standSetzen(was){
-  const d=new Date();
-  _stand = was+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-  const n=_ghModal&&_ghModal.querySelector("#ghStand");
-  if(n) n.textContent=_stand;
+async function loadFromHandle(h){
+  const file=await h.getFile();
+  const txt=await file.text();
+  if(!txt.trim()){ setConn("on",h.name); return; } // verbunden, aber leer
+  let obj; try{ obj=JSON.parse(txt); }catch{ setConn("off"); alert("Kein gueltiges JSON in "+h.name); return; }
+  applyState(obj);
+  setConn("on",h.name);
 }
-function _ghZeile(id,titel,rechts){
-  return '<button type="button" class="gh-akt" id="'+id+'"><span>'+titel+'</span>'+
-         '<span class="gh-akt-r">'+rechts+'</span></button>';
-}
-function _ghDialog(){
-  if(_ghModal) return _ghModal;
-  const m=document.createElement("div");
-  m.className="modal-bg"; m.id="ghModal"; m.hidden=true;
-  m.innerHTML=
-    '<div class="modal" role="dialog" aria-modal="true" aria-label="Daten und Sync" style="max-width:520px">'+
-      '<div class="modal-head"><h2>Daten und Sync</h2>'+
-      '<button class="modal-x" id="ghClose" aria-label="Schliessen">×</button></div>'+
-      '<div class="modal-body">'+
-        '<div class="gh-lab">Datenrepository</div>'+
-        '<input type="text" id="ghRepo" placeholder="benutzer/datenrepo" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<div class="gh-hint">Privates Repo mit der monitoring.json. Speichern verbindet neu.</div>'+
-        '<div class="gh-zwei">'+
-          '<div><div class="gh-lab">Datei</div>'+
-          '<input type="text" id="ghFile" placeholder="monitoring.json" autocapitalize="off" autocorrect="off" spellcheck="false"></div>'+
-          '<div><div class="gh-lab">Zweig</div>'+
-          '<input type="text" id="ghBranch" placeholder="main" autocapitalize="off" autocorrect="off" spellcheck="false"></div>'+
-        '</div>'+
-        '<div class="gh-lab">Zugriffs-Token</div>'+
-        '<input type="password" id="ghToken" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false">'+
-        '<div class="gh-hint">Braucht Schreibrecht auf Inhalte. Bleibt nur in diesem Browser.</div>'+
-        '<div class="gh-lab" style="margin-top:20px">Aktionen</div>'+
-        '<div class="gh-akte">'+
-          '<div class="gh-akt gh-akt-still"><span>Stand</span><span class="gh-akt-r" id="ghStand">—</span></div>'+
-          _ghZeile("ghPullBtn","Jetzt laden","von GitHub")+
-          _ghZeile("ghPushBtn","Jetzt sichern","zu GitHub")+
-          _ghZeile("ghDown","Daten sichern","JSON")+
-          _ghZeile("ghUp","Daten laden","JSON")+
-          _ghZeile("ghForget","Trennen","Zugang und Kopie löschen")+
-        '</div>'+
-        '<div id="ghMsg"></div>'+
-        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">'+
-          '<button class="btn" id="ghCancel">Schliessen</button>'+
-          '<button class="btn exp-go" id="ghSave">Speichern</button>'+
-        '</div>'+
-      '</div>'+
-    '</div>';
-  document.body.appendChild(m);
-  const q=s=>m.querySelector(s);
-  const zu=()=>{ m.hidden=true; };
-  const sag=(t,schlecht)=>{ const n=q("#ghMsg"); n.textContent=t; n.className=schlecht?"gh-msg schlecht":"gh-msg"; };
-  q("#ghClose").onclick=zu; q("#ghCancel").onclick=zu;
-  m.onclick=e=>{ if(e.target===m) zu(); };
 
-  // Datei-Eingang fuer «Daten laden». Einer fuer alle Aufrufe, sonst haengen nach
-  // dem dritten Klick drei unsichtbare Felder im Dokument.
-  _ghDatei=document.createElement("input");
-  _ghDatei.type="file"; _ghDatei.accept=".json,application/json"; _ghDatei.style.display="none";
-  m.appendChild(_ghDatei);
-
-  function cfgAusFeldern(){
-    const repo=q("#ghRepo").value.trim();
-    const file=q("#ghFile").value.trim()||"monitoring.json";
-    const branch=q("#ghBranch").value.trim()||"main";
-    const token=q("#ghToken").value.trim();
-    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ sag("Das Repository muss owner/name heissen.",true); return null; }
-    if(!token){ sag("Ohne Token geht es nicht.",true); return null; }
-    return {repo:repo,file:file,branch:branch,token:token};
+// Klick auf das Zahnrad: verbinden bzw. neu laden.
+_connBtn.addEventListener("click",async ()=>{
+  if(!FS_SUPPORTED){
+    alert("Dieser Browser oder dieses Fenster erlaubt die Datei-Verbindung nicht.\n\n"+
+          "Die Datei-Verbindung geht nur, wenn das Tool als Datei in Edge oder Chrome offen ist "+
+          "(Doppelklick auf die HTML) – nicht in einem Vorschau-Fenster und nicht im Firefox.");
+    return;
   }
-
-  q("#ghSave").onclick=async ()=>{
-    const c=cfgAusFeldern(); if(!c) return;
-    sag("Verbinde…");
-    const vorher=ghCfg;
-    ghCfg=c; _ghSha=null; _pullOk=false;
-    if(await ghPull()){ ghSaveCfg(ghCfg); sag(""); zu(); }
-    else{ sag((letzterSchreibfehler||{}).grund||"Es hat nicht geklappt.",true); ghCfg=vorher; }
-  };
-  q("#ghPullBtn").onclick=async ()=>{
-    if(!ghCfg){ sag("Erst Repository und Token speichern.",true); return; }
-    sag("Lädt…");
-    sag(await ghPull() ? "Geladen." : ((letzterSchreibfehler||{}).grund||"Laden fehlgeschlagen."),
-        !_pullOk);
-  };
-  q("#ghPushBtn").onclick=async ()=>{
-    if(!ghCfg){ sag("Erst Repository und Token speichern.",true); return; }
-    sag("Sichert…");
-    const ok=await writeFile();
-    sag(ok ? "Gesichert." : ((letzterSchreibfehler||{}).grund||"Sichern fehlgeschlagen."), !ok);
-  };
-  // Herunterladen geht IMMER - auch ohne Verbindung. Das ist der Notausgang, wenn
-  // GitHub klemmt: die Werte im Fenster in eine Datei retten.
-  q("#ghDown").onclick=()=>{
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([JSON.stringify(STATE,null,2)],{type:"application/json"}));
-    a.download=(ghCfg&&ghCfg.file)||"monitoring.json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    sag("Datei heruntergeladen.");
-  };
-  q("#ghUp").onclick=()=>{ _ghDatei.value=""; _ghDatei.click(); };
-  _ghDatei.onchange=async ()=>{
-    const f=_ghDatei.files&&_ghDatei.files[0]; if(!f) return;
-    let obj;
-    try{ obj=JSON.parse(await f.text()); }
-    catch(e){ sag("Das ist kein gültiges JSON: "+f.name,true); return; }
-    if(!obj||typeof obj!=="object"||Array.isArray(obj)){ sag("Die Datei enthält keinen Datensatz.",true); return; }
-    const n=Object.keys(obj).length;
-    if(!confirm("«"+f.name+"» einlesen?\n\nDer Inhalt ersetzt den ganzen Stand – im Fenster und, wenn "+
-                "eine Verbindung besteht, auch im Repo.\n\n"+n+" Bereiche in der Datei."))
+  try{
+    if(fileHandle){
+      // Stumme Sackgasse behoben: hier stand nur setConn("off") ohne ein Wort. Ein
+      // gemerktes Handle wird ungueltig, sobald die JSON verschoben oder umbenannt wird
+      // (oder das Tool aus einem anderen Ordner laeuft) – dann tat das Zahnrad nichts.
+      // Ein Knopf, der nichts tut, suggeriert eine Moeglichkeit, die es nicht gibt.
+      let erlaubt=false;
+      try{ erlaubt=await verifyPermission(fileHandle,true); }catch(e){ erlaubt=false; }
+      if(!erlaubt){
+        fileHandle=null; await saveHandle(null); setConn("off");
+        alert("Die gemerkte Verbindung gilt nicht mehr.\n\n"+
+              "Das passiert, wenn die Monitoring.json verschoben oder umbenannt wurde – oder wenn "+
+              "das Tool aus einem anderen Ordner laeuft.\n\n"+
+              "Klick noch einmal auf das Zahnrad, dann waehle die Datei neu.");
+        return;
+      }
+      try{
+        await loadFromHandle(fileHandle);
+      }catch(e){
+        if(e&&(e.name==="NotFoundError"||e.name==="NotReadableError")){
+          fileHandle=null; await saveHandle(null); setConn("off");
+          alert("Die gemerkte Datei ist an ihrem Platz nicht mehr zu finden.\n\n"+
+                "Klick noch einmal auf das Zahnrad, dann waehle die Monitoring.json neu.");
+          return;
+        }
+        throw e;
+      }
       return;
-    applyState(obj);
-    cacheSave();
-    if(ghCfg&&_pullOk){
-      sag("Eingelesen, sichert…");
-      const ok=await writeFile();
-      sag(ok ? "Eingelesen und gesichert." : ((letzterSchreibfehler||{}).grund||"Eingelesen, aber NICHT gesichert."), !ok);
-    }else{
-      sag("Eingelesen. Ohne Verbindung steht der Stand nur in diesem Fenster.",true);
     }
-  };
-  q("#ghForget").onclick=()=>{
-    if(!confirm("Trennen?\n\nDer Zugang UND die Kopie der Daten in diesem Browser werden gelöscht. "+
-                "Im Repo bleibt alles stehen.\n\nDie Seite lädt danach neu."))
+    const [h]=await window.showOpenFilePicker({
+      types:[{description:"Monitoring-Daten",accept:{"application/json":[".json"]}}],
+      multiple:false
+    });
+    fileHandle=h; await saveHandle(h);
+    await loadFromHandle(h);
+  }catch(e){
+    if(e.name==="AbortError") return;
+    if(e.name==="SecurityError"){
+      alert("Der Browser hat die Datei-Auswahl abgelehnt.\n\n"+
+            "Klick erneut auf das Zahnrad. Passiert es wieder, ist das Tool in einem Vorschau-Fenster "+
+            "offen – dort ist die Datei-Verbindung gesperrt. Oeffne die HTML per Doppelklick in Edge oder Chrome.");
       return;
-    ghCfg=null; _ghSha=null; _pullOk=false;
-    ghSaveCfg(null);
-    try{ localStorage.removeItem(LS_CACHE); }catch(e){}
-    // Neu laden statt aufraeumen: nur so ist sicher, dass nichts von den Daten mehr
-    // im Fenster steht. Ausblenden waere kein Weglassen.
-    location.reload();
-  };
-  _ghModal=m;
-  return m;
-}
-function _ghOpen(){
-  const m=_ghDialog();
-  const c=ghCfg||ghLoadCfg()||{};
-  m.querySelector("#ghRepo").value=c.repo||"";
-  m.querySelector("#ghFile").value=c.file||"monitoring.json";
-  m.querySelector("#ghBranch").value=c.branch||"main";
-  m.querySelector("#ghToken").value=c.token||"";
-  m.querySelector("#ghStand").textContent=_stand||"—";
-  const msg=m.querySelector("#ghMsg"); msg.textContent=""; msg.className="gh-msg";
-  m.hidden=false;
-}
+    }
+    console.error(e); setConn("off");
+  }
+});
 
-// Klick auf das Zahnrad: oeffnet den Dialog. Frueher lud ein Klick bei bestehender
-// Verbindung sofort neu - das ist jetzt die Zeile «Jetzt laden», sichtbar und benannt.
-if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
-
+// Beim Start: gemerktes Handle wiederherstellen (aber NICHT automatisch laden –
+// der erste Klick laedt, damit der Verbindungszustand bewusst bleibt).
 (async function initConn(){
-  // MESSSONDE: echte Daten, aber das volle Werkzeug - nicht eingefroren.
-  // Geschrieben wird nichts: es gibt keinen Zugang, writeFile() gibt false zurueck.
+  // MESSSONDE (Lieferung 6p): echte Daten, aber das volle Werkzeug - nicht eingefroren.
+  // Nur so sind Erfassen-Fenster und Medikations-Tabelle ueberhaupt pruefbar. Geschrieben
+  // wird nichts: es gibt kein fileHandle, writeFile() gibt false zurueck und meldet es.
   if(window.__PROBE){
     applyState(window.__PROBE);
-    connected=true; setConn("on","Probe (kein Schreiben)");
+    connected=true; setConn("on","Probe-6p (kein Schreiben)");
     return;
   }
   // Eingefrorener Export: Daten sofort anzeigen, keine Verbinden-/Export-Steuerung.
@@ -10657,22 +10411,9 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
     return;
   }
   setConn("off");
-  ghCfg=ghLoadCfg();
-  // Der Zwischenspeicher macht die App auf dem Handy sofort lesbar - auch im Zug
-  // ohne Netz. Er ist NICHT die Wahrheit: _pullOk bleibt false, es wird nichts
-  // geschrieben, bevor der echte Stand da ist.
-  const c=cacheLoad();
-  if(c){
-    try{ applyState(c); }catch(e){ console.warn("Zwischenspeicher unbrauchbar",e); }
-    setConn("busy");
-    if(_footFile) _footFile.textContent="· Zwischenspeicher – lade…";
-  }
-  if(ghCfg&&ghCfg.repo&&ghCfg.token){
-    const ok=await ghPull();
-    if(!ok&&c&&_footFile) _footFile.textContent="· Zwischenspeicher – nicht geladen";
-  }else if(!c){
-    setConn("off");
-  }
+  if(!FS_SUPPORTED){ _connBtn.title="Browser ohne Datei-API – Edge/Chrome nutzen"; return; }
+  const h=await loadHandle();
+  if(h){ fileHandle=h; _connBtn.title="Zum Laden klicken (zuletzt: "+h.name+")"; }
 })();
 
 // ================= Arzt-Export (eingefrorener HTML-Schnappschuss) =================
@@ -10865,10 +10606,6 @@ function _makeExportHTML(exportState){
   // letzten Hovertext eingefroren – sichtbar auf der ersten Seite, ohne Zutun.
   const _kt=klon.querySelector("#chartTip");
   if(_kt){ _kt.setAttribute("hidden",""); _kt.removeAttribute("style"); }
-  // Der Verbinden-Dialog wird erst beim ersten Oeffnen gebaut. War er offen, haengt er
-  // im Klon - und die Arztkopie truege einen Dialog fuer Repo und Token mit sich.
-  // Ausblenden waere kein Weglassen: er kommt raus.
-  const _gm=klon.querySelector("#ghModal"); if(_gm) _gm.remove();
   let html=klon.outerHTML;
   const stateJson="const STATE="+JSON.stringify(exportState)+";";
   // Den leeren Start-STATE im Quelltext durch den gefuellten ersetzen.
@@ -11031,28 +10768,28 @@ function _bpSchreib(iso,rows){
 }
 function _bpBody(body){
   body.style.display="grid"; body.style.gap="8px";
+  const spalten="92px 1fr 1fr 1fr 32px";
   const kopf=document.createElement("div");
-  kopf.className="bp-grid";
-  kopf.style.cssText="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding-top:6px";
+  kopf.style.cssText="display:grid;grid-template-columns:"+spalten+";gap:8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding-top:6px";
   ["Uhrzeit","sys","dia","Puls",""].forEach(function(t){ const d=document.createElement("div"); d.textContent=t; kopf.appendChild(d); });
   body.appendChild(kopf);
   const rows=_draft.bp||(_draft.bp=[_bpLeer()]);
   rows.forEach(function(r,i){
     const row=document.createElement("div");
-    row.className="bp-grid";
+    row.style.cssText="display:grid;grid-template-columns:"+spalten+";gap:8px;align-items:center";
     [["time","07:15",false],["sys","60\u2013260",true],["dia","30\u2013160",true],["pulse","30\u2013200",true]].forEach(function(f){
       const inp=document.createElement("input"); inp.type="text";
       if(f[2]) inp.inputMode="decimal";
       inp.dataset.sec="bp"; inp.dataset.fi=i; inp.dataset.k=f[0];
       inp.value=r[f[0]]!=null?r[f[0]]:"";
       inp.placeholder=f[1];
-      // Groesse kommt aus .bp-grid input – eine Stelle, nicht zwei.
+      inp.style.cssText="width:100%;height:34px;font-size:13px";
       inp.oninput=function(){ r[f[0]]=inp.value; };
       row.appendChild(inp);
     });
     const del=document.createElement("button"); del.type="button"; del.textContent="\u00d7";
     del.title="Diese Messung entfernen";
-    del.style.cssText="background:none;border:1px solid var(--line);color:var(--faint);border-radius:8px;height:44px;width:100%;cursor:pointer;font-family:inherit;font-size:16px;line-height:1;padding:0";
+    del.style.cssText="background:none;border:1px solid var(--line);color:var(--faint);border-radius:8px;height:34px;cursor:pointer;font-family:inherit;font-size:16px;line-height:1";
     del.onclick=function(){ _syncOpenInputs(); _draft.bp.splice(i,1);
       if(!_draft.bp.length) _draft.bp=[_bpLeer()]; _renderEntry(); };
     row.appendChild(del);
@@ -11202,7 +10939,7 @@ function _renderEntry(){
 // Mit Datum aufrufbar: der Befinden-Reiter oeffnet die Erfassung fuer die Woche, auf die
 // geklickt wurde. Ohne Argument bleibt es beim heutigen Tag.
 function _openEntry(iso){
-  if(!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
+  if(!connected){ alert("Bitte zuerst mit der Monitoring.json verbinden (Zahnrad-Symbol oben)."); return; }
   _enDate.value=iso||new Date().toISOString().slice(0,10);
   _enOpenKey=null;
   _fillDraft(_enDate.value);
@@ -11251,7 +10988,7 @@ function _validateDraft(){
 }
 
 document.getElementById("entrySave").onclick=async ()=>{
-  if(!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
+  if(!connected){ alert("Bitte zuerst mit der Monitoring.json verbinden (Zahnrad)."); return; }
   const iso=_enDate.value; if(!iso){ alert("Bitte ein Datum waehlen."); return; }
   _syncOpenInputs();
   const errs=_validateDraft();
@@ -11274,7 +11011,7 @@ document.getElementById("entrySave").onclick=async ()=>{
 };
 
 document.getElementById("entryDelete").onclick=async ()=>{
-  if(!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
+  if(!connected){ alert("Bitte zuerst mit der Monitoring.json verbinden (Zahnrad)."); return; }
   const iso=_enDate.value; if(!iso) return;
   const wkStart=_weekOf(iso).weekStart;
   if(!confirm("Alle Werte dieses Tages ("+iso+") werden geloescht, dazu die Wochenwerte der Woche ab "+wkStart+" (Schritte, Vitalwerte, Trinkmenge, Verdauung). Fortfahren?")) return;
@@ -11570,7 +11307,7 @@ function _erfFenster(key){
   const wardOffen=!!(_ef&&_ef.sec===sec);
   _efZu();
   if(wardOffen) return;                       // derselbe Knopf schliesst wieder
-  if(!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
+  if(!connected){ alert("Bitte zuerst mit der Monitoring.json verbinden (Zahnrad oben)."); return; }
   const woche=!!ERF_WOCHE[key];
   const box=document.createElement("div");
   box.className="no-print";
@@ -11604,7 +11341,7 @@ window._erfFenster=_erfFenster;
 <!-- ═══════════════════════════════════════════════════════════════════════════
      WELT LIGHT · Logik
      Der komplette Code aus «MOPP light», in einen Block gekapselt. Seine 87 eigenen
-     Namen bleiben drinnen, die vier geteilten (STATE, ghCfg, connected,
+     Namen bleiben drinnen, die vier geteilten (STATE, fileHandle, connected,
      writeFile) greifen nach draussen. Nach aussen gibt er nur window.LIGHT.
      ═══════════════════════════════════════════════════════════════════════ -->
 <script>
@@ -11623,11 +11360,10 @@ const WT  = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 const MO  = ['Jan','Feb','März','Apr','Mai','Juni','Juli','Aug','Sep','Okt','Nov','Dez'];
 const SLOTS = [{id:'fr',name:'Frühstück'},{id:'mi',name:'Mittag'},{id:'ab',name:'Abend'}];
 
-/* STATE, ghCfg und connected stehen in Full. Hier bewusst NICHT deklariert –
+/* STATE, fileHandle und connected stehen in Full. Hier bewusst NICHT deklariert –
    eine erneute Deklaration wuerde sie verdecken und Light auf eigenen Daten sitzen
    lassen. Genau diese drei Namen sind die Naht zwischen den Welten. */
-let UI = { tab:'aus', offen:null, view:null, wOff:0, str:null, meds:null, medMeldung:'', hilfe:false,
-           bzSicht:'alle', bzFenster:30 };
+let UI = { tab:'aus', offen:null, view:null, wOff:0, str:null, meds:null, medMeldung:'', hilfe:false };
 
 /* ---------- kleine Helfer ---------- */
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -11700,44 +11436,16 @@ function serieTHQ(){
     .filter(p => p.waist>0 && p.hip>0)
     .map(p => ({ iso:String(p.date).slice(0,10), v:p.waist/p.hip })));
 }
-/* Blutzucker: EINE Quelle, vier Sichten. Die Kachel nimmt immer 'alle', das Modal die
-   gewaehlte Sicht. bzRoh() gibt die einzelnen Messungen, serieBZ() die Tagesachse daraus
-   – der Durchschnitt wird aus den ROHEN Werten gerechnet, nicht aus den Tagesmitteln.
-   Sonst wiegt ein Tag mit einer Messung so viel wie einer mit fuenf. */
-/* Drittes Feld: die Fassung fuer den Fliesstext. Ein kleingeschriebenes Knopf-Etikett
-   ergibt keinen Satz – aus «30 Tage» wurde so «30 tage». */
-const BZ_SICHT   = [['alle','Alle','alle Messungen'],
-                    ['nue','Nüchtern','nur die Nüchternwerte'],
-                    ['pre','Vor Mahlzeit','nur die Messungen vor einer Mahlzeit'],
-                    ['post','Nach Mahlzeit','nur die Messungen nach einer Mahlzeit']];
-const BZ_FENSTER = [[7,'7 Tage','die letzten 7 Tage'],[14,'14 Tage','die letzten 14 Tage'],
-                    [30,'30 Tage','die letzten 30 Tage'],[0,'Alles','den gesamten Zeitraum']];
-function bzName(liste, wert){ const t = liste.find(x => x[0]===wert); return t ? t[1] : String(wert); }
-function bzText(liste, wert){ const t = liste.find(x => x[0]===wert); return t ? t[2] : String(wert); }
-/* Der Typ eines Messpunktes steht in glucose.slotType – der Name ist kein Typ. Der
-   Erfassen-Streifen schreibt zusaetzlich den Slot 'nach dem Essen' (er fragt nicht,
-   welche Mahlzeit); der steht in keiner slotType-Tabelle und wird hier ergaenzt.
-   Diese Funktion ist die einzige Stelle, an der der Typ entschieden wird. */
-function bzTyp(slot){
-  const st = (STATE.glucose && STATE.glucose.slotType) || {};
-  if(st[slot]) return st[slot];
-  if(slot==='nach dem Essen') return 'post';
-  return null;
-}
-function bzRoh(sicht){
-  const wahl = sicht || 'alle';
-  const passt = slot => wahl==='alle' ? true
-    : (wahl==='nue' ? slot==='nüchtern' : bzTyp(slot)===wahl);
+function serieBZ(){
   const pts = [];
   ((STATE.glucose&&STATE.glucose.days)||[]).forEach(d => {
     (d.rows||[]).forEach(r => {
-      if(!passt(r.slot)) return;
+      if(r.slot!=='nüchtern') return;
       (r.values||[]).forEach(x => { if(typeof x.v==='number') pts.push({ iso:String(d.iso).slice(0,10), v:x.v }); });
     });
   });
-  return pts;
+  return reiheAus(pts);
 }
-function serieBZ(sicht){ return reiheAus(bzRoh(sicht)); }
 function serieBD(feld){
   return reiheAus(((STATE.bloodpressure&&STATE.bloodpressure.points)||[])
     .filter(p => typeof p[feld]==='number')
@@ -11820,119 +11528,13 @@ function zielWerte(){
   };
 }
 
-/* ---------- Referenz Blutzucker: drei Werte, in der JSON unter glucose.referenz ------
-   NICHT zu verwechseln mit glucose.baseline – das ist die Vorperiode aus der alten
-   Mess-App (23.04.–15.07.2025). Hier stehen die Referenzwerte Stoffwechselgesunder:
-     unten 3,9 mmol/l  – international die Schwelle zur Hypoglykaemie (70 mg/dl, ADA)
-     oben  7,8 mmol/l  – WHO/ADA: 2-h-Wert im oGTT unter 7,8 = normale Glukosetoleranz
-     Mitte 5,5 mmol/l  – gemessener 24-h-Schnitt Gesunder, CGM-Studie JCEM 2019
-                         (99 ± 7 mg/dl bei 153 Teilnehmenden)
-   Sie sind Vorgabe, nicht Gesetz: Albrecht aendert sie im Modal, gespeichert wird in
-   die Monitoring.json. Die Zone der Kachel liest AUS DIESER Stelle – nicht aus einer
-   zweiten, fest verdrahteten Zahl. */
-function refWerte(){
-  const r = (STATE.glucose && STATE.glucose.referenz) || {};
-  return {
-    low:  typeof r.low ==='number' ? r.low  : 3.9,
-    avg:  typeof r.avg ==='number' ? r.avg  : 5.5,
-    high: typeof r.high==='number' ? r.high : 7.8
-  };
-}
-
-/* Die Zahl im Modalkopf: Durchschnitt ueber die gewaehlten Messpunkte im gewaehlten
-   Zeitfenster. Die Kachel zeigt weiter den letzten Messtag – zwei verschiedene Zahlen,
-   und sie stehen darum an zwei verschieden beschrifteten Stellen. */
-function bzFensterDaten(){
-  const roh = bzRoh(UI.bzSicht);
-  let ab = null;
-  if(UI.bzFenster > 0) ab = iso(new Date(heute().getTime() - (UI.bzFenster-1)*DAY));
-  const drin = ab ? roh.filter(p => p.iso >= ab) : roh;
-  const n = drin.length, vs = drin.map(p => p.v);
-  return { n, tage:new Set(drin.map(p => p.iso)).size,
-           avg: n ? vs.reduce((a,b)=>a+b,0)/n : null,
-           min: n ? Math.min.apply(null,vs) : null,
-           max: n ? Math.max.apply(null,vs) : null };
-}
-
-/* Trendlinie – die Gerade der kleinsten Quadrate durch die Tageswerte im GEWAEHLTEN
-   ZEITRAUM. Bewusst nicht im gezoomten Ausschnitt: sonst aenderte sich die Aussage
-   beim Scrollen. Sie wird nur gezeichnet, wenn sie etwas taugt:
-     - mindestens 10 Tage mit Messung, UND
-     - eine Steigung, die sich vom Zufall abhebt (|t| >= 2,2, rund das 5-Prozent-Niveau).
-   Warum die Huerde: ohne sie wechselt das Vorzeichen mit dem Zeitraum-Knopf. Gemessen
-   an Albrechts Daten am 08.08.2026 stieg «Alle» ueber 30 Tage um +0,25 mmol/l je Woche
-   und fiel ueber die ganze Reihe um −0,25 – dieselbe Person, dasselbe Bild, zwei
-   entgegengesetzte Aussagen. «Nuechtern · 14 Tage» zeigte +0,75 je Woche aus fuenf
-   Messtagen. Bei sieben Tagen liegt ueberhaupt nur EIN Messtag vor.
-   Ein Bild, das nichts zu sagen hat, sagt lieber nichts.
-   Annahme, die dabei NICHT stimmt: der t-Test unterstellt unabhaengige Tage. In einer
-   Messreihe sind Nachbartage korreliert, der Test ist also eher zu grosszuegig als zu
-   streng. Die zweite Huerde – die Zahl der Messtage – faengt das ab. */
-const TREND_MIN_TAGE = 10, TREND_MIN_T = 2.2;
-function bzTrend(s){
-  if(!s || !s.length) return null;
-  let von = 0;
-  if(UI.bzFenster > 0){
-    const ab = iso(new Date(heute().getTime() - (UI.bzFenster-1)*DAY));
-    von = s.findIndex(x => x.iso >= ab);
-    if(von < 0) return null;
-  }
-  const pk = [];
-  for(let i=von;i<s.length;i++) if(s[i].v!==null) pk.push({ i, v:s[i].v });
-  const n = pk.length;
-  if(n < TREND_MIN_TAGE) return null;
-  const mx = pk.reduce((a,q)=>a+q.i,0)/n, my = pk.reduce((a,q)=>a+q.v,0)/n;
-  let sxx = 0, sxy = 0;
-  pk.forEach(q => { sxx += (q.i-mx)*(q.i-mx); sxy += (q.i-mx)*(q.v-my); });
-  if(!sxx) return null;
-  const b = sxy/sxx, a = my - b*mx;
-  let ssr = 0;
-  pk.forEach(q => { const e = q.v-(a+b*q.i); ssr += e*e; });
-  const se = (n>2 && ssr>0) ? Math.sqrt(ssr/(n-2)/sxx) : 0;
-  const t = se ? b/se : (b ? Infinity : 0);
-  if(!(Math.abs(t) >= TREND_MIN_T)) return null;
-  const i0 = pk[0].i, i1 = pk[n-1].i;
-  return { n, jeWoche:b*7, von:i0, bis:i1, y0:a+b*i0, y1:a+b*i1 };
-}
-function trendText(tr){ return (tr.jeWoche<0?'−':'+')+nf(Math.abs(tr.jeWoche),2)+' mmol/l je Woche'; }
-
-/* EINE Baustelle fuer den Blutzucker-Eintrag im Register. REG() ruft sie mit 'alle'
-   (das ist die Kachel), das Modal mit der gewaehlten Sicht. Zwei Aufrufe, eine
-   Rechenstelle – der Umschalter im Modal aendert die Kachel deshalb NICHT. */
-function bzDefBauen(sicht){
-  const R = refWerte(), s = serieBZ(sicht), roh = bzRoh(sicht), tr = bzTrend(s);
-  const nRoh = roh.length, tage = s.filter(x => x.v!==null).length, fehlt = s.length - tage;
-  const F = bzFensterDaten();
-  let satz;
-  if(!nRoh){
-    satz = sicht==='alle' ? 'Noch kein Blutzuckerwert erfasst.'
-                          : 'Für «'+bzName(BZ_SICHT,sicht)+'» liegt noch keine Messung vor.';
-  } else {
-    /* Steht der Zeitraum auf «Alles», SIND Fenster und ganze Reihe dasselbe – dann nur
-       einmal. Der Trend steht in der Legende mit seiner Zahl der Messtage; ihn hier
-       zu wiederholen war dieselbe Aussage an zwei Stellen. */
-    satz = (UI.bzFenster===0)
-      ? nRoh+' Messung'+(nRoh===1?'':'en')+' an '+tage+' von '+s.length+' Tagen'+
-        (fehlt ? ', an '+fehlt+' nicht — dort ist die Linie gestrichelt' : '')+
-        '. Spanne '+nf(F.min,1)+' bis '+nf(F.max,1)+'.'
-      : (F.n ? F.n+' Messung'+(F.n===1?'':'en')+' an '+F.tage+' Tag'+(F.tage===1?'':'en')+
-               ', Spanne '+nf(F.min,1)+' bis '+nf(F.max,1)+'.'
-             : 'Im gewählten Zeitraum liegt keine Messung.')+
-        ' Ganze Reihe: '+nRoh+' an '+tage+' von '+s.length+' Tagen'+
-        (fehlt ? ', an '+fehlt+' nicht — dort ist die Linie gestrichelt.' : '.');
-  }
-  return { key:'bz', label:'Blutzucker Durchschnitt', einheit:'mmol/l', dez:1, gut:-1,
-           farbe:'var(--k-l1)', s, zone:[R.low,R.high], zoneName:'Referenzbereich',
-           zoneRand:true, refAvg:R.avg, trend:tr, sicht, satz };
-}
-
 /* ============================================================================
    REG – das Kennzahl-Register. EINE Rechenstelle je Kennzahl.
    Kachel, Vollbild-Ueberschrift und Einordnungssatz lesen alle aus demselben def.
    ========================================================================== */
 function REG(){
   const H = heute();
-  const gs = serieGewicht(), tqs = serieTHQ(),
+  const gs = serieGewicht(), tqs = serieTHQ(), bzs = serieBZ(),
         sys = serieBD('sys'), dia = serieBD('dia'),
         sls = serieFitbit('schlaf'), scs = serieFitbit('schritte'),
         tks = serieTrinken(), tw = serieTellerWochen();
@@ -11996,10 +11598,17 @@ function REG(){
       s:tqs, zone:[0.80,0.90], satz });
   })();
 
-  /* --- 3 Blutzucker Durchschnitt --- */
-  /* Die Kachel zeigt IMMER alle Messpunkte; die Sicht im Modal aendert sie nicht.
-     Die Zone kommt aus refWerte() – die fest verdrahteten 4,0 bis 7,0 sind weg. */
-  defs.push(bzDefBauen('alle'));
+  /* --- 3 Blutzucker nuechtern --- */
+  (function(){
+    const n = bzs.filter(x=>x.v!==null).length, fehlt = bzs.length - n, le = letzterE(bzs);
+    const satz = le
+      ? 'Der Streifen ist der Zielbereich 4,0 bis 7,0 mmol/l. An '+n+' von '+bzs.length+' Tagen seit der ersten Messung '+
+        'wurde nüchtern gemessen, an '+fehlt+' nicht — dort ist die Linie gestrichelt, sie zeigt keinen Wert an. '+
+        'Der Schnitt über alle Messungen liegt bei '+nf(mittelAlle(bzs),1)+' mmol/l.'
+      : 'Noch kein Nüchternwert erfasst.';
+    defs.push({ key:'bz', label:'Blutzucker nüchtern', einheit:'mmol/l', dez:1, gut:-1, farbe:L1,
+      s:bzs, zone:[4.0,7.0], satz });
+  })();
 
   /* --- 4 Blutdruck --- */
   (function(){
@@ -12219,7 +11828,7 @@ function renderWoche(){
     const von = a<0 ? 0 : a, bis = (b<0 ? s.length-1 : b)+1;
     return { a:schnitt(s,von,bis), vor:schnitt(s,von-7,von), n:zaehl(s,von,bis) };
   };
-  const g = inWoche(serieGewicht()), bz = inWoche(serieBZ('nue')),
+  const g = inWoche(serieGewicht()), bz = inWoche(serieBZ()),
         sc = inWoche(serieFitbit('schritte')), sl = inWoche(serieFitbit('schlaf')),
         tk = inWoche(serieTrinken()), t = tellerRollend(ende);
   const saetze = [
@@ -12244,16 +11853,11 @@ const M = { l:60, r:30, t:20, b:38, h:400 };
 
 function startAusschnitt(d){
   const n = (d.sZ || d.s).length;
-  /* Beim Blutzucker bestimmt der Zeitraum-Umschalter den Ausschnitt – sonst zeigte das
-     Bild 56 Tage, waehrend die Zahl darueber 7 Tage mittelt. */
-  let w = d.start0 || (d.woche ? 13 : 56);
-  if(d.key==='bz') w = UI.bzFenster > 0 ? UI.bzFenster : n;
+  const w = d.start0 || (d.woche ? 13 : 56);
   return { a:Math.max(0, n-w), b:Math.max(1, n-1) };
 }
-/* Der offene Eintrag: beim Blutzucker die gewaehlte Sicht, sonst der Registereintrag. */
-function defOffen(key){ const k = key || UI.offen; return k==='bz' ? bzDefBauen(UI.bzSicht) : defVon(k); }
 function oeffneVoll(key){
-  const d = defOffen(key);
+  const d = defVon(key);
   if(!d) return;
   UI.offen = key;
   UI.str = null;
@@ -12265,34 +11869,25 @@ function schliesseVoll(){ UI.offen = null; UI.view = null; UI.str = null; el('vo
 function renderVoll(){
   const m = el('vollModal');
   if(!UI.offen){ m.hidden = true; m.innerHTML = ''; return; }
-  const d = defOffen(), k = kachelDaten(d);
-  if(!UI.view) UI.view = startAusschnitt(d);
-  /* Kopfzeile beim Blutzucker: der Titel nennt beide Wahlen, die grosse Zahl ist der
-     Durchschnitt im gewaehlten Zeitfenster – nicht der letzte Messtag. Die Kachel zeigt
-     den letzten Messtag; damit die beiden nicht verwechselt werden, steht die Wahl im
-     Titel und nicht irgendwo klein darunter. */
-  const bzF = d.key==='bz' ? bzFensterDaten() : null;
-  const kopfTitel = bzF ? d.label+' · '+bzName(BZ_SICHT,UI.bzSicht)+' · '+bzName(BZ_FENSTER,UI.bzFenster) : d.label;
-  const kopfWert  = bzF ? (bzF.avg!==null ? 'Ø '+nf(bzF.avg,1) : '—') : k.wert;
+  const d = defVon(UI.offen), k = kachelDaten(d);
   /* Nur der ERSTE Aufbau blendet auf. Jeder Neuaufbau danach traegt kein .frisch –
      sonst blitzt der ganze Dialog bei jedem Klick einmal weg und wieder her. */
   const frisch = m.hidden ? ' frisch' : '';
   m.hidden = false;
   m.innerHTML = '<div class="schirm'+frisch+'" id="vollSchirm"><div class="dialog'+frisch+(strOffen(d)?' mit-erf':'')+'" id="vollDialog">'+
     '<div class="d-kopf"><div>'+
-      '<div class="d-titel">'+esc(kopfTitel)+'</div>'+
-      '<div class="d-wert"><b>'+esc(kopfWert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
+      '<div class="d-titel">'+esc(d.label)+'</div>'+
+      '<div class="d-wert"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
     '</div><div class="d-kopf-rechts">'+
       (STR[d.key] ? '<button type="button" class="knopf'+(strOffen(d)?' still':'')+'" id="vollErf">'+(strOffen(d)?'Erfassen schliessen':'Erfassen')+'</button>' : '')+
       '<button type="button" class="rund" id="vollZu">×</button></div></div>'+
     '<div class="d-koerper'+(strOffen(d)?' mit-erf':'')+'">'+
-      '<div class="d-links">'+(d.key==='bz'?bzSchalter():'')+'<div id="buehne" style="width:100%"></div>'+legendeVoll(d)+'</div>'+
+      '<div class="d-links"><div id="buehne" style="width:100%"></div>'+legendeVoll(d)+'</div>'+
       (strOffen(d) ? streifenHTML(d) : '')+
     '</div>'+
     '<div class="d-fuss"><div class="d-satz" id="vollSatz">'+esc(d.satz)+'</div>'+
     '<div class="d-hint">Ziehen · Scrollen zum Zoomen · Doppelklick zurück</div></div>'+
     (d.ziellinie ? zielFormular() : '')+
-    (d.key==='bz' ? refFormular() : '')+
   '</div></div>';
   el('vollZu').addEventListener('click', schliesseVoll);
   el('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
@@ -12300,48 +11895,7 @@ function renderVoll(){
   if(eb) eb.addEventListener('click', () => erfSchalten(d));
   if(strOffen(d)) bindeStreifen(d);
   if(d.ziellinie) bindeZielFormular();
-  if(d.key==='bz'){ bindeBzSchalter(); bindeRefFormular(); }
   zeichneVoll();
-}
-/* Umschalter im Blutzucker-Modal: Messpunkt und Zeitraum. Beide setzen den Ausschnitt
-   zurueck (UI.view=null), sonst zeigte das Bild noch den Zoom der vorigen Wahl. */
-function bzSchalter(){
-  const grp = (titel, liste, akt, attr) => '<div class="schaltgrp"><span>'+titel+'</span>'+
-    liste.map(x => '<button type="button" class="schalt'+(x[0]===akt?' an':'')+'" '+attr+'="'+x[0]+'">'+esc(x[1])+'</button>').join('')+'</div>';
-  return '<div class="schaltreihe">'+
-    grp('MESSPUNKT', BZ_SICHT, UI.bzSicht, 'data-bzs')+
-    grp('ZEITRAUM', BZ_FENSTER, UI.bzFenster, 'data-bzf')+'</div>';
-}
-function bindeBzSchalter(){
-  document.querySelectorAll('[data-bzs]').forEach(b => b.addEventListener('click', () => {
-    UI.bzSicht = b.dataset.bzs; UI.view = null; renderVoll(); }));
-  document.querySelectorAll('[data-bzf]').forEach(b => b.addEventListener('click', () => {
-    UI.bzFenster = Number(b.dataset.bzf); UI.view = null; renderVoll(); }));
-}
-/* Die drei Referenzwerte, editierbar. Gleiche Bauart wie das Zielformular beim Gewicht:
-   aendern, in STATE schreiben, Datei schreiben – und bei Fehlschlag melden, nicht
-   stillschweigend im Arbeitsspeicher liegen lassen. */
-function refFormular(){
-  const R = refWerte();
-  const f = (k,l,v) => '<label>'+l+'<input type="text" inputmode="decimal" data-ref="'+k+'" value="'+nf(v,1)+'"></label>';
-  return '<div class="zielform">'+
-    f('low','Unterer Wert (mmol/l)', R.low)+
-    f('avg','Durchschnitt (mmol/l)', R.avg)+
-    f('high','Oberer Wert (mmol/l)', R.high)+
-    '<span style="font-size:12px;color:var(--k-dim);margin-left:auto;max-width:44ch">Referenz Stoffwechselgesunder (WHO · ADA · CGM-Studie). Wird in der Monitoring.json gespeichert.</span></div>';
-}
-function bindeRefFormular(){
-  document.querySelectorAll('[data-ref]').forEach(inp => {
-    inp.addEventListener('change', async () => {
-      const v = num(inp.value);
-      if(v===null) return;
-      if(!STATE.glucose) return;
-      STATE.glucose.referenz = Object.assign({}, refWerte(), { [inp.dataset.ref]: v });
-      const ok = await writeFile();
-      if(!ok) meldeSchreibfehler();
-      const view = UI.view; renderAlles(); UI.view = view; renderVoll();
-    });
-  });
 }
 function zielFormular(){
   const Z = zielWerte();
@@ -12370,7 +11924,7 @@ function bindeZielFormular(){
 function zeichneVoll(){
   const b = el('buehne');
   if(!b) return;
-  const d = defOffen(), Wd = b.clientWidth || 900;
+  const d = defVon(UI.offen), Wd = b.clientWidth || 900;
   const S = d.sZ || d.s, n = S.length;
   if(!n){ b.innerHTML = '<div class="leerhinweis">Für diese Kennzahl liegt noch keine Messung vor.</div>'; return; }
   const v = UI.view, pw = Wd - M.l - M.r, ph = M.h - M.t - M.b;
@@ -12381,8 +11935,6 @@ function zeichneVoll(){
     .concat(d.ziel ? d.ziel.map(p=>p.v) : [])
     .concat(d.prog ? d.prog.map(p=>p.v) : [])
     .concat(entwurf.map(p=>p.v))
-    .concat(d.refAvg!=null ? [d.refAvg] : [])
-    .concat(d.trend ? [d.trend.y0, d.trend.y1] : [])
     .filter(x => x!==null && x!==undefined);
   if(!alle.length){ b.innerHTML = '<div class="leerhinweis">Für diese Kennzahl liegt noch keine Messung vor.</div>'; return; }
   let mn = Math.min.apply(null, alle), mx = Math.max.apply(null, alle);
@@ -12406,14 +11958,6 @@ function zeichneVoll(){
   }
   if(d.zone) g += '<rect x="'+M.l+'" y="'+Y(d.zone[1]).toFixed(1)+'" width="'+pw+'" height="'+Math.abs(Y(d.zone[0])-Y(d.zone[1])).toFixed(1)+'" fill="var(--k-l0)" opacity=".1"></rect>';
   if(d.marke) g += '<line x1="'+M.l+'" y1="'+Y(d.marke).toFixed(1)+'" x2="'+(Wd-M.r)+'" y2="'+Y(d.marke).toFixed(1)+'" stroke="var(--k-warn)" stroke-width="1" opacity=".8"></line>';
-  /* Die drei Referenzwerte als eigene Linien. Der graue Streifen sagt WO das Band
-     liegt, die Linien sagen GENAU wo seine Kanten sind – bei einer Flaeche, die fast
-     das ganze Bild fuellt, ist die Kante die Information. Unten und oben tragen
-     dieselbe Farbe und dasselbe Muster, weil sie dasselbe sind: die Grenzen. Die Mitte
-     ist kein Grenzwert und traegt darum eine andere Farbe und ein feineres Muster. */
-  const zLinie = (val,farbe,dash,br) => '<line x1="'+M.l+'" y1="'+Y(val).toFixed(1)+'" x2="'+(Wd-M.r)+'" y2="'+Y(val).toFixed(1)+'" stroke="'+farbe+'" stroke-width="'+br+'" stroke-dasharray="'+dash+'" opacity=".95"></line>';
-  if(d.zone && d.zoneRand){ g += zLinie(d.zone[0],'var(--k-warn)','7 5',1.4); g += zLinie(d.zone[1],'var(--k-warn)','7 5',1.4); }
-  if(d.refAvg!=null) g += zLinie(d.refAvg,'var(--k-akzent)','3 4',1.2);
 
   let inhalt = '';
   const zeichne = (s, farbe, stark) => {
@@ -12458,9 +12002,6 @@ function zeichneVoll(){
       ? '<polyline points="'+pts.map(p => X(p.i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ')+'" fill="none" stroke="'+farbe+'" stroke-width="'+br+'" stroke-dasharray="'+dash+'" stroke-linejoin="round"></polyline>' : '';
     if(d.prog) inhalt += linie(d.prog, d.farbe, 1.4, '1.5 4');
     if(d.ziel) inhalt += linie(d.ziel, 'var(--k-warn)', 1.7, '9 6');
-    if(d.trend) inhalt += '<line x1="'+X(d.trend.von).toFixed(1)+'" y1="'+Y(d.trend.y0).toFixed(1)+
-      '" x2="'+X(d.trend.bis).toFixed(1)+'" y2="'+Y(d.trend.y1).toFixed(1)+
-      '" stroke="'+d.farbe+'" stroke-width="1.6" stroke-dasharray="10 4 2 4" opacity=".95"></line>';
   }
   /* Der getippte, noch nicht gespeicherte Wert: hohler Kreis an seiner Stelle. */
   entwurf.forEach(p => {
@@ -12722,13 +12263,13 @@ function schreibeWerte(D, d){
    jede Eingabe, die nicht in der Datei landet, sagt es sichtbar im Kopf. */
 let _hinweisTimer = null;
 function meldeSchreibfehler(){
-  console.warn('Nicht gespeichert – der Wert steht nur im Fenster.');
+  console.warn('Nicht in die Datei geschrieben – der Wert steht nur im Fenster.');
   setConn('off');
   const h = el('schreibHinweis');
   if(!h) return;
-  h.textContent = ghCfg
+  h.textContent = fileHandle
     ? 'Nicht gespeichert — der Wert steht nur im Fenster.'
-    : 'Nicht gespeichert — kein Datenspeicher verbunden.';
+    : 'Nicht gespeichert — keine Datei verbunden.';
   h.hidden = false;
   clearTimeout(_hinweisTimer);
   _hinweisTimer = setTimeout(() => { h.hidden = true; }, 8000);
@@ -12754,9 +12295,10 @@ function renderAlles(){
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
-   Datenkanal – ENTFALLEN.
-   Light hatte hier eine eigene, zeichengleiche Kopie des Dateiwegs. Sie ist gestrichen.
-   Die Namen zeigen jetzt auf die Fassung aus Full, eine Ebene darueber – eine Quelle,
+   Datei-Verbindung – ENTFALLEN.
+   Light hatte hier eine eigene, zeichengleiche Kopie: idb, saveHandle, loadHandle,
+   verifyPermission, applyState, writeFile, loadFromHandle, setConn. Sie ist gestrichen.
+   Die Namen zeigen jetzt auf die Fassung aus Full, eine Ebene darueber – eine Datei,
    ein STATE, ein Verbinden-Knopf. Light schreibt weiter mit writeFile() wie bisher.
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -12874,12 +12416,7 @@ function streifenEntwurf(d, S){
   const push = v => { if(v!==null && isFinite(v)) out.push({ i, v }); };
   if(d.key==='thq'){ const t = num(w.taille), h = num(w.huefte); if(t>0 && h>0) push(t/h); }
   else if(d.key==='bd'){ push(num(w.sys)); push(num(w.dia)); }
-  else if(d.key==='bz'){
-    /* Der getippte Wert gehoert nur ins Bild, wenn die gewaehlte Sicht ihn auch zeigt.
-       Vorher stand er nur beim Nuechternwert – ein Wert nach dem Essen verschwand. */
-    const nu = UI.str.slot==='nüchtern';
-    if(UI.bzSicht==='alle' || (UI.bzSicht==='nue' && nu) || (UI.bzSicht==='pre' && nu) || (UI.bzSicht==='post' && !nu)) push(num(w.bz));
-  }
+  else if(d.key==='bz'){ if(UI.str.slot==='nüchtern') push(num(w.bz)); }
   else push(num(w[d.key]));
   return out;
 }
@@ -12991,16 +12528,8 @@ function legendeVoll(d){
     if(d.ziel && d.ziel.length) p.push([legStrich('var(--k-warn)',1.7,'9 6'),'Ziel — noch nicht passiert']);
     if(d.prog && d.prog.length) p.push([legStrich(d.farbe,1.4,'1.5 4'),'Vorschau — Fortschreibung der letzten vier Wochen']);
   }
-  /* Ein Symbol fuer Flaeche UND Kante – sonst stuenden «Referenzbereich» und
-     «Referenzgrenzen» als zwei Eintraege da und meinten dasselbe. */
-  if(d.zone) p.push([d.zoneRand
-      ? '<svg width="26" height="12" style="display:block;flex:0 0 auto"><rect width="26" height="12" fill="var(--k-l0)" opacity=".2"></rect>'+
-        '<line x1="0" y1="1" x2="26" y2="1" stroke="var(--k-warn)" stroke-width="1.4" stroke-dasharray="4 3"></line>'+
-        '<line x1="0" y1="11" x2="26" y2="11" stroke="var(--k-warn)" stroke-width="1.4" stroke-dasharray="4 3"></line></svg>'
-      : '<svg width="26" height="12" style="display:block;flex:0 0 auto"><rect width="26" height="12" fill="var(--k-l0)" opacity=".2"></rect></svg>',
-    (d.zoneName||'Zielbereich')+' '+nf(d.zone[0],d.dez)+' bis '+nf(d.zone[1],d.dez)+(d.einheit?' '+d.einheit:'')]);
-  if(d.refAvg!=null) p.push([legStrich('var(--k-akzent)',1.2,'3 4'),'Referenz-Durchschnitt '+nf(d.refAvg,d.dez)+(d.einheit?' '+d.einheit:'')]);
-  if(d.trend) p.push([legStrich(d.farbe,1.6,'10 4 2 4'),'Trend '+trendText(d.trend)+' (aus '+d.trend.n+' Messtagen)']);
+  if(d.zone) p.push(['<svg width="26" height="12" style="display:block;flex:0 0 auto"><rect width="26" height="12" fill="var(--k-l0)" opacity=".2"></rect></svg>',
+    'Zielbereich '+nf(d.zone[0],d.dez)+' bis '+nf(d.zone[1],d.dez)+(d.einheit?' '+d.einheit:'')]);
   if(d.marke) p.push([legStrich('var(--k-warn)',1,null),'Schwelle bei '+d.marke+' '+d.einheit]);
   if(strOffen(d)) p.push(['<svg width="26" height="12" style="display:block;flex:0 0 auto"><circle cx="13" cy="6" r="5" fill="none" stroke="var(--k-akzent)" stroke-width="1.6"></circle></svg>','noch nicht gespeichert']);
   if(!p.length) return '';
@@ -13249,7 +12778,7 @@ function baueBericht(){
         bits.push((k.delta ? '<span class="w">'+esc(k.delta)+'</span> ' : '')+esc(k.dtext));
         bits.push(n+(d.woche?' abgeschlossene Woche'+(n===1?'':'n'):' Messung'+(n===1?'':'en'))+
           (a&&b ? ' '+dSpanne(a.d, b.d) : ''));
-        if(d.zone) bits.push((d.zoneName||'Zielbereich')+' '+nf(d.zone[0],d.dez)+'–'+nf(d.zone[1],d.dez)+(d.einheit&&!d.woche?' '+d.einheit:''));
+        if(d.zone) bits.push('Zielbereich '+nf(d.zone[0],d.dez)+'–'+nf(d.zone[1],d.dez)+(d.einheit&&!d.woche?' '+d.einheit:''));
         return '<div class="kz"><div class="n">'+esc(d.label)+'</div>'+
           '<div class="z"><b>'+esc(k.wert)+'</b>'+(d.einheit?'<span>'+esc(d.einheit)+'</span>':'')+'</div>'+
           '<div class="e">'+bits.join(' · ')+'</div>'+
@@ -13518,7 +13047,7 @@ function renderHilfe(){
         'Mehrere Messungen am selben Tag sind erlaubt, jede mit ihrer Uhrzeit.</p>'+
       '<p>Das <b>Tellermodell</b> wird nicht eingetippt, sondern abgehakt: Reiter <b>Essen</b>, auf die Viertel '+
         'tippen. Sind alle drei gesetzt, bekommt der Teller einen Ring — das zählt als erfüllte Mahlzeit.</p>'+
-      '<p>Gespeichert wird direkt in die <b>monitoring.json</b> im verbundenen Repo. Ohne Verbindung sagt es der Streifen '+
+      '<p>Gespeichert wird direkt in die verbundene <b>Monitoring.json</b>. Ohne Verbindung sagt es der Streifen '+
         'und bleibt offen, damit nichts verloren geht.</p>'+
     '</div>'+
 
