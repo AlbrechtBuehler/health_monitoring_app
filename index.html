@@ -2843,7 +2843,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     // Flohsamen-Strich, beide auf demselben Pixel). Dieselbe Grenze wie fuer die
     // Sonntagsmarken – die Bildunterschrift nennt die Marker weiterhin.
     const eng=(t1-t0)>210*TAG;
-    let s="", soAn=false;
+    let s="", soAn=false, pEtiketten=[];
     (STATE.markers||[]).forEach(function(m){
       if(m.kind==="band"&&m.from&&m.to){
         const a=Math.max(t0,D(m.from)), b=Math.min(t1,D(m.to));
@@ -2861,11 +2861,31 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
         const x=xt(t), rechts=x>g.m.l+g.iw*0.7;
         const platz=rechts?(x-6-g.m.l):(g.m.l+g.iw-(x+6));
         s+='<line x1="'+x.toFixed(1)+'" y1="'+g.m.t+'" x2="'+x.toFixed(1)+'" y2="'+grund.toFixed(1)+'" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3"/>';
-        const ptxt=kurz(m.label)+" "+kurzD(m.date);
-        if(!eng&&CHART.textW(ptxt)<=platz) s+=txtFrei(g,x+(rechts?-6:6),g.m.t+29,ptxt,"var(--faint)",rechts?"end":"start");
-        else if(!eng&&CHART.textW(kurz(m.label))<=platz) s+=txtFrei(g,x+(rechts?-6:6),g.m.t+29,kurz(m.label),"var(--faint)",rechts?"end":"start");
+        if(eng) return;
+        // Nicht sofort zeichnen: erst sammeln, dann stapeln. Zwei Marken am selben Tag
+        // legten ihre Etiketten sonst uebereinander (gemessen 14.08.2026: drei Paare im
+        // Gewichtsverlauf, bis 325 px breit ineinander).
+        const ptxt=kurz(m.label)+" "+kurzD(m.date), pkurz=kurz(m.label);
+        const txt=CHART.textW(ptxt)<=platz?ptxt:(CHART.textW(pkurz)<=platz?pkurz:null);
+        if(txt) pEtiketten.push({x:x+(rechts?-6:6),txt:txt,w:CHART.textW(txt),anch:rechts?"end":"start"});
       }else if(m.kind==="sundays"){ soAn=true; }
     });
+    // Die gesammelten Etiketten stapeln: jedes sucht die oberste Zeile, in der es keinen
+    // Nachbarn beruehrt. Passt keine Zeile mehr ins Bild, faellt das Etikett weg statt
+    // sich zu ueberlagern - dieselbe Zusicherung wie bei stackLabels, und die
+    // Bildunterschrift nennt die Marker ohnehin.
+    const M_ZH=14, M_Y0=g.m.t+29, M_MAX=Math.max(1,Math.floor((g.ih-32)/M_ZH));
+    const belegt=[];
+    pEtiketten.map(function(e){
+      return {e:e, a:(e.anch==="end"?e.x-e.w:e.x), b:(e.anch==="end"?e.x:e.x+e.w)};
+    }).sort(function(p,q){ return p.a-q.a; }).forEach(function(k){
+      let z=0;
+      while(z<M_MAX&&(belegt[z]||[]).some(function(o){ return k.a<o.b+4&&k.b>o.a-4; })) z++;
+      if(z>=M_MAX) return;
+      (belegt[z]=belegt[z]||[]).push({a:k.a,b:k.b});
+      s+=txtFrei(g,k.e.x,M_Y0+z*M_ZH,k.e.txt,"var(--faint)",k.e.anch);
+    });
+
     // Sonntagsmarken nur dort, wo sie noch einzelne Marken sind.
     if(soAn&&!eng){
       for(let d=plusTage(new Date(t0),0); d.getTime()<=t1; d=plusTage(d,1)){
@@ -6090,10 +6110,10 @@ if(typeof window._kpiBarSync==="function") window._kpiBarSync();
 (function(){
   const help=[
     {grp:"Kennzahlen oben (KPI-Kacheln)"},
-    {h:"Gewicht",t:"Dein zuletzt am Mess-Sonntag erfasstes Gewicht und wie viel du seit dem Startpunkt (132,6 kg) insgesamt abgenommen hast."},
+    {h:"Gewicht",t:"Dein zuletzt am Mess-Sonntag erfasstes Gewicht und wie viel du seit dem Startpunkt{{start}} insgesamt abgenommen hast."},
     {h:"Ø Tempo gesamt",t:"Durchschnittliche Abnahme pro Woche, gerechnet über die <b>ganze Strecke seit Start</b>. Enthält noch den schnellen Anfang (Wasser/Glykogen) und flacht mit der Zeit natürlich ab."},
     {h:"Ø Tempo aktuell",t:"Abnahme pro Woche, aber nur über die <b>letzten 2 Wochen</b>. Zeigt das jüngere, realistischere Tempo – das, was gerade nachhaltig passiert. Ein Bereich von 0,5–1,0 kg/Woche gilt langfristig als gesund."},
-    {h:"BMI",t:"Body-Mass-Index = Gewicht im Verhältnis zur Grösse (181 cm). Grober Richtwert: unter 25 Normalgewicht, 25–30 Übergewicht, über 30 Adipositas. Sagt nichts über die Fettverteilung – dafür ist der THQ da."},
+    {h:"BMI",t:"Body-Mass-Index = Gewicht im Verhältnis zur Grösse{{groesse}}. Grober Richtwert: unter 25 Normalgewicht, 25–30 Übergewicht, über 30 Adipositas. Sagt nichts über die Fettverteilung – dafür ist der THQ da."},
     {h:"THQ",t:"Taille-Hüft-Quotient = Taille ÷ Hüfte. Misst, wie viel Fett am Bauch sitzt (das stoffwechselrelevante). Männer: unter 0,90 unauffällig, 0,90–1,0 erhöht, über 1,0 stark erhöht. Sinkt beim Abnehmen oft zuerst."},
     {h:"Im Ziel",t:"Anteil deiner Blutzucker-Messungen, die im ärztlichen Zielbereich liegen (vor dem Essen unter 7,2 · nach dem Essen unter 10,0 mmol/L). Je höher der Prozentwert, desto besser."},
     {h:"Stabilität",t:"<b>σ (Sigma)</b> ist die Schwankungsbreite deiner Blutzuckerwerte in mmol/L – wie stark sie um den Mittelwert pendeln. <b>Orientierung: unter 2,0 mmol/L = stabil, über 2,0 = stärkere Schwankungen.</b> Klein ist gut: ruhige Werte ohne wilde Spitzen sind stoffwechselgesünder als starke Ausschläge, selbst bei gleichem Durchschnitt. Die Spanne zeigt den tiefsten und höchsten Wert. <b>Wichtig:</b> Die 2,0-Grenze stammt aus der kontinuierlichen Messung (CGM) und ist für punktuelle Fingermessungen nicht exakt validiert – sie dient als grobe Orientierung, nicht als klinischer Grenzwert. Verbindlich bleibt die ärztliche Einschätzung."},
@@ -6113,9 +6133,19 @@ if(typeof window._kpiBarSync==="function") window._kpiBarSync();
     {h:"Trend statt Einzelwert",t:"Einzelne Tage schwanken immer (Wasser, Salz, Hitze). Entscheidend ist die Richtung über Wochen, nicht der einzelne Punkt. Gewicht wird nur sonntags erfasst, damit das Tagesrauschen gar nicht erst ablenkt."},
   ];
   const body=document.getElementById("helpBody");
+  // Startgewicht und Koerpergroesse kommen aus STATE, nicht aus dem Quelltext: das
+  // App-Repo ist oeffentlich. Diese IIFE laeuft in boot(), also nach applyState - die
+  // Werte stehen hier bereits. Fehlen sie (leeres Grundgeruest), bleibt der Satz ohne
+  // Klammer stehen und ist trotzdem vollstaendig.
+  const _hZahl=function(v){ return v==null||v===""?null:String(v).replace(".",","); };
+  const _hStart=_hZahl((STATE.weight||{}).startRef), _hGroesse=_hZahl((STATE.weight||{}).heightCm);
+  const _hFuell=function(t){
+    return t.replace("{{start}}", _hStart?" ("+_hStart+" kg)":"")
+            .replace("{{groesse}}", _hGroesse?" ("+_hGroesse+" cm)":"");
+  };
   body.innerHTML=help.map(x=>x.grp
     ? '<div class="help-grp">'+x.grp+'</div>'
-    : '<div class="help-sec"><h3>'+x.h+'</h3><p>'+x.t+'</p></div>').join("");
+    : '<div class="help-sec"><h3>'+x.h+'</h3><p>'+_hFuell(x.t)+'</p></div>').join("");
   const modal=document.getElementById("helpModal");
   const open=()=>modal.hidden=false, close=()=>modal.hidden=true;
   document.getElementById("helpBtn").onclick=open;
