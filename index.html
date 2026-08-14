@@ -672,13 +672,12 @@
   <header class="topbar">
     <div>
       <div class="eyebrow" id="kopfOrt">Monitoring</div>
-      <h1>MOPP+ | <span id="updated">—</span></h1>
-      <p class="sub" id="kopfName">Monitoring APP</p>
-      <!-- Das Tagesdatum stand bis 14.08.2026 rechts zwischen den Knoepfen und las sich
-           dort wie eine Beschriftung. Es gehoert in den Kopf: die Zahl neben «MOPP+» ist
-           der Stand der DATEN, nicht der heutige Tag - zwei verschiedene Dinge, die
-           nebeneinander stehen muessen, damit man sie auseinanderhaelt. -->
-      <p class="sub" id="heuteText" style="margin-top:2px;opacity:.8"></p>
+      <!-- Eine Zeile, ein Datum: der heutige Tag. Der Stand der Datei stand hier bis zum
+           14.08.2026 und wurde als heutiges Datum gelesen; die Zwischenstufe mit zwei
+           beschrifteten Zeilen darunter war Rauschen. In der eingefrorenen Kopie steht
+           hier nicht «heute» - das waere der Tag, an dem die Fachperson die Datei
+           oeffnet, und der sagt ueber die Werte nichts - sondern der Tag der Kopie. -->
+      <h1>MOPP+ | <span id="kopfDatum">—</span></h1>
     </div>
     <div class="topbar-btns no-print">
       <!-- Der Verbinden-Knopf ist geteilt: eine Datei, ein STATE, beide Welten. -->
@@ -1525,8 +1524,6 @@ const CHART=(function(){
 // fuer den Arzt-Export, der boot() ebenfalls durchlaeuft.
 function _kopfFuellen(){
   const P=(STATE&&STATE.patient)||{};
-  const nEl=document.getElementById("kopfName");
-  if(nEl) nEl.textContent = P.name ? (P.name+"s Monitoring APP") : "Monitoring APP";
   const oEl=document.getElementById("kopfOrt");
   if(oEl){
     // Schweizer Adresse: vier Ziffern Postleitzahl, dahinter der Ort. Passt das
@@ -6074,7 +6071,8 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
 if(typeof window._kpiBarSync==="function") window._kpiBarSync();
 })();
 
-document.getElementById("updated").textContent=STATE.updated;
+/* Das Feld #updated neben «MOPP+» ist am 14.08.2026 entfallen - der Stand der Datei
+   steht jetzt beschriftet im Kopf («Daten vom …», gesetzt in renderAlles()). */
 
 /* Hilfe-Modal */
 (function(){
@@ -6658,15 +6656,18 @@ const EXPORT_AREAS=[
   {key:"fitbit",  label:"Kreislauf",          on:true},
   {key:"befinden",label:"Befinden",           on:true},
   {key:"context", label:"Kontext",            on:true},
-  /* Der Akten-Reiter geht immer mit (14.08.2026, auf Albrechts Ansage): Messwerte,
-     Labor, Krankengeschichte und Medikation sind das, was eine Fachperson lesen will -
-     sie zur Auswahl zu stellen hiess, sie versehentlich weglassen zu koennen.
-     Abwaehlbar bleibt allein der KONTEXT (Wochen-Rueckblick): der ist Tagebuch und
-     gehoert nicht in jede Hand. */
-  {key:"table",   label:"Messwerte (Tabelle)",on:true, fixed:true},
-  {key:"lab",     label:"Labor",              on:true, fixed:true},
-  {key:"history", label:"Krankengeschichte",  on:true, fixed:true},
-  {key:"meds",    label:"Medikation",         on:true, fixed:true},
+  /* Alle zehn Zeilen sind Schalter. Der Akten-Reiter stand am 14.08.2026 kurz als
+     «immer dabei» fest - das war die falsche Lesart von «der ganze Aktentab muss mit»:
+     gemeint war die VOREINSTELLUNG, nicht eine Sperre. Alles steht darum auf an, und
+     abgewaehlt wird, was im Einzelfall nicht mitsoll. */
+  {key:"table",   label:"Messwerte (Tabelle)",on:true},
+  {key:"lab",     label:"Labor",              on:true},
+  {key:"history", label:"Krankengeschichte",  on:true},
+  {key:"meds",    label:"Medikation",         on:true},
+  /* Die Person selbst - Name, Geburtsdatum, Wohnort und die Diagnoseliste. Auch das ein
+     Schalter: eine Kopie fuer die Hausaerztin braucht die Stammdaten, eine, die nur eine
+     Kurve zeigen soll, nicht. */
+  {key:"stamm",   label:"Diagnosen",          on:true},
 ];
 // Zusatzschalter, kein Bereich: steuert, ob Dokumentpfade und -links mitgehen.
 // Standard aus – die Pfade zeigen auf den eigenen Rechner und die Links auf das
@@ -6830,6 +6831,11 @@ function _buildExportState(){
     S.wellbeing=[];
   }
   if(!picked.context){ S.review=[]; S.markers=[]; }
+  /* Stammdaten der Person. Angewaehlt gehen sie VOLLSTAENDIG mit (Name, Geburtsdatum,
+     Adresse, Diagnoseliste) und stehen im Akten-Abschnitt «Diagnosen». Abgewaehlt bleibt
+     nur der Name - der steht im Kopf und im Begruessungsschirm, ohne ihn traegt die
+     Kopie keinen Absender mehr. */
+  if(!picked.stamm && S.patient) S.patient={ name:S.patient.name||"" };
 
   // Ernaehrung ist am 13.08.2026 in eine eigene lokale App gezogen. In der Arztkopie
   // hat sie nichts verloren – und eine Auswahlzeile dafuer gibt es nicht mehr.
@@ -9087,10 +9093,10 @@ function renderAlles(){
      an dem die Fachperson die Datei oeffnet, und der sagt ueber die Werte nichts -
      sondern der Tag, an dem die Kopie entstand. */
   const mk = STATE.__export && STATE.__export.made;
-  const dEl = elId('heuteText');
+  const dEl = elId('kopfDatum');
   if(dEl) dEl.textContent = (window.__FROZEN && mk)
-    ? ('Kopie vom '+mk.slice(8)+'.'+mk.slice(5,7)+'.'+mk.slice(0,4))
-    : (WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear());
+    ? (mk.slice(8)+'.'+mk.slice(5,7)+'.'+mk.slice(0,4))
+    : (String(H.getDate()).padStart(2,'0')+'.'+String(H.getMonth()+1).padStart(2,'0')+'.'+H.getFullYear());
   renderKacheln();
   if(UI.offen) renderVoll();
 }
