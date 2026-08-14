@@ -785,27 +785,8 @@
   </div>
 </div>
 
-<div class="modal-bg no-print" id="metricModal" hidden>
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Verlauf">
-    <div class="modal-head">
-      <h2 id="metricTitle">Verlauf</h2>
-      <button class="modal-x" id="metricClose" aria-label="Schliessen">×</button>
-    </div>
-    <div class="modal-body">
-      <div id="metricShort" style="font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--accent);margin-bottom:6px"></div>
-      <div class="toggle" id="metricTabs" style="margin-bottom:14px">
-        <button data-mt="info">Info</button>
-        <button data-mt="anchor">Anker</button>
-        <button data-mt="chart" class="on">Verlauf</button>
-        <button data-mt="table">Tabelle</button>
-      </div>
-      <div id="metricInfo" style="display:none;font-size:14px;color:var(--muted);line-height:1.6"></div>
-      <div id="metricAnchor" style="display:none"></div>
-      <div id="metricChart"></div>
-      <div id="metricTable" style="display:none"></div>
-    </div>
-  </div>
-</div>
+<!-- Das zweite Kennzahl-Modal ist am 14.08.2026 gefallen (Vorschlag 01, eine Welt).
+     Jede Kennzahl - Kachel wie Karte - oeffnet #vollModal. -->
 
 <!-- Grosses Diagramm-Modal. Vorschau in der Karte, Details hier – samt Filtern, die in
      der Vorschau nur Moebel waren. Dieselbe Mechanik wie das Kennzahl-Modal, das im
@@ -1753,7 +1734,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
 /* ============================================================
    KENNZAHL-SYSTEM (neu, zentral) — eine Card, ein Register, ein Modal.
    Loest die verstreuten Card-/Modal-Bauten ab. Werte kommen aus STATE,
-   Regeln aus dem Register, Optik aus metricCard(). Nichts hartcodiert.
+   Regeln aus dem Register, Optik aus kzKarte(). Nichts hartcodiert.
    ============================================================ */
 (function(){
 
@@ -1788,84 +1769,15 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   const REGISTRY={};
   function register(key,def){REGISTRY[key]=def;}
 
-  /* ---- metricCard(def): rendert den sichtbaren Card-Teil (Kombi C+E) ---- */
-  function metricCard(def){
-    const m=def.compute();               // {valStr, unit, delta, state, spark}
-    const col=stColor[m.state]||"var(--ink)";
-    const card=document.createElement("button");
-    card.className="mcard";
-    card.dataset.metric=def.key;
-    card.style.cssText="position:relative;overflow:hidden;text-align:left;background:var(--surface2);"+
-      "border:1px solid var(--line);border-radius:var(--r);padding:16px 17px;width:100%;cursor:pointer;"+
-      "font-family:inherit;color:inherit;transition:border-color .15s;min-height:104px;"+
-      "display:flex;flex-direction:column;justify-content:flex-start";
-    card.onmouseenter=()=>card.style.borderColor="var(--accent)";
-    card.onmouseleave=()=>card.style.borderColor="var(--line)";
-    let deltaHtml='<div style="font-size:12px;color:var(--faint);margin-top:5px">&nbsp;</div>';
-    if(m.delta){
-      deltaHtml='<div style="font-size:12px;color:'+col+';margin-top:5px">'+m.delta.arrow+' '+m.delta.text+'</div>';
-    }
-    card.innerHTML=
-      sparkArea(m.spark,col)+
-      '<div style="position:relative">'+
-        '<div style="font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)">'+def.label+'</div>'+
-        '<div style="font-size:29px;font-weight:680;margin:6px 0 0;letter-spacing:-.01em;color:'+col+'">'+m.valStr+
-          (m.unit?'<span style="font-size:13px;color:var(--muted);font-weight:500;margin-left:3px">'+m.unit+'</span>':'')+'</div>'+
-        deltaHtml+
-      '</div>';
-    card.onclick=()=>openMetric(def.key);
-    return card;
-  }
-
   /* ============================================================
-     ZENTRALE MODAL-STEUERUNG — vier Tabs, ein Verhalten.
-     Tab-Reihenfolge: Info · Anker · Verlauf · Tabelle. Start: Verlauf.
-     Tabs ohne Inhalt werden ausgeblendet (z.B. Anker nur bei Befinden).
+     HIER STAND DIE ZWEITE WELT (bis 14.08.2026, Vorschlag 01 «eine Welt»)
+     - metricCard(): eine dritte Kartenoptik, seit dem Wegfall der KPI-Zeile ohne Platz.
+     - Die Modal-Steuerung mit vier Reitern (Info · Anker · Verlauf · Tabelle).
+     Beides ist entfallen. Es gibt EINE Karte (kzKarte) und EIN Modal (oeffneVoll),
+     beide in der Kennzahl-Schicht weiter unten. REGISTRY und register() bleiben als
+     Rechenstelle der noch nicht umgezogenen Kennzahlen; ihre Inhalte holt sich das eine
+     Modal ueber content().
      ============================================================ */
-  const modal=document.getElementById("metricModal");
-  const mTitle=document.getElementById("metricTitle");
-  const mShort=document.getElementById("metricShort");
-  const mTabs=document.getElementById("metricTabs");
-  const panes={
-    info:document.getElementById("metricInfo"),
-    anchor:document.getElementById("metricAnchor"),
-    chart:document.getElementById("metricChart"),
-    table:document.getElementById("metricTable")
-  };
-  const tabBtn=k=>[...mTabs.children].find(b=>b.dataset.mt===k);
-
-  function showPane(key){
-    Object.keys(panes).forEach(k=>{panes[k].style.display=(k===key)?"":"none";});
-    [...mTabs.children].forEach(b=>b.classList.toggle("on",b.dataset.mt===key));
-  }
-
-  function openMetric(key){
-    const def=REGISTRY[key];if(!def)return;
-    const c=def.content();               // {short, info, anchor, chart, table}
-    mTitle.textContent=def.label;
-    mShort.textContent=c.short||"";
-    panes.info.innerHTML=c.info||"";
-    panes.anchor.innerHTML=c.anchor||"";
-    panes.chart.innerHTML=c.chart||"";
-    panes.table.innerHTML=c.table||"";
-    // Tabs ohne Inhalt ausblenden
-    tabBtn("info").style.display   = c.info   ? "" : "none";
-    tabBtn("anchor").style.display = c.anchor ? "" : "none";
-    tabBtn("chart").style.display  = c.chart  ? "" : "none";
-    tabBtn("table").style.display  = c.table  ? "" : "none";
-    // Starttab: Verlauf, wenn vorhanden, sonst erster sichtbarer
-    const start = c.chart ? "chart" : (["info","anchor","table"].find(k=>c[k]));
-    showPane(start);
-    modal.hidden=false;
-    // Erst jetzt steht die Breite fest – siehe CHART: Zeichenbereich = Anzeigebreite.
-    CHART.sweep(panes.chart);
-  }
-  function closeMetric(){modal.hidden=true;CHART.hideTip();}
-
-  document.getElementById("metricClose").onclick=closeMetric;
-  modal.onclick=e=>{if(e.target===modal)closeMetric();};
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!modal.hidden)closeMetric();});
-  [...mTabs.children].forEach(b=>b.onclick=()=>{showPane(b.dataset.mt);CHART.sweep(panes.chart);});
 
   /* ---- Generischer Linien-Chart fuer das Modal (aus Punkten) ----
      Zeichnet auf dem Diagramm-Fundament: Anzeigebreite = Zeichenbereich, drei
@@ -2410,32 +2322,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   // Eine Kennzahl als Karte. Ein <button>, kein <div> mit onclick: mit der Tastatur
   // erreichbar, und der Vorleser sagt, dass hier etwas aufgeht. Die Karte selbst ist
   // die Affordanz; in der flachen Fassung traegt das Mono-Label eine gepunktete Linie.
-  function kzZelle(def,label,art){
-    const S=window.KZ_STIL, oben=art==="anker";
-    const m=def.compute();
-    const col=stColor[m.state]||"var(--ink)";
-    const zahl=Math.max(12, oben?S.anker:S.kontext);
-    const lbl=oben?11:10, ein=Math.max(11,Math.round(zahl*0.48)), sat=oben?12.5:11.5;
-    const b=document.createElement("button");
-    b.className="kz-z "+(S.karte?"kz-karte":"kz-flach");
-    b.dataset.metric=def.key;
-    if(S.karte) b.style.cssText="padding:"+(oben?"15px 16px 14px":"13px 14px 13px")+
-      ";min-height:"+(oben?Math.round(zahl*2.9):Math.round(zahl*2.9))+"px;justify-content:flex-start";
-    b.setAttribute("aria-label",(label||def.label)+": "+m.valStr+(m.unit?" "+m.unit:"")+" – Kennzahl öffnen");
-    const satzTxt=m.delta?(m.delta.arrow+" "+m.delta.text):"";
-    const zeigSatz=(oben||S.satz);
-    b.innerHTML=
-      ((S.karte&&S.spark)?sparkArea(m.spark,col,{h:26,op:.15}):"")+
-      '<span class="kz-in">'+
-        '<span class="kz-l" style="font-size:'+lbl+'px">'+(label||def.label)+'</span>'+
-        '<span class="kz-v" style="font-size:'+zahl+'px;margin-top:'+(oben?7:6)+'px;color:'+col+'">'+m.valStr+
-          (m.unit?'<span class="kz-e" style="font-size:'+ein+'px"> '+m.unit+'</span>':'')+'</span>'+
-        (zeigSatz?'<span class="kz-s" style="font-size:'+sat+'px;margin-top:'+(S.karte?5:3)+'px">'+
-          (satzTxt||"&nbsp;")+'</span>':'')+
-      '</span>';
-    b.onclick=function(){ openMetric(def.key); };
-    return b;
-  }
+  /* kzZelle() ist am 14.08.2026 entfallen - die Karte ueber der Buehne baut kzKarte(). */
 
   // Das Raster einer Etage. Die Mindestbreite kommt aus KZ_STIL: eine Karte darf nicht
   // schmaler werden als ihre Zahl – genau da wirkte der Kopf abgeschnitten.
@@ -2449,10 +2336,14 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     (eintraege||[]).forEach(function(e){
       if(!e) return;
       const key=(typeof e==="string")?e:e.key;
-      if(typeof e!=="string"&&typeof e.compute==="function") REGISTRY[key]=e;
-      const def=REGISTRY[key]; if(!def) return;
-      reihe.appendChild(kzZelle(def,(typeof e==="string"?null:e.label)||def.label,art));
-      n++;
+      // Umbau «eine Welt» (14.08.2026): was im einen Register steht, kommt von dort –
+      // eine Rechenstelle, eine Karte, ein Modal. Der Rest laeuft bis zu seinem Umzug
+      // weiter ueber REGISTRY.
+      if(typeof window._kzEins==="function"){
+        const eins=window._kzEins(key,e);
+        if(eins){ reihe.appendChild(eins); n++; return; }
+      }
+      /* Kein Rueckfallweg mehr: was _kzEins nicht kennt, gibt es nicht. */
     });
     return n?reihe:null;
   }
@@ -2463,8 +2354,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     if(typeof host==="string") host=document.getElementById(host);
     if(!host) return null;
     const o=opt||{};
-    const reihe=kzRaster(eintraege,"kontext");
-    if(!reihe) return null;
+    /* Die Buehne eines Reiters kann gezeichnet werden, BEVOR die Kennzahl-Schicht
+       gelesen ist (Zwischenspeicher, Messsonde). Dann kommt hier noch keine Karte
+       heraus. Die Reihe wird trotzdem angelegt - verborgen - und _kzNeu() fuellt sie,
+       sobald das eine Register steht. Ohne das bliebe der Reiter dauerhaft ohne Zahlen. */
+    let reihe=kzRaster(eintraege,"kontext");
+    const leer=!reihe;
+    if(leer){ reihe=document.createElement("div"); reihe.className="kz kz-kontext"; }
     const wrap=document.createElement("div"); wrap.className="kz-wrap";
     if(o.titel){
       const kopf=document.createElement("div"); kopf.className="kz-kopf";
@@ -2472,6 +2368,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       wrap.appendChild(kopf);
     }
     wrap.appendChild(reihe);
+    if(leer) wrap.hidden=true;
     host.appendChild(wrap);
     KZ_REIHEN.push({wrap:wrap,e:eintraege});
     return wrap;
@@ -2484,7 +2381,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       if(!KZ_REIHEN[i].wrap||!KZ_REIHEN[i].wrap.parentNode) KZ_REIHEN.splice(i,1);
     KZ_REIHEN.forEach(function(r){
       const alt=r.wrap.querySelector(".kz"), neu=kzRaster(r.e,"kontext");
-      if(alt&&neu) r.wrap.replaceChild(neu,alt);
+      if(alt&&neu){ r.wrap.replaceChild(neu,alt); r.wrap.hidden=false; }
     });
   };
   window._kzRegister=function(key,def){ REGISTRY[key]=def; };
@@ -2499,22 +2396,11 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   };
 
 
-  // Rendert eine Kennzahl-Gruppe (Card + Modal) in einen beliebigen Container.
-  // Dieselbe Quelle wie die Kopfreihe: ein Register, eine metricCard, ein Modal.
-  window._renderMetricGroup=function(containerId,keys){
-    const host=document.getElementById(containerId);
-    if(!host)return;
-    host.innerHTML="";
-    const grid=document.createElement("div");
-    grid.style.cssText="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px";
-    keys.forEach(key=>{ if(REGISTRY[key]) grid.appendChild(metricCard(REGISTRY[key])); });
-    host.appendChild(grid);
-  };
-
-  // Exponiere fuer Tests/Weiterbau
+  // Exponiere fuer Tests/Weiterbau. _renderMetricGroup, _metricCard und _openMetric
+  // sind am 14.08.2026 entfallen - es gibt eine Karte (kzKarte) und ein Modal
+  // (oeffneVoll), beide in der Kennzahl-Schicht.
   window._REGISTRY=REGISTRY;
-  window._metricCard=metricCard;
-  window._openMetric=openMetric;
+  window._sparkArea=sparkArea;   // die eine Karte zeichnet damit ihren Kartenhintergrund
 
 })();
 
@@ -7417,7 +7303,7 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
     const em=document.getElementById("exportModal"); if(em) em.remove();
     const enm=document.getElementById("entryModal"); if(enm) enm.remove();
     // Sicherheitshalber alle Modals geschlossen starten.
-    ["helpModal","infoModal","metricModal"].forEach(id=>{const m=document.getElementById(id);if(m)m.hidden=true;});
+    ["helpModal","infoModal"].forEach(id=>{const m=document.getElementById(id);if(m)m.hidden=true;});
     const ff=document.getElementById("footFile"); if(ff) ff.textContent="· Export-Kopie (nur Ansicht)";
     const picked=(STATE.__export&&STATE.__export.areas)||{};
     const map={lightaus:"p-lightaus",glucose:"p-glucose",weight:"p-weight",fitbit:"p-fitbit",befinden:"p-befinden"};
@@ -7653,7 +7539,7 @@ function _makeExportHTML(exportState){
   // Quelltext der Datei stuende es, samt Dokumentpfaden und Links.
   const klon=document.documentElement.cloneNode(true);
   klon.querySelectorAll('[id^="p-"] .card').forEach(c=>c.innerHTML="");
-  ["infoBody","helpBody","metricInfo","metricAnchor","metricChart","metricTable","metricShort","welcomeBody","chartTip"]
+  ["infoBody","helpBody","welcomeBody","chartTip"]
     .forEach(id=>{const n=klon.querySelector("#"+id); if(n) n.innerHTML="";});
   // Der Tooltip verlaesst die Vorlage verborgen. Ohne das haette der Export den
   // letzten Hovertext eingefroren – sichtbar auf der ersten Seite, ohne Zutun.
@@ -8399,9 +8285,14 @@ window._erfFenster=_erfFenster;
      writeFile) greifen nach draussen. Nach aussen gibt er nur window.LIGHT.
      ═══════════════════════════════════════════════════════════════════════ -->
 <script>
-(function(){
+/* Welt Light steht seit dem Umbau «eine Welt» (Vorschlag 01) im gemeinsamen
+   Geltungsbereich - dieselbe Ebene wie CHART, STATE und die Fachreiter. Drei Namen
+   mussten dafuer weichen, weil Full sie anders belegt:
+     el(id)  -> elId(id)                (Full: el(tag,klasse,html) baut ein Element)
+     vorschau(d) -> kachelVorschau(d)   (Full: vorschau(host,titel,bauen,erf))
+     meldeSchreibfehler -> ...Light     (zwei Fassungen, eine je Weg; Schreibpfad ist tabu) */
 
-"use strict";
+
 
 /* ============================================================================
    MOPP 6 «Neuanfang» – Neubau nach Uebergabe-MOPP-6.md (freigegeben 03.08.2026)
@@ -8429,7 +8320,7 @@ function tsd(v){ if(v===null||v===undefined||isNaN(v)) return '—'; return Stri
 function datK(d){ return d.getDate()+'. '+MO[d.getMonth()]; }
 function num(s){ if(s===null||s===undefined) return null; const t = String(s).trim().replace(',','.').replace(/\s/g,''); if(!t) return null; const v = parseFloat(t); return isFinite(v) ? v : null; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function el(id){ return document.getElementById(id); }
+function elId(id){ return document.getElementById(id); }
 /* «vor 0 Tagen» ist keine Aussage – ein heute gemessener Wert braucht kein Alter. */
 function altText(t){ return t<=0 ? 'heute gemessen' : t===1 ? 'gestern gemessen' : 'zuletzt gemessen vor '+t+' Tagen'; }
 function raute(x, y, r, farbe){
@@ -8738,6 +8629,26 @@ function REG(){
       s:gs, sZ:gz, ziel, prog, marke:Z.schwelle, start0:42+ZW, ziellinie:true, satz });
   })();
 
+  /* --- 1b BMI ---
+     Am 14.08.2026 aus dem Full-Register hierher gezogen – erste Kennzahl im Umbau
+     «eine Welt» (Vorschlag 01). Sie rechnet jetzt aus DERSELBEN Gewichtsreihe wie die
+     Kachel darueber; die Koerpergroesse kommt aus STATE, nicht aus dem HTML.
+     Die Ampel bleibt die alte: unter 18,5 / 25 / 30 die vier Stufen. */
+  (function(){
+    const hM = (STATE.weight && STATE.weight.heightCm ? STATE.weight.heightCm : 0)/100;
+    const s = gs.map(function(p){ return { iso:p.iso, d:p.d, v:(p.v===null||!hM)?null:p.v/(hM*hM) }; });
+    const le = letzterE(s);
+    const stufe = v => v<18.5 ? ['Untergewicht','low'] : v<25 ? ['Normalgewicht','good'] : v<30 ? ['Übergewicht','warn'] : ['Adipositas','high'];
+    const st = le ? stufe(le.v) : ['—','none'];
+    const satz = le
+      ? 'Body-Mass-Index bei '+STATE.weight.heightCm+' cm: aktuell '+st[0]+' ('+nf(le.v,1)+'). '+
+        'Grober Richtwert – er sagt nichts über die Verteilung von Muskel und Fett. '+
+        'Die Kurve folgt Punkt für Punkt der Gewichtsreihe, geteilt durch die gleichbleibende Körpergrösse.'
+      : 'Noch keine Gewichtsmessung erfasst – ohne Gewicht kein BMI.';
+    defs.push({ key:'bmi', label:'BMI', einheit:'', dez:1, gut:-1, farbe:L0, s,
+      dash:false, ampel:st[1], kurz:(le ? st[0].toUpperCase()+' · '+STATE.weight.heightCm+' CM' : 'NOCH KEIN GEWICHT'), satz });
+  })();
+
   /* --- 2 Ø Tempo ---
      Bis 14.08.2026 stand die Zahl als Anker ueber allen Reitern und rechnete im
      Full-Register. Sie ist hierher gezogen und rechnet nur noch hier: aus derselben
@@ -8831,12 +8742,22 @@ function REG(){
 
   return defs;
 }
-function defVon(key){ return REG().find(d => d.key===key); }
+function defVon(key){
+  const d = REG().find(x => x.key===key);
+  if(d) return d;
+  /* Noch nicht umgezogen? Dann aus der Quelle am alten Ort - bei JEDEM Aufruf neu,
+     damit kein Wert von der Ladezeit stehen bleibt. */
+  return (typeof FREMD !== 'undefined' && FREMD[key]) ? kzFremd(FREMD[key]) : undefined;
+}
 
 /* ============================================================================
    Kachel-Daten – die Zahl, die zweite Zeile, die Vorschau. Aus REG, sonst nichts.
    ========================================================================== */
 function kachelDaten(d){
+  /* Eine noch nicht umgezogene Kennzahl bringt ihren Wert fertig mit. Das ist kein
+     zweiter Rechenweg: es ist DERSELBE, nur noch an seinem alten Ort. Sobald er
+     hierher zieht, faellt wertFest weg. */
+  if(d.wertFest !== undefined) return { wert:d.wertFest, delta:d.deltaFest||'', dtext:d.dtextFest||'', dfarbe:d.dfarbeFest||'var(--k-faint)' };
   const s = d.s, H = heute();
   const le = letzterE(s);
   let wert = '—';
@@ -8889,8 +8810,8 @@ function kachelDaten(d){
 /* Vorschau. 28 Tage – traegt das Fenster weniger als zwei Punkte, waechst es mit,
    genau wie das Vergleichsfenster. Sonst blieben THQ, Blutdruck, Schlaf und
    Schritte bei Albrechts Datenlage ohne Bild. Die Spanne nennt das Fenster. */
-function vorschau(d){
-  const s = d.s, w = 260, h = 44, o = 4;
+function kachelVorschau(d){
+  const s = d.s || [], w = 260, h = 44, o = 4;
   if(!s.length) return { p:'', l:'', zy:0, zh:0, spanne:'noch keine Messung' };
   const stufen = d.woche ? [13, 26, 52, s.length] : [28, 56, 91, 182, 365, s.length];
   let n = stufen[stufen.length-1], teil = s;
@@ -8933,41 +8854,118 @@ function vorschau(d){
 /* ============================================================================
    Rendern – Reiter «Auswertungen»
    ========================================================================== */
+/* ============================================================================
+   kzKarte – DIE EINE KARTE. Zwei Optiken aus derselben Rechenstelle:
+     'kachel' – die Kartenwand im Dashboard (Name, Zahl, Delta, Vorschaubild, Spanne)
+     'zeile'  – die Karte ueber der Buehne eines Fachreiters (Full-Optik kz-z)
+   Beide lesen kachelDaten(d) und kachelVorschau(d). Es gibt keine zweite Stelle,
+   an der aus einem Register-Eintrag eine Karte wird.
+   ========================================================================== */
+function kzKarte(d, art){
+  const k = kachelDaten(d), v = kachelVorschau(d);
+  if(art === 'zeile'){
+    const S = window.KZ_STIL || { kontext:25, spark:true, satz:true, karte:true };
+    const zahl = Math.max(12, S.kontext||25), ein = Math.max(11, Math.round(zahl*0.48));
+    const col = d.ampel ? ({good:'var(--good)',warn:'var(--warn)',high:'var(--high)',low:'var(--low)'}[d.ampel] || 'var(--ink)') : 'var(--ink)';
+    const satzTxt = (k.delta ? k.delta+' ' : '') + (k.dtext||'');
+    /* Kartenhintergrund: die Tagesreihe des einen Registers - und solange eine Kennzahl
+       noch an ihrem alten Ort rechnet, deren eigene Reihe (d.spark). Ohne diesen zweiten
+       Zugriff stuenden 15 Karten ohne ihren Verlauf da. */
+    const reihe = (d.s && d.s.length) ? d.s : (d.spark || null);
+    const spark = (S.spark && window._sparkArea && reihe) ? window._sparkArea(reihe, col, {h:26,op:.15}) : '';
+    return '<button type="button" class="kz-z '+(S.karte?'kz-karte':'kz-flach')+'" data-metric="'+d.key+'" data-key="'+d.key+'"'+
+      (S.karte ? ' style="padding:13px 14px 13px;min-height:'+Math.round(zahl*2.9)+'px;justify-content:flex-start"' : '')+
+      ' aria-label="'+esc(d.label)+': '+esc(k.wert)+(d.einheit?' '+esc(d.einheit):'')+' – Kennzahl öffnen">'+
+      spark+
+      '<span class="kz-in">'+
+        '<span class="kz-l" style="font-size:10px">'+esc(d.label)+'</span>'+
+        '<span class="kz-v" style="font-size:'+zahl+'px;margin-top:6px;color:'+col+'">'+esc(k.wert)+
+          (d.einheit?'<span class="kz-e" style="font-size:'+ein+'px"> '+esc(d.einheit)+'</span>':'')+'</span>'+
+        (S.satz ? '<span class="kz-s" style="font-size:11.5px;margin-top:5px">'+(satzTxt?esc(satzTxt):'&nbsp;')+'</span>' : '')+
+      '</span>'+
+    '</button>';
+  }
+  /* Bruecken und Punkte tragen die REIHENFARBE – eine Reihe aus isolierten
+     Punkten (THQ, Blutdruck) darf nicht wie «nicht gemessen» aussehen. */
+  const linien = (v.p||[]).map(p => '<polyline points="'+p+'" fill="none" stroke="'+d.farbe+'" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>').join('');
+  const br = (v.l||[]).map(Li => '<line x1="'+Li[0].toFixed(1)+'" y1="'+Li[1].toFixed(1)+'" x2="'+Li[2].toFixed(1)+'" y2="'+Li[3].toFixed(1)+'" stroke="'+d.farbe+'" stroke-width="1" stroke-dasharray="2 5" opacity=".8"></line>').join('');
+  const einzel = (v.punkte && v.punkte.length <= 14)
+    ? v.punkte.map(P => '<circle cx="'+P[0].toFixed(1)+'" cy="'+P[1].toFixed(1)+'" r="2.4" fill="'+d.farbe+'"></circle>').join('')
+    : (v.punkt ? '<circle cx="'+v.punkt[0].toFixed(1)+'" cy="'+v.punkt[1].toFixed(1)+'" r="2.6" fill="'+d.farbe+'"></circle>' : '');
+  const zone = v.zh > 0 ? '<rect x="0" y="'+v.zy.toFixed(1)+'" width="260" height="'+v.zh.toFixed(1)+'" fill="var(--k-l0)" opacity=".13"></rect>' : '';
+  return '<button type="button" class="kachel" data-key="'+d.key+'">'+
+    '<div class="k-name">'+esc(d.label)+'</div>'+
+    '<div class="k-zahl"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
+    '<div class="k-ein"><span style="color:'+k.dfarbe+'">'+esc(k.delta)+'</span> '+esc(k.dtext)+'</div>'+
+    '<div class="k-luft"></div>'+
+    '<svg class="k-vor" viewBox="0 0 260 44" preserveAspectRatio="none" aria-hidden="true">'+
+      zone+'<line x1="0" y1="43" x2="260" y2="43" stroke="var(--k-line)" stroke-width="1"></line>'+
+      br+linien+einzel+
+    '</svg>'+
+    '<div class="k-spanne">'+esc(v.spanne)+'</div>'+
+  '</button>';
+}
+
+/* Der Zugang der Fachreiter zum einen Register: _kzReihe fragt hier ZUERST nach
+   und faellt nur zurueck, solange eine Kennzahl noch nicht umgezogen ist. */
+/* ----------------------------------------------------------------------------
+   Uebergang. 16 Kennzahlen rechnen noch an ihrem alten Ort (compute/content in der
+   Full-Welt). Sie bekommen hier EINEN Eintrag im einen Register: derselbe Wert,
+   dieselbe Ampel, dieselbe Erklaerung, dasselbe Bild – aber die EINE Karte und das
+   EINE Modal. Mit jedem Umzug faellt ein Eintrag aus dieser Liste heraus.
+   ---------------------------------------------------------------------------- */
+const FREMD = {};
+function kzFremd(e){
+  if(!e || typeof e.compute !== 'function') return null;
+  const m = e.compute() || {};
+  let c = {};
+  try { c = (typeof e.content === 'function') ? (e.content() || {}) : {}; } catch(err){ c = {}; }
+  return {
+    key:e.key, label:e.label || e.key, einheit:m.unit || '', dez:1, gut:1, farbe:'var(--k-l0)',
+    fremd:true, s:[], dash:false,
+    wertFest:m.valStr, ampel:m.state,
+    deltaFest:(m.delta && m.delta.arrow) ? m.delta.arrow : '',
+    dtextFest:(m.delta && m.delta.text) ? m.delta.text : '',
+    dfarbeFest:'var(--k-faint)',
+    spark:m.spark || null, kurz:c.short || '', infoHtml:c.info || '', chartHtml:c.chart || '', tabelle:c.table || '',
+    satz:''
+  };
+}
+
+window._kzEins = function(key, e){
+  let d = defVon(key);
+  if(!d && e && typeof e !== 'string'){ FREMD[key] = e; d = kzFremd(e); }
+  else if(!d && FREMD[key]) d = kzFremd(FREMD[key]);
+  /* Ein Reiter darf eine Kennzahl auch nur beim Namen nennen ("hba1c"). Dann steht ihre
+     Rechenstelle im alten Register - auch die kommt ueber denselben Weg herein. */
+  else if(!d && typeof e === 'string' && window._REGISTRY && window._REGISTRY[key]){
+    FREMD[key] = window._REGISTRY[key]; d = kzFremd(FREMD[key]);
+  }
+  if(!d) return null;
+  const huelle = document.createElement('div');
+  huelle.innerHTML = kzKarte(d, 'zeile');
+  const karte = huelle.firstElementChild;
+  if(karte) karte.addEventListener('click', function(){ oeffneVoll(key); });
+  return karte;
+};
+
 function renderKacheln(){
-  const box = el('kacheln'), defs = REG();
+  /* Die Kartenwand zeigt, was fuer sie bestimmt ist. Eine Kennzahl, die nur ueber der
+     Buehne eines Fachreiters steht (dash:false), steht im selben Register – aber nicht
+     hier. Das Register sagt WAS es gibt, das Feld sagt WO es steht. */
+  const box = elId('kacheln'), defs = REG().filter(d => d.dash !== false);
   const leer = defs.every(d => !d.s.length);
-  el('leerAus').hidden = !leer;
+  elId('leerAus').hidden = !leer;
   box.hidden = leer;
   if(leer){ box.innerHTML = ''; return; }
 
-  box.innerHTML = defs.map(d => {
-    const k = kachelDaten(d), v = vorschau(d);
-    /* Bruecken und Punkte tragen die REIHENFARBE – eine Reihe aus isolierten
-       Punkten (THQ, Blutdruck) darf nicht wie «nicht gemessen» aussehen. */
-    const linien = (v.p||[]).map(p => '<polyline points="'+p+'" fill="none" stroke="'+d.farbe+'" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>').join('');
-    const br = (v.l||[]).map(L => '<line x1="'+L[0].toFixed(1)+'" y1="'+L[1].toFixed(1)+'" x2="'+L[2].toFixed(1)+'" y2="'+L[3].toFixed(1)+'" stroke="'+d.farbe+'" stroke-width="1" stroke-dasharray="2 5" opacity=".8"></line>').join('');
-    const einzel = (v.punkte && v.punkte.length <= 14)
-      ? v.punkte.map(P => '<circle cx="'+P[0].toFixed(1)+'" cy="'+P[1].toFixed(1)+'" r="2.4" fill="'+d.farbe+'"></circle>').join('')
-      : (v.punkt ? '<circle cx="'+v.punkt[0].toFixed(1)+'" cy="'+v.punkt[1].toFixed(1)+'" r="2.6" fill="'+d.farbe+'"></circle>' : '');
-    const zone = v.zh > 0 ? '<rect x="0" y="'+v.zy.toFixed(1)+'" width="260" height="'+v.zh.toFixed(1)+'" fill="var(--k-l0)" opacity=".13"></rect>' : '';
-    return '<button type="button" class="kachel" data-key="'+d.key+'">'+
-      '<div class="k-name">'+esc(d.label)+'</div>'+
-      '<div class="k-zahl"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
-      '<div class="k-ein"><span style="color:'+k.dfarbe+'">'+esc(k.delta)+'</span> '+esc(k.dtext)+'</div>'+
-      '<div class="k-luft"></div>'+
-      '<svg class="k-vor" viewBox="0 0 260 44" preserveAspectRatio="none" aria-hidden="true">'+
-        zone+'<line x1="0" y1="43" x2="260" y2="43" stroke="var(--k-line)" stroke-width="1"></line>'+
-        br+linien+einzel+
-      '</svg>'+
-      '<div class="k-spanne">'+esc(v.spanne)+'</div>'+
-    '</button>';
-  }).join('');
+  box.innerHTML = defs.map(d => kzKarte(d, 'kachel')).join('');
   box.querySelectorAll('.kachel').forEach(b => b.addEventListener('click', () => oeffneVoll(b.dataset.key)));
 }
 
 /* ---------- Karte «Deine Woche» – nur Sonntag und Montag ---------- */
 function renderWoche(){
-  const box = el('wocheKarte'), H = heute(), wd = H.getDay();
+  const box = elId('wocheKarte'), H = heute(), wd = H.getDay();
   if(!REG().some(d => d.s.length)){ box.innerHTML = ''; return; }
   /* Die zuletzt ABGESCHLOSSENE Woche, Montag bis Sonntag. Bis 14.08.2026 stand die
      Karte nur sonntags und montags - an fuenf von sieben Tagen war oben Leere und das
@@ -9023,12 +9021,43 @@ function oeffneVoll(key){
   UI.view = startAusschnitt(d);
   renderVoll();
 }
-function schliesseVoll(){ UI.offen = null; UI.view = null; UI.str = null; el('vollModal').hidden = true; el('vollModal').innerHTML = ''; }
+function schliesseVoll(){ UI.offen = null; UI.view = null; UI.str = null; elId('vollModal').hidden = true; elId('vollModal').innerHTML = ''; }
+
+/* Das eine Modal, Fassung fuer eine noch nicht umgezogene Kennzahl: derselbe Rahmen,
+   derselbe Kopf, derselbe Schliessknopf – Bild, Erklaerung und Tabelle kommen aus
+   ihrer alten Rechenstelle, statt aus der Tagesreihe gezeichnet zu werden.
+   Kein Ziehen, kein Zoom: dafuer braucht es die Reihe, und die hat sie noch nicht. */
+function renderVollFremd(d, k){
+  const m = elId('vollModal');
+  const frisch = m.hidden ? ' frisch' : '';
+  m.hidden = false;
+  m.innerHTML = '<div class="schirm'+frisch+'" id="vollSchirm"><div class="dialog'+frisch+'" id="vollDialog">'+
+    '<div class="d-kopf"><div>'+
+      '<div class="d-titel">'+esc(d.label)+'</div>'+
+      (d.kurz ? '<div class="d-kurz" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--k-faint);margin-top:2px">'+esc(d.kurz)+'</div>' : '')+
+      '<div class="d-wert"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
+    '</div><div class="d-kopf-rechts">'+
+      '<button type="button" class="rund" id="vollZu">×</button></div></div>'+
+    '<div class="d-koerper"><div class="d-links">'+
+      (d.chartHtml || '')+
+      (d.tabelle ? '<div style="margin-top:14px;max-height:320px;overflow:auto">'+d.tabelle+'</div>' : '')+
+    '</div></div>'+
+    '<div class="d-fuss"><div class="d-satz" id="vollSatz">'+(d.infoHtml || '')+'</div></div>'+
+  '</div></div>';
+  elId('vollZu').addEventListener('click', schliesseVoll);
+  elId('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
+  /* Ein frisch eingesetzter Platzhalter muss eingesammelt werden, sonst bleibt der
+     Kasten leer: sweep() findet ihn, recheck() misst die Breite nach. */
+  /* CHART ist ein const im gemeinsamen Geltungsbereich - es steht NICHT auf window.
+     Seit dem Umbau «eine Welt» ist es von hier direkt erreichbar. */
+  if(typeof CHART !== 'undefined'){ if(CHART.sweep) CHART.sweep(m); if(CHART.recheck) CHART.recheck(); }
+}
 
 function renderVoll(){
-  const m = el('vollModal');
+  const m = elId('vollModal');
   if(!UI.offen){ m.hidden = true; m.innerHTML = ''; return; }
   const d = defOffen(), k = kachelDaten(d);
+  if(d && d.fremd){ renderVollFremd(d, k); return; }
   if(!UI.view) UI.view = startAusschnitt(d);
   /* Kopfzeile beim Blutzucker: der Titel nennt beide Wahlen, die grosse Zahl ist der
      Durchschnitt im gewaehlten Zeitfenster – nicht der letzte Messtag. Die Kachel zeigt
@@ -9057,9 +9086,9 @@ function renderVoll(){
     (d.ziellinie ? zielFormular() : '')+
     (d.key==='bz' ? refFormular() : '')+
   '</div></div>';
-  el('vollZu').addEventListener('click', schliesseVoll);
-  el('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
-  const eb = el('vollErf');
+  elId('vollZu').addEventListener('click', schliesseVoll);
+  elId('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
+  const eb = elId('vollErf');
   if(eb) eb.addEventListener('click', () => erfSchalten(d));
   if(strOffen(d)) bindeStreifen(d);
   if(d.ziellinie) bindeZielFormular();
@@ -9101,7 +9130,7 @@ function bindeRefFormular(){
       if(!STATE.glucose) return;
       STATE.glucose.referenz = Object.assign({}, refWerte(), { [inp.dataset.ref]: v });
       const ok = await writeFile();
-      if(!ok) meldeSchreibfehler();
+      if(!ok) meldeSchreibfehlerLight();
       const view = UI.view; renderAlles(); UI.view = view; renderVoll();
     });
   });
@@ -9124,14 +9153,14 @@ function bindeZielFormular(){
       if(!STATE.weight) return;
       STATE.weight.ziel = Object.assign({}, zielWerte(), { [inp.dataset.ziel]: v });
       const ok = await writeFile();
-      if(!ok) meldeSchreibfehler();
+      if(!ok) meldeSchreibfehlerLight();
       const view = UI.view; renderAlles(); UI.view = view; renderVoll();
     });
   });
 }
 
 function zeichneVoll(){
-  const b = el('buehne');
+  const b = elId('buehne');
   if(!b) return;
   const d = defOffen(), Wd = b.clientWidth || 900;
   const S = d.sZ || d.s, n = S.length;
@@ -9239,7 +9268,7 @@ function zeichneVoll(){
   }
 
   b.innerHTML = '<svg id="vollSvg" width="100%" height="'+M.h+'" viewBox="0 0 '+Wd+' '+M.h+'" style="display:block;cursor:grab;touch-action:none;user-select:none">'+g+'</svg>';
-  bindeBedienung(el('vollSvg'), d, n, Wd);
+  bindeBedienung(elId('vollSvg'), d, n, Wd);
 }
 
 function bindeBedienung(svg, d, n, Wd){
@@ -9355,10 +9384,10 @@ function schreibeWerte(D, d){
 /* Eine Meldung, die nicht am Erfolg haengt, ist schlimmer als keine: jeder Tipp und
    jede Eingabe, die nicht in der Datei landet, sagt es sichtbar im Kopf. */
 let _hinweisTimer = null;
-function meldeSchreibfehler(){
+function meldeSchreibfehlerLight(){
   console.warn('Nicht gespeichert – der Wert steht nur im Fenster.');
   setConn('off');
-  const h = el('schreibHinweis');
+  const h = elId('schreibHinweis');
   if(!h) return;
   h.textContent = ghCfg
     ? 'Nicht gespeichert — der Wert steht nur im Fenster.'
@@ -9379,7 +9408,7 @@ function zeigeTab(t){
 }
 function renderAlles(){
   const H = heute();
-  el('heuteText').textContent = WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear();
+  elId('heuteText').textContent = WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear();
   renderWoche();
   renderKacheln();
   if(UI.offen) renderVoll();
@@ -9521,28 +9550,28 @@ function streifenEntwurf(d, S){
    nie gehabt, weil sein Fenster nur angehaengt wird. Hier dasselbe: zwei Klassen
    umschalten, die Spalte einsetzen oder entfernen, das Bild neu rechnen. */
 function erfSchalten(d){
-  const dlg = el('vollDialog'), kp = dlg ? dlg.querySelector('.d-koerper') : null;
+  const dlg = elId('vollDialog'), kp = dlg ? dlg.querySelector('.d-koerper') : null;
   if(!dlg || !kp){ renderVoll(); return; }
   const auf = !strOffen(d);
   UI.str = auf ? { key:d.key, datum:iso(heute()), werte:{}, slot:'nüchtern', modus:'tag', meldung:'' } : null;
   dlg.classList.toggle('mit-erf', auf);
   kp.classList.toggle('mit-erf', auf);
-  const alt = el('strBox');
+  const alt = elId('strBox');
   if(alt) alt.remove();
   if(auf){ kp.insertAdjacentHTML('beforeend', streifenHTML(d, true)); bindeStreifen(d); }
-  const eb = el('vollErf');
+  const eb = elId('vollErf');
   if(eb){ eb.textContent = auf ? 'Erfassen schliessen' : 'Erfassen'; eb.classList.toggle('still', auf); }
   /* Die Legende nennt den hohlen Kreis nur, solange erfasst wird. */
   const lg = dlg.querySelector('.legende-d'), neu = legendeVoll(d);
   if(lg) lg.outerHTML = neu;
-  else if(neu) el('buehne').insertAdjacentHTML('afterend', neu);
+  else if(neu) elId('buehne').insertAdjacentHTML('afterend', neu);
   /* Die Buehne ist jetzt 320 px schmaler – das Bild wird neu gerechnet, der Dialog
      bleibt stehen. */
   zeichneVoll();
 }
 /* Datum, Messpunkt, Tag/Woche: nur die Spalte neu, nicht der Dialog. */
 function neuStreifen(d){
-  const alt = el('strBox');
+  const alt = elId('strBox');
   if(!alt){ renderVoll(); return; }
   alt.outerHTML = streifenHTML(d);
   bindeStreifen(d);
@@ -9557,10 +9586,10 @@ function bindeStreifen(d){
     if(iso(n) > (inWoche() ? moHeute : hIso)) return;
     UI.str.datum = iso(n); UI.str.meldung = ''; neuStreifen(d);
   };
-  el('strMinus').addEventListener('click', () => schieb(-1));
-  el('strPlus').addEventListener('click', () => schieb(1));
-  el('strAb').addEventListener('click', () => erfSchalten(d));
-  el('strSave').addEventListener('click', () => streifenSpeichern(d));
+  elId('strMinus').addEventListener('click', () => schieb(-1));
+  elId('strPlus').addEventListener('click', () => schieb(1));
+  elId('strAb').addEventListener('click', () => erfSchalten(d));
+  elId('strSave').addEventListener('click', () => streifenSpeichern(d));
   document.querySelectorAll('#strBox [data-slot]').forEach(b =>
     b.addEventListener('click', () => { UI.str.slot = b.dataset.slot; neuStreifen(d); }));
   document.querySelectorAll('#strBox [data-modus]').forEach(b =>
@@ -9576,7 +9605,7 @@ function bindeStreifen(d){
   document.querySelectorAll('#strBox input[data-s]').forEach(inp => {
     inp.addEventListener('input', () => {
       UI.str.werte[inp.dataset.s] = inp.value;
-      const q = el('strQuot'); if(q) q.textContent = strQuotText();
+      const q = elId('strQuot'); if(q) q.textContent = strQuotText();
       zeichneVoll();
     });
   });
@@ -9676,7 +9705,7 @@ function schreibeWoche(moIso, d){
 
 /* Der Knopf in der Startkarte ist derselbe Weg wie das Zahnrad - eine Bedienstelle,
    zwei Orte, kein zweiter Ablauf. */
-(function(){ const b = el('startVerbinden'); if(!b) return;
+(function(){ const b = elId('startVerbinden'); if(!b) return;
   b.addEventListener('click', function(){ const c = document.getElementById('connBtn'); if(c) c.click(); }); })();
 
 document.addEventListener('keydown', e => {
@@ -9691,7 +9720,12 @@ window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(()
    ruft LIGHT.render() nach. Hier nur das erste Zeichnen mit leerem STATE. */
 renderAlles();
 window.LIGHT = { render: renderAlles, tab: zeigeTab };
-})();
+
+/* Die Fachreiter koennen gezeichnet worden sein, BEVOR dieser Block gelesen war –
+   aus dem Zwischenspeicher oder in der Messsonde. Dann steht ueber ihrer Buehne noch
+   die alte Full-Karte. Einmal nachziehen: _kzNeu() baut die Reihen ueber kzRaster neu,
+   und das fragt jetzt zuerst das eine Register. */
+if(typeof window._kzNeu === "function") window._kzNeu();
 </script>
 
 <template id="__bundler_thumbnail">
