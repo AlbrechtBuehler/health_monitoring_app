@@ -206,7 +206,7 @@
   /* #nutrition fehlte als letzter Reiter in dieser Liste – derselbe Fehler wie 5c bei
      #befinden. Gemessen bei 420 px: Bühne 70 px, Faktor 0,22, weil die Auswahlliste
      ihre 240 px hielt, während daneben nichts mehr blieb. */
-  #titelseite,#bzmaster,#gwmaster,#vwmaster,#befinden,#nutrition,#p-akten{container-type:inline-size}
+  #bzmaster,#gwmaster,#vwmaster,#befinden,#nutrition,#p-akten{container-type:inline-size}
   .ts-raster{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(240px,1fr);
     gap:24px;margin-top:18px}
   @container (max-width:700px){ .ts-raster{grid-template-columns:minmax(0,1fr)} }
@@ -649,12 +649,6 @@
 .weltLight .legende-d{display:flex;flex-wrap:wrap;gap:9px 26px;align-items:center}
 .weltLight .legende-d div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--k-muted)}
 /* Arzt-Export: der Auswahl-Dialog im Werkzeug (der Bericht selbst hat eigene Stile). */
-.weltLight .exp-dialog{max-width:660px}
-.weltLight .exp-zeile{display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--k-line2);padding-top:16px}
-.weltLight .exp-hak{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--k-muted);cursor:pointer}
-.weltLight .exp-hak input{width:16px;height:16px;accent-color:var(--k-akzent);cursor:pointer;flex:0 0 auto}
-.weltLight .exp-anl input{width:100%;font-size:14.5px;color:var(--k-text);background:none;border:0;border-bottom:1px solid var(--k-line);padding:7px 0;outline:none;font-family:inherit}
-.weltLight .exp-anl input:focus{border-bottom-color:var(--k-akzent)}
 /* Medikation – die einzige Stelle im Werkzeug, an der Text statt Zahlen erfasst wird. */
 .weltLight .med-tab{display:flex;flex-direction:column}
 .weltLight .med-zeile{display:grid;grid-template-columns:1.9fr .8fr 1.4fr 1fr 34px;gap:0 16px;align-items:center}
@@ -722,7 +716,6 @@
         <span id="heuteText" style="font-size:13.5px;color:var(--k-muted)"></span>
         <span id="schreibHinweis" class="schreibhinweis" hidden></span>
         <button type="button" class="stiller" id="medBtnL" title="Medikationsplan bearbeiten">Medikation</button>
-        <button type="button" class="stiller" id="exportBtnL" title="Bericht für die Sprechstunde erzeugen">Arzt-Export</button>
         <button type="button" class="rund" id="hilfeBtnL" title="Kurze Hilfe" aria-label="Hilfe">?</button>
       </span>
       <!-- Werkzeuge der Welt Full. Das Erfassen (✎) bleibt unangetastet. -->
@@ -742,7 +735,6 @@
   <div class="tabs no-print">
     <button class="tab on" data-tab="lightaus">Auswertung</button>
     <span class="tab-trenn"></span>
-    <button class="tab" data-tab="overview">Überblick</button>
     <button class="tab" data-tab="glucose">Blutzucker</button>
     <button class="tab" data-tab="weight">Gewicht</button>
     <button class="tab" data-tab="fitbit">Kreislauf</button>
@@ -761,9 +753,6 @@
     </section>
   </div>
 
-  <div class="panel" id="p-overview" style="display:none">
-    <section class="card" id="titelseite"></section>
-  </div>
   <!-- Aufbau wie der Überblick: rechts die Auswahl, links die aktive Vorschau, Klick auf
        die Vorschau öffnet das Modal mit den Filtern. Die drei Blöcke behalten class="card",
        damit boot() sie beim Neuzeichnen leert – ihre Kartenoptik ist abgeschaltet, sie
@@ -1008,7 +997,7 @@ const STATE={
 
 // ================= Render-Kern =================
 // _weekOf: reine Datumsfunktion (Mo–So-Woche). Muss im Top-Level stehen, weil
-// boot() sie braucht (bzWeeks) – auch im eingefrorenen Arzt-Export, wo der
+// boot() sie braucht – auch im eingefrorenen Arzt-Export, wo der
 // Eingabe-/Export-Block (if(!__FROZEN)) nicht ausgeführt wird.
 function _weekOf(iso){
   const d=new Date(iso+"T00:00:00");
@@ -2145,44 +2134,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     }
   });
 
-  // ---- Im Ziel (Blutzucker-Anteil) ----
-  // Helfer: Blutzuckermessungen nach Mo–So-Woche gruppieren
-  function bzWeeks(){
-    const map={};
-    ALL.forEach(r=>{
-      const wk=_weekOf(r.iso);           // {weekStart,label}
-      if(!map[wk.weekStart])map[wk.weekStart]={weekStart:wk.weekStart,label:wk.label,rows:[]};
-      map[wk.weekStart].rows.push(r);
-    });
-    return Object.values(map).sort((a,b)=>a.weekStart<b.weekStart?-1:1);
-  }
-
-  // ---- BZ im Ziel ----
-  register("im_ziel",{
-    key:"im_ziel", label:"BZ im Ziel",
-    compute(){
-      const p=pct(cnt,"good",ALL.length);
-      const wks=bzWeeks();
-      const spark=wks.map(w=>{const c=counts(w.rows);return {label:w.label,v:Math.round(c.good/w.rows.length*100)};});
-      return { valStr:p, unit:"%", state:p>=70?"good":"none", delta:null, spark: spark.length>=2?spark:null };
-    },
-    content(){
-      const wks=bzWeeks();
-      const pts=wks.map(w=>{const c=counts(w.rows);return {label:w.label,v:Math.round(c.good/w.rows.length*100)};});
-      let table='<table class="mt"><thead><tr><th>Woche</th><th>Im Ziel (%)</th><th>Messungen</th></tr></thead><tbody>';
-      wks.slice().reverse().forEach(w=>{const c=counts(w.rows);const p=Math.round(c.good/w.rows.length*100);
-        table+='<tr><td>'+w.label+'</td><td class="num">'+p+'</td><td class="num">'+w.rows.length+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:ALL.length+" MESSUNGEN",
-        info:"<p style='margin:0'>Anteil aller "+ALL.length+" Blutzuckermessungen, die im Zielkorridor liegen. Über 70% ist gut. Der Verlauf zeigt den Anteil je Woche.</p>",
-        anchor:"",
-        chart: pts.length>=2 ? lineChart(pts,"var(--good)",v=>Math.round(v)+"",""):"",
-        table
-      };
-    }
-  });
-
   // ---- Stabilität (σ) ----
   register("stabil",{
     key:"stabil", label:"BZ Stabilität",
@@ -2483,12 +2434,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   /* ---- Reihenfolge der Kopf-Kennzahlen ---- */
 
   // Die Ernaehrungs-Kennzahlen sind mit dem Modul ausgezogen (13.08.2026) - sie rechneten
-  // ausschliesslich ueber Nutrition. Der Anker fuehrt darum drei Zahlen statt vier.
+  // ausschliesslich ueber Nutrition. Der Reiter Ueberblick und die Ankerzahl «Im Soll»
+  // sind am 14.08.2026 entfallen; der Anker fuehrt noch zwei Zahlen.
 
   /* ============================================================
      KENNZAHLEN, VARIANTE 2b — ZWEI ETAGEN (Lieferung 5a)
      Etage 1 · ANKER, ueber den Reitern, auf jedem Reiter identisch, Zahl 25 px:
-       Gewicht · Ø Tempo · Im Soll
+       Gewicht · Ø Tempo
      Etage 2 · KONTEXT, im Reiter ueber der Buehne, Zahl 17 px, vier je Reiter.
      Die flachen KPI-Zeilen der Reiter gehen in Etage 2 auf; die drei doppelten Zahlen
      fallen damit weg. Beide Etagen sind klickbar und oeffnen DASSELBE Kennzahl-Modal
@@ -2497,7 +2449,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      Die alte Kachelreihe (KPI_ORDER, elf Karten) ist damit abgeloest. Was in keiner
      Reihe steht, bleibt ueber die verwandte Zahl im Modal erreichbar.
      ============================================================ */
-  const ANKER=[{key:"gewicht"},{key:"tempo_ges",label:"Ø Tempo"},{key:"im_ziel",label:"Im Soll"}];
+  const ANKER=[{key:"gewicht"},{key:"tempo_ges",label:"Ø Tempo"}];
 
   /* Die einstellbaren Werte der zwei Etagen an EINER Stelle. Albrechts Korrektur vom
      02.08.: Karten statt flacher Reihe, und beide Etagen groesser. Die Stufe zwischen
@@ -2640,647 +2592,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
    teller() und macros() –, nur die Reihenfolge ist jetzt eine Regel: was am weitesten
    vom Soll weg ist, steht oben. Die Karte #nut-lager ist damit weg. */
 
-/* ============ Überblick · ein Blatt (Lieferung 5d) ============
-   Bis 5c standen hier sechs Leitgeschichten mit eigener Auswahlliste, dazu eine Torte
-   und ein Teller von oben. Das war eine zweite Navigation neben den Reitern und sechs
-   Ansichten fuer Zahlen, die in ihren Reitern schon stehen.
-   Jetzt EIN Blatt: oben die Ankerreihe (Etage 1, ueber allen Reitern), darunter DIE
-   WOCHE - ein Raster nach Regel 1. Ein Feld je Zeile und Tag, grau heisst nicht erfasst.
-   Torte und Teller sind ersatzlos gestrichen; die Tellerzahl steht im Anker
-   "Teller erfuellt", das Band in der Auswertung der Ernaehrung (Regel 6).
-   Seit 5e steht rechts daneben die SCHALTTAFEL - fuenf Zeilen, eine je Fachreiter, mit
-   der Zahl dieser Woche und einem Satz; der Klick wechselt den Reiter. Damit hat auch
-   der Ueberblick die Anatomie aller anderen Reiter (Buehne links, Auswahl rechts),
-   ohne dass eine zweite Bildergalerie danebensteht.
-   Zwei Bloecke, durch eine Linie getrennt: was TAG FUER TAG entsteht und was JE WOCHE
-   am Mess-Sonntag erfasst wird. Ohne die Trennung stuende das Werkzeug jeden Montag mit
-   vier leeren Zeilen da und behauptete ein Versaeumnis. */
-(function(){
-  const root=document.getElementById("titelseite");
-  if(!root)return;
-  const P=n=>String(n).padStart(2,"0");
-  const isoVon=d=>d.getFullYear()+"-"+P(d.getMonth()+1)+"-"+P(d.getDate());
-  const HEUTE=new Date(); HEUTE.setHours(12,0,0,0);
-  const HEUTE_ISO=isoVon(HEUTE);
-  const TAGN=["Mo","Di","Mi","Do","Fr","Sa","So"];
-  const SANS="var(--sans)";
-  const EXP=!!STATE.__export;
-  // Gemessene Untergrenze der Vorschau (Messlauf 5d): darunter stossen die Zahlen der
-  // Nachbarspalten zusammen. Im Modal, im Druck und im Export gilt minW.
-  const VORMINW=410;
-  const tsd=v=>String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,"\u2009");
-  function txt(x,y,s,o){ o=o||{};
-    return '<text class="'+(o.cls||"ax")+'" x="'+(+x).toFixed(1)+'" y="'+(+y).toFixed(1)+'" text-anchor="'+(o.a||"start")+'"'+
-      ' style="'+(o.c?"fill:"+o.c+";":"")+(o.fs?"font-size:"+o.fs+"px;":"")+(o.fw?"font-weight:"+o.fw+";":"")+
-      (o.f?"font-family:"+o.f+";":"")+(o.ls?"letter-spacing:"+o.ls+"px;":"")+((o.erf||o.go)?"cursor:pointer;":"")+'"'+
-      (o.erf?' data-erf="'+o.erf+'"':"")+(o.go?' data-go="'+o.go+'"':"")+'>'+s+'</text>'; }
-  const kurzT=function(s,maxW){ if(CHART.textW(s)<=maxW) return s;
-    let t=s; while(t.length>1&&CHART.textW(t+"\u2026")>maxW) t=t.slice(0,-1);
-    return t.replace(/[ ,\u00b7]+$/,"")+"\u2026"; };
-  // Der Mess-Sonntag einer Woche: alles, was JE WOCHE erfasst wird, traegt in den Daten
-  // das Datum des Tages, an dem es eingetragen wurde (Samstag, Sonntag, manchmal
-  // Freitag). Gebuendelt wird es wie im Befinden-Reiter - auf den Sonntag seiner Woche.
-  function sonntagVon(iso){ const d=new Date(iso+"T12:00:00");
-    d.setDate(d.getDate()+((7-d.getDay())%7)); return isoVon(d); }
-
-  // ---- Datenzugriffe: je Zeile eine, alle lesend ----
-  const bpAll=((STATE.bloodpressure&&STATE.bloodpressure.points)||[]).filter(function(p){ return p.sys!=null; });
-  const gDay={}; G.days.forEach(function(d){ gDay[d.iso]=d; });
-  const wgDay={}; wp.forEach(function(p){ wgDay[p.date]=p.value; });
-  const DIMK=(((STATE.befinden&&STATE.befinden.dims)||[]).map(function(d){ return d.key; }));
-  // Wochenwerte auf ihren Sonntag gebuendelt - eine Zeile, eine Quelle.
-  const WO={};
-  const wz=function(iso){ if(!iso) return null; const k=sonntagVon(iso);
-    if(k.indexOf("NaN")>=0) return null; return WO[k]||(WO[k]={}); };
-  (((STATE.befinden||{}).entries)||[]).forEach(function(e){ const z=wz(e.iso); if(!z) return;
-    const vs=DIMK.map(function(k){ return e[k]; }).filter(function(v){ return v!=null; });
-    if(vs.length===DIMK.length) z.bef=vs.reduce(function(a,b){ return a+b; },0)/vs.length; });
-  (((STATE.fluid||{}).weeks)||[]).forEach(function(w){ const z=wz(w.weekStart); if(!z) return;
-    if(w.goalMet===true) z.fluid=1; else if(w.goalMet===false) z.fluid=0; });
-  // Eine Woche kann mehrere Fitbit-Eintraege tragen (Teilwochen). Gemittelt wird wie im
-  // Befinden-Reiter - ein Rechenweg, nicht zwei.
-  (((STATE.fitbit||{}).weeks)||[]).forEach(function(w){ const z=wz(w.weekStart); if(!z) return;
-    if(w.steps&&w.steps.avg!=null) (z.steps||(z.steps=[])).push(+w.steps.avg);
-    if(w.sleep&&w.sleep.avgH!=null) (z.sleep||(z.sleep=[])).push(+w.sleep.avgH); });
-  const mittel=function(a){ return (a&&a.length)?a.reduce(function(x,y){ return x+y; },0)/a.length:null; };
-
-  // ---- die acht Zeilen ----
-  // erf: das Feld laesst sich ueber die Erfassung fuellen. Die Mahlzeiten stehen
-  // bewusst OHNE erf da - geschrieben wird nur im Wochenplan (Regel 6).
-  const RANG={good:0,low:1,warn:2,high:3};
-  const ZEILEN=[
-    {n:"Blutzucker", tab:"glucose", erf:1, hol:function(t){
-      const d=gDay[t.iso]; if(!d) return null;
-      const st=[]; (d.rows||[]).forEach(function(r){ (r.values||[]).forEach(function(x){ st.push(stateOf(x.v,typeOf(r.slot))); }); });
-      if(!st.length) return null;
-      return {t:String(st.length), st:st.slice().sort(function(a,b){ return RANG[b]-RANG[a]; })[0]}; }},
-    {n:"Blutdruck", tab:"fitbit", erf:1, hol:function(t){
-      const p=bpAll.filter(function(x){ return x.iso===t.iso; })[0];
-      return p?{t:p.sys+"/"+p.dia, st:"neutral"}:null; }},
-    {n:"Gewicht", tab:"weight", erf:1, hol:function(t){
-      const v=wgDay[t.iso]; return v==null?null:{t:de(v), st:"neutral"}; }},
-    {n:"Mahlzeiten", tab:"nutrition", hol:function(t,c){
-      const m=c.mahl[t.idx]; if(!m||!m.n) return null;
-      return {t:String(m.n), st:(m.haupt&&m.voll===m.haupt)?"good":"neutral"}; }},
-    {n:"Befinden", tab:"befinden", woche:1, erf:1, hol:function(t,c){
-      const z=WO[c.so]; return (z&&z.bef!=null)?{t:de(z.bef), st:"neutral"}:null; }},
-    {n:"Trinkmenge", tab:"befinden", woche:1, erf:1, hol:function(t,c){
-      const z=WO[c.so]; if(!z||z.fluid==null) return null;
-      return z.fluid?{t:"\u2713", st:"good"}:{t:"\u2013", st:"warn"}; }},
-    {n:"Bewegung", tab:"fitbit", woche:1, erf:1, hol:function(t,c){
-      const v=mittel((WO[c.so]||{}).steps); return v==null?null:{t:tsd(v), st:"neutral"}; }},
-    {n:"Schlaf", tab:"fitbit", woche:1, erf:1, hol:function(t,c){
-      const v=mittel((WO[c.so]||{}).sleep); return v==null?null:{t:de(v), st:"neutral"}; }}
-  ];
-  const TAEG=ZEILEN.filter(function(z){ return !z.woche; });
-  const WOCH=ZEILEN.filter(function(z){ return z.woche; });
-
-  // ---- die angezeigte Woche ----
-  let zurueck=0;   // 0 = diese Woche, 1 = letzte, 2 = vorletzte
-  function wocheVon(off){
-    const mo=new Date(HEUTE); mo.setDate(mo.getDate()-((mo.getDay()+6)%7)-7*(off||0));
-    const tage=[];
-    for(let i=0;i<7;i++){ const d=new Date(mo); d.setDate(mo.getDate()+i);
-      const iso=isoVon(d);
-      tage.push({idx:i, iso:iso, lab:TAGN[i]+" "+P(d.getDate())+".",
-                 heute:iso===HEUTE_ISO, kuenftig:iso>HEUTE_ISO}); }
-    const k=isoVon(mo);
-    return {key:k, so:tage[6].iso, tage:tage, laufend:(off||0)===0,
-      titel:k.slice(8)+"."+k.slice(5,7)+". \u2013 "+tage[6].iso.slice(8)+"."+tage[6].iso.slice(5,7)+"."};
-  }
-  // Mahlzeiten je Tag aus dem Rechenkern der Ernaehrung - kein zweiter Rechenweg.
-  function mahlzeiten(key){
-    const out=[]; for(let i=0;i<7;i++) out.push({n:0,haupt:0,voll:0});
-    try{
-      if(typeof Nutrition!=="undefined"&&Nutrition.raster){
-        const r=Nutrition.raster(key);
-        for(let si=0;si<r.length;si++) for(let di=0;di<7;di++){
-          const z=r[si][di]; if(!z) continue;
-          out[di].n++; if(z.haupt){ out[di].haupt++; if(z.voll) out[di].voll++; }
-        }
-      }
-    }catch(e){}
-    return out;
-  }
-
-  // ---- das Bild: die Woche ----
-  const FARBE={
-    good:["var(--good-bg)","var(--good)","var(--good)"],
-    warn:["color-mix(in oklch,var(--warn) 16%,transparent)","var(--warn)","var(--ink)"],
-    high:["color-mix(in oklch,var(--high) 18%,transparent)","var(--high)","var(--ink)"],
-    low:["color-mix(in oklch,var(--low) 16%,transparent)","var(--low)","var(--ink)"],
-    neutral:["rgba(255,255,255,.05)","var(--line)","var(--ink)"]};
-  function wochenBild(w,mahl){
-    return function(W,H){
-      const namen=ZEILEN.map(function(z){ return z.n; });
-      const ml=Math.ceil(Math.max.apply(null,namen.map(CHART.textW))/1.15)+18, mr=8;
-      const iw=Math.max(70,W-ml-mr), band=iw/7, cw=Math.min(band-6,78);
-      const KOPF=48, GRP=28, FUSS=32;
-      const RH=Math.max(20,(H-KOPF-GRP-FUSS)/8), zh=RH-7;
-      const xb=function(i){ return ml+band*(i+0.5); };
-      const ctx={mahl:mahl, so:w.so};
-      let s="";
-      const hi=w.tage.map(function(t){ return t.heute; }).indexOf(true);
-      if(hi>=0) s+='<rect x="'+(xb(hi)-band/2).toFixed(1)+'" y="4" width="'+band.toFixed(1)+
-        '" height="'+(H-FUSS+2).toFixed(1)+'" rx="7" fill="var(--accent)" opacity=".055"/>';
-      // Kopfzeile: passt die Beschriftung nicht, faellt der Wochentag und der Tag bleibt.
-      const passt=Math.max.apply(null,w.tage.map(function(t){ return CHART.textW(t.lab); }))<=band-4;
-      w.tage.forEach(function(t,i){
-        s+=txt(xb(i),18,passt?t.lab:t.lab.slice(3),
-               {a:"middle",c:t.heute?"var(--accent)":(t.kuenftig?"#3F4C57":"var(--muted)")});
-      });
-      function zeile(z,yi,top){
-        // Der Zeilenname ist der Weg in den Reiter - die Schalttafel bleibt, die
-        // zweite Liste ist weg.
-        s+=txt(ml-12,top+zh/2+4.5,z.n,{a:"end",f:SANS,fs:12.5,c:"var(--muted)",go:z.tab});
-        w.tage.forEach(function(t,i){
-          if(z.woche&&i<6) return;                 // Wochenwerte stehen im Sonntagsfeld
-          const x=xb(i)-cw/2, yc=top+zh/2;
-          const v=z.hol(t,ctx);
-          if(v){
-            const F=FARBE[v.st]||FARBE.neutral;
-            s+='<rect x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+
-               '" height="'+zh.toFixed(1)+'" rx="6" fill="'+F[0]+'" stroke="'+F[1]+'"/>';
-            // Ein Wert wird NICHT gekuerzt: "114/83" als "11..." waere falsch, nicht eng.
-            // Wird es zu schmal, greift die gemessene Untergrenze und das Bild rollt.
-            s+=txt(xb(i),yc+4.5,v.t,{a:"middle",fs:12.5,fw:600,c:F[2]});
-            return;
-          }
-          // Das "+" steht nur dort, wo heute etwas fehlt: in der Spalte von HEUTE und
-          // im Feld des Mess-Sonntags. Alles andere ist Geschichte - nachgetragen wird
-          // sie in der Abdeckung des Fachreiters, nicht aus dem Ueberblick heraus.
-          const offen=w.laufend&&z.erf&&!EXP&&!window.__FROZEN&&(z.woche?true:t.heute);
-          if(offen){
-            const ziel=(t.iso>HEUTE_ISO?HEUTE_ISO:t.iso);
-            s+='<rect data-erf="'+ziel+'" x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+
-               '" height="'+zh.toFixed(1)+'" rx="6" fill="none" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".7" style="cursor:pointer"/>';
-            s+=txt(xb(i),yc+4.5,"+",{a:"middle",f:SANS,fs:13,c:"var(--accent)",erf:ziel});
-            return;
-          }
-          if(t.kuenftig) return;                   // was noch nicht war, fehlt nicht
-          s+=txt(xb(i),yc+4.5,"\u2014",{a:"middle",fs:12,c:"#3F4C57"});
-        });
-      }
-      s+=txt(0,38,"TAG F\u00dcR TAG",{fs:9.5,ls:1.1,c:"var(--faint)"});
-      TAEG.forEach(function(z,i){ zeile(z,i,KOPF+i*RH); });
-      const yT=KOPF+TAEG.length*RH+4;
-      s+='<line x1="0" y1="'+yT.toFixed(1)+'" x2="'+W+'" y2="'+yT.toFixed(1)+'" stroke="rgba(255,255,255,.10)"/>';
-      s+=txt(0,yT+18,"JE WOCHE \u00b7 AM MESS-SONNTAG",{fs:9.5,ls:1.1,c:"var(--faint)"});
-      WOCH.forEach(function(z,i){ zeile(z,TAEG.length+i,KOPF+GRP+(TAEG.length+i)*RH); });
-      const yF=H-10;
-      s+=txt(0,yF,kurzT("grau heisst nicht erfasst \u00b7 Blutzucker: Zahl der Messungen, Farbe der schlechteste Wert",W-6),{fs:10.5,c:"var(--faint)"});
-      return s;
-    };
-  }
-
-  // ---- Kopfzeile des Blattes ----
-  const letzteMessung=ALL.length?ALL[ALL.length-1].iso:(wp.length?wp[wp.length-1].date:HEUTE_ISO);
-  const vonISO=(STATE.domain&&STATE.domain.from)||wp[0].date;
-  const woNr=Math.max(1,Math.ceil((D(letzteMessung)-D(vonISO))/604800000));
-  const kopf=el("div");
-  kopf.style.cssText="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid var(--line)";
-  kopf.innerHTML='<div style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)">'+
-      ((STATE.patient&&STATE.patient.name)||"Monitoring")+' \u00b7 Woche '+woNr+'</div>'+
-    '<div style="font-family:var(--mono);font-size:11px;color:var(--faint)">Stand '+dmy(letzteMessung)+'</div>';
-  root.appendChild(kopf);
-
-  // Buehne links, Auswahl rechts - dieselbe Anatomie wie in den sechs Fachreitern.
-  const raster=el("div","ts-raster"); raster.id="ueraster";
-  const links=el("div"); links.id="uelinks"; links.style.minWidth="0";
-  const rechts=el("div"); rechts.id="ueliste";
-  raster.appendChild(links); raster.appendChild(rechts);
-  root.appendChild(raster);
-
-  const ZW=["null","ein","zwei","drei","vier","f\u00fcnf","sechs","sieben","acht","neun","zehn","elf","zw\u00f6lf"];
-  const zw=function(k){ return (k>=0&&k<ZW.length)?ZW[k]:String(k); };
-  const zwG=function(k){ const s=zw(k); return s.charAt(0).toUpperCase()+s.slice(1); };
-  const pz=function(a,b){ return b?Math.round(a/b*100):0; };
-  const tageDerWoche=function(so){ const out=[]; const d=new Date(so+"T12:00:00");
-    d.setDate(d.getDate()-6);
-    for(let i=0;i<7;i++){ const x=new Date(d); x.setDate(d.getDate()+i); out.push(isoVon(x)); }
-    return out; };
-
-  // Gezaehlt werden nur MESSUNGEN. Die Mahlzeiten sind ein Plan, keine Messung - sie
-  // stehen jeden Tag im Raster und haetten die Zahl auf sieben von sieben getrieben,
-  // waehrend tatsaechlich an einem Tag gemessen wurde.
-  const MESS=TAEG.filter(function(z){ return z.tab!=="nutrition"; });
-  function leitzahl(w,mahl){
-    const ctx={mahl:mahl,so:w.so};
-    const bisher=w.tage.filter(function(t){ return !t.kuenftig; });
-    const gemessen=bisher.filter(function(t){ return MESS.some(function(z){ return !!z.hol(t,ctx); }); }).length;
-    const was=MESS.filter(function(z){ return bisher.some(function(t){ return !!z.hol(t,ctx); }); })
-                  .map(function(z){ return z.n; });
-    const offenW=WOCH.filter(function(z){ return !z.hol(w.tage[6],ctx); });
-    const s1=was.length?("Gemessen wurde "+was.join(", ")+". "):"In dieser Woche ist noch nichts gemessen. ";
-    const s2=offenW.length===WOCH.length
-      ? "Der Mess-Sonntag steht noch aus \u2013 Befinden, Trinkmenge, Bewegung und Schlaf fehlen."
-      : (offenW.length?("Am Mess-Sonntag fehlen noch: "+offenW.map(function(z){ return z.n; }).join(", ")+"."):
-                       "Der Mess-Sonntag ist vollst\u00e4ndig.");
-    return {zahl:String(gemessen), roh:gemessen,
-            einheit:"von "+bisher.length+(bisher.length===7?" Tagen":" bisherigen Tagen")+" mit einer Messung",
-            satz:s1+s2,
-            farbe:gemessen>=bisher.length*0.7?"var(--good)":(gemessen>=bisher.length*0.4?"var(--ink)":"var(--warn)")};
-  }
-
-  /* ---------- Bild 2 · Der Weg (Linie) ----------
-     Die eine Kurve, die das ganze Vorhaben traegt: das Gewicht seit dem ersten Eintrag.
-     Sie steht auch im Gewicht-Reiter - dort ueber Filter und Tempo, hier als die eine
-     Linie ohne Bedienelement. Das ist keine Doppelung, sondern der Unterschied zwischen
-     Uebersicht und Fachreiter. */
-  function wegBild(){
-    return function(W,H){
-      const pts=wp.map(function(p){ return {v:+p.value, t:D(p.date), d:p.date}; })
-                  .filter(function(p){ return !isNaN(p.v); });
-      if(pts.length<2) return txt(0,H/2,"Zu wenige Messungen f\u00fcr einen Verlauf.",{fs:13,c:"var(--muted)"});
-      const vs=pts.map(function(p){ return p.v; });
-      const mn=Math.min.apply(null,vs), mx=Math.max.apply(null,vs);
-      const pad=Math.max(0.6,(mx-mn)*0.12);
-      const t0=pts[0].t, t1=pts[pts.length-1].t;
-      const xT=[dmy(pts[0].d), dmy(pts[pts.length-1].d)];
-      const end=de(pts[pts.length-1].v)+" kg";
-      const m=CHART.margins([de(mx+pad),de(mn-pad)],xT,end);
-      m.b=Math.max(m.b,30);
-      const g=CHART.geo(W,H,mn-pad,mx+pad,pts.length,m);
-      const xOf=function(p){ return g.xt(p.t,t0,t1); };
-      let s=CHART.axis(g,function(v){ return de(v); });
-      s+=CHART.line(g,pts,"var(--accent)",{xOf:xOf});
-      s+=CHART.dots(g,pts,"var(--accent)",function(p){ return dmy(p.d)+" \u00b7 "+de(p.v)+" kg"; },{xOf:xOf,r:3});
-      const L=pts[pts.length-1];
-      s+=CHART.endLabel(g,xOf(L),g.y(L.v),end,"var(--accent)");
-      const yx=g.m.t+g.ih+18;
-      s+=txt(g.m.l,yx,xT[0],{fs:11,c:"var(--faint)"});
-      s+=txt(W-g.m.r,yx,xT[1],{a:"end",fs:11,c:"var(--faint)"});
-      return s;
-    };
-  }
-  function wegZahl(){
-    const v=wp.map(function(p){ return +p.value; }).filter(function(x){ return !isNaN(x); });
-    if(v.length<2) return null;
-    return {erst:v[0], letzt:v[v.length-1], delta:v[v.length-1]-v[0]};
-  }
-
-  /* ---------- Bild 3 · Im Soll (Band) ----------
-     Wie die Blutzuckerwerte der letzten vier Wochen liegen, gegen die vier Wochen davor
-     als blasses zweites Band. Kein Kreis: ein Band hat eine Achse und Platz fuer die
-     Vorperiode. */
-  const SOLL_ABS=[["good","im Soll","var(--good)"],["warn","\u00fcber Soll","var(--warn)"],
-                  ["high","hoch","var(--high)"],["low","tief","var(--low)"]];
-  function sollZahlen(vonTage,bisTage){
-    const heute=D(HEUTE_ISO), z={good:0,warn:0,high:0,low:0}; let n=0;
-    (G.days||[]).forEach(function(d){
-      const alter=(heute-D(d.iso))/86400000;
-      if(alter<bisTage||alter>=vonTage) return;
-      (d.rows||[]).forEach(function(r){ (r.values||[]).forEach(function(x){
-        if(x.v==null) return;
-        const st=stateOf(x.v,typeOf(r.slot));
-        if(z[st]==null) z[st]=0;
-        z[st]++; n++; }); });
-    });
-    return {z:z,n:n};
-  }
-  function sollBild(){
-    return function(W,H){
-      const jetzt=sollZahlen(28,0), vor=sollZahlen(56,28);
-      if(!jetzt.n) return txt(0,H/2,"In den letzten vier Wochen ist kein Blutzucker gemessen.",{fs:13,c:"var(--muted)"});
-      const ml=0, mr=0, iw=W;
-      // Gemessen: mit festen 44 px stiess die Legende des ersten Bandes in die
-      // Kopfzeile des zweiten. Die Bandhoehe waechst jetzt mit der Bildhoehe, und
-      // zwischen Legende und zweiter Kopfzeile stehen 62 px statt 46.
-      const bandH=Math.max(34,Math.min(56,(H-140)/2.6));
-      const y1=54, y2=y1+bandH+62;
-      let s=txt(2,20,"DIE LETZTEN VIER WOCHEN \u00b7 "+jetzt.n+" MESSUNGEN",{fs:9.5,ls:1.1,c:"var(--faint)"});
-      const zeichneBand=function(dat,y,op){
-        let x=ml, out="";
-        SOLL_ABS.forEach(function(a){
-          const k=dat.z[a[0]]||0; if(!k) return;
-          const b=iw*k/dat.n;
-          out+='<rect x="'+x.toFixed(1)+'" y="'+y+'" width="'+b.toFixed(1)+'" height="'+bandH+
-               '" fill="'+a[2]+'" opacity="'+op+'"/>';
-          const lab=pz(k,dat.n)+" %";
-          if(CHART.textW(lab)+10<b) out+=txt(x+b/2,y+bandH/2+5,lab,{a:"middle",fs:13,fw:700,c:"var(--bg)"});
-          x+=b;
-        });
-        return out;
-      };
-      s+=zeichneBand(jetzt,y1,"1");
-      // Legende: Name und Zahl unter dem Band, nur fuer besetzte Abschnitte.
-      let lx=2;
-      SOLL_ABS.forEach(function(a){
-        const k=jetzt.z[a[0]]||0; if(!k) return;
-        const t=a[1]+" \u00b7 "+k;
-        s+='<rect x="'+lx.toFixed(1)+'" y="'+(y1+bandH+14)+'" width="9" height="9" rx="2" fill="'+a[2]+'"/>';
-        s+=txt(lx+14,y1+bandH+22.5,t,{fs:11.5,c:"var(--muted)"});
-        lx+=14+CHART.textW(t)+18;
-      });
-      if(vor.n){
-        s+=txt(2,y2-14,"DIE VIER WOCHEN DAVOR \u00b7 "+vor.n+" MESSUNGEN",{fs:9.5,ls:1.1,c:"var(--faint)"});
-        s+=zeichneBand(vor,y2,".38");
-        const d=pz(jetzt.z.good||0,jetzt.n)-pz(vor.z.good||0,vor.n);
-        s+=txt(2,y2+bandH+22,(d===0?"Gleich viel im Soll wie davor.":
-              (d>0?"+"+d:String(d))+" Prozentpunkte im Soll gegen\u00fcber der Vorperiode."),
-              {fs:11.5,c:"var(--muted)"});
-      } else {
-        s+=txt(2,y2,"F\u00fcr die vier Wochen davor liegen keine Messungen vor.",{fs:11.5,c:"var(--faint)"});
-      }
-      return s;
-    };
-  }
-
-  /* ---------- Bild 4 · Abdeckung (Raster) ----------
-     Dieselbe Rastertafel wie in jedem Fachreiter, hier ueber ALLE Quellen: welche hat
-     wann geliefert. Grau heisst nicht erfasst. */
-  const QUELLEN=[
-    {n:"Blutzucker", tag:true, hol:function(iso){ const d=gDay[iso]; if(!d) return 0;
-      let k=0; (d.rows||[]).forEach(function(r){ (r.values||[]).forEach(function(x){ if(x.v!=null) k++; }); }); return k; }},
-    {n:"Gewicht",    tag:true, hol:function(iso){ return wgDay[iso]!=null?1:0; }},
-    {n:"Blutdruck",  tag:true, hol:function(iso){ return bpAll.filter(function(p){ return p.iso===iso; }).length; }},
-    {n:"Befinden",   tag:false, hol:function(so){ return (WO[so]||{}).bef!=null?1:0; }},
-    {n:"Bewegung",   tag:false, hol:function(so){ return mittel((WO[so]||{}).steps)!=null?1:0; }},
-    {n:"Schlaf",     tag:false, hol:function(so){ return mittel((WO[so]||{}).sleep)!=null?1:0; }}
-  ];
-  function abdeckungWochen(k){
-    const out=[];
-    for(let i=k-1;i>=0;i--){ const d=new Date(HEUTE); d.setDate(d.getDate()-7*i);
-      const so=sonntagVon(isoVon(d));
-      if(out.indexOf(so)<0) out.push(so); }
-    return out;
-  }
-  function abdeckungBild(anz){
-    return function(W,H){
-      const SO=abdeckungWochen(anz||8);
-      const namen=QUELLEN.map(function(q){ return q.n; });
-      const ml=Math.ceil(Math.max.apply(null,namen.map(CHART.textW))/1.15)+18, mr=8;
-      const iw=Math.max(70,W-ml-mr), band=iw/SO.length, cw=Math.min(band-6,74);
-      const KOPF=42, FUSS=30;
-      const RH=Math.max(20,(H-KOPF-FUSS)/QUELLEN.length), zh=RH-7;
-      const xb=function(i){ return ml+band*(i+0.5); };
-      let s="";
-      const lab=SO.map(function(so){ return "bis "+so.slice(8)+"."+so.slice(5,7)+"."; });
-      const kurz=SO.map(function(so){ return so.slice(8)+"."+so.slice(5,7)+"."; });
-      const passt=Math.max.apply(null,lab.map(CHART.textW))<=band-4;
-      const passt2=Math.max.apply(null,kurz.map(CHART.textW))<=band-4;
-      SO.forEach(function(so,i){
-        if(!passt&&!passt2) return;
-        s+=txt(xb(i),18,passt?lab[i]:kurz[i],{a:"middle",c:"var(--muted)"});
-      });
-      QUELLEN.forEach(function(q,zi){
-        const top=KOPF+zi*RH;
-        s+=txt(ml-12,top+zh/2+4.5,q.n,{a:"end",f:SANS,fs:12.5,c:"var(--muted)"});
-        SO.forEach(function(so,i){
-          let k=0;
-          if(q.tag) tageDerWoche(so).forEach(function(iso){ k+=q.hol(iso); });
-          else k=q.hol(so);
-          const x=xb(i)-cw/2, yc=top+zh/2;
-          if(k){
-            s+='<rect x="'+x.toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+cw.toFixed(1)+
-               '" height="'+zh.toFixed(1)+'" rx="6" fill="var(--good-bg)" stroke="var(--good)"/>';
-            s+=txt(xb(i),yc+4.5,q.tag?String(k):"\u2713",{a:"middle",fs:12.5,fw:600,c:"var(--good)"});
-          } else {
-            s+=txt(xb(i),yc+4.5,"\u2014",{a:"middle",fs:12,c:"#3F4C57"});
-          }
-        });
-      });
-      s+=txt(2,H-8,kurzT("grau heisst nicht erfasst \u00b7 Zahl = Messungen der Woche, \u2713 = am Mess-Sonntag erfasst",W-6),{fs:10.5,c:"var(--faint)"});
-      return s;
-    };
-  }
-  function abdeckungZahl(){
-    const SO=abdeckungWochen(8);
-    let voll=0;
-    SO.forEach(function(so){
-      const alle=QUELLEN.every(function(q){
-        if(q.tag) return tageDerWoche(so).some(function(iso){ return q.hol(iso)>0; });
-        return q.hol(so)>0; });
-      if(alle) voll++; });
-    return {voll:voll, von:SO.length};
-  }
-
-  /* ---------- Bild 5 · Was fehlt (Balken) ----------
-     Die offenen Felder dieser Woche, nach Groesse sortiert. Kein Vorwurf, eine Liste:
-     was noch nicht war, faellt heraus (kuenftige Tage zaehlen nicht). */
-  function fehltListe(w,mahl){
-    const ctx={mahl:mahl,so:w.so};
-    const bisher=w.tage.filter(function(t){ return !t.kuenftig; });
-    const out=[];
-    TAEG.forEach(function(z){
-      if(!z.erf) return;
-      const k=bisher.filter(function(t){ return !z.hol(t,ctx); }).length;
-      if(k) out.push({n:z.n, k:k, von:bisher.length, tab:z.tab});
-    });
-    if(w.so<=HEUTE_ISO) WOCH.forEach(function(z){
-      if(z.hol(w.tage[6],ctx)) return;
-      out.push({n:z.n, k:1, von:1, tab:z.tab});
-    });
-    out.sort(function(a,b){ return (b.k/b.von)-(a.k/a.von) || b.k-a.k; });
-    return out;
-  }
-  function fehltBild(w,mahl){
-    return function(W,H){
-      const items=fehltListe(w,mahl);
-      if(!items.length) return txt(0,H/2,"In dieser Woche ist nichts offen.",{fs:14,c:"var(--good)"});
-      const namen=items.map(function(i){ return i.n; });
-      const ml=Math.ceil(Math.max.apply(null,namen.map(CHART.textW))/1.15)+16;
-      const zahlT=items.map(function(i){ return i.k+" von "+i.von; });
-      const mr=Math.ceil(Math.max.apply(null,zahlT.map(CHART.textW))/1.15)+14;
-      const KOPF=30, FUSS=26;
-      const iw=Math.max(60,W-ml-mr);
-      const RH=Math.min(46,(H-KOPF-FUSS)/items.length), bh=Math.min(20,RH-12);
-      let s=txt(2,14,"OFFEN IN DIESER WOCHE",{fs:9.5,ls:1.1,c:"var(--faint)"});
-      items.forEach(function(it,i){
-        const y=KOPF+i*RH, b=iw*(it.k/it.von);
-        s+=txt(ml-10,y+bh/2+4.5,it.n,{a:"end",f:SANS,fs:12.5,c:"var(--muted)"});
-        s+='<rect x="'+ml+'" y="'+y.toFixed(1)+'" width="'+iw.toFixed(1)+'" height="'+bh+
-           '" rx="4" fill="rgba(255,255,255,.04)"/>';
-        s+='<rect x="'+ml+'" y="'+y.toFixed(1)+'" width="'+b.toFixed(1)+'" height="'+bh+
-           '" rx="4" fill="var(--warn)" opacity=".72"/>';
-        s+=txt(ml+iw+8,y+bh/2+4.5,it.k+" von "+it.von,{fs:11.5,c:"var(--muted)"});
-      });
-      s+=txt(2,H-6,kurzT("Ein Balken je offener Zeile, l\u00e4ngster zuerst. K\u00fcnftige Tage z\u00e4hlen nicht mit.",W-6),{fs:10.5,c:"var(--faint)"});
-      return s;
-    };
-  }
-
-  // ---- die fuenf Zeilen ----
-  let gewaehlt="woche";
-  function bauUnter(w,mahl){
-    const lz=leitzahl(w,mahl);
-    const wg=wegZahl();
-    const soll=sollZahlen(28,0);
-    const sollP=soll.n?pz(soll.z.good||0,soll.n):null;
-    const ab=abdeckungZahl();
-    const fehlt=fehltListe(w,mahl);
-    const fehltK=fehlt.reduce(function(a,b){ return a+b.k; },0);
-    return [
-      {key:"woche", label:"Die Woche", wert:lz.zahl+" von 7", farbe:lz.farbe,
-       kurz:"Was in dieser Woche erfasst ist.",
-       leit:{label:"Die Woche \u00b7 "+w.titel, wert:lz.zahl, einheit:lz.einheit, farbe:lz.farbe, satz:lz.satz},
-       info:["Die Woche","<p style='margin:0 0 10px'>Ein Feld je Zeile und Tag. Oben, was <b>Tag f\u00fcr Tag</b> entsteht, unter der Linie, was <b>je Woche am Mess-Sonntag</b> erfasst wird \u2013 ohne diese Trennung st\u00fcnde hier jeden Montag ein Vers\u00e4umnis, wo nur kein Termin war.</p><p style='margin:0'>Der Zeilenname \u00f6ffnet seinen Reiter. Im Modal l\u00e4sst sich die Woche wechseln.</p>"],
-       cap:"Der Zeilenname \u00f6ffnet seinen Reiter. Ein gestricheltes Feld mit + \u00f6ffnet die Erfassung f\u00fcr diesen Tag; geschrieben wird der Wochenplan nur im Reiter Ern\u00e4hrung.",
-       bauen:function(z,gross){ wocheBauen(z,gross,w,mahl); }},
-
-      {key:"weg", label:"Der Weg", wert:wg?(wg.delta<0?"\u2212":"+")+de(Math.abs(wg.delta))+" kg":"\u2014",
-       farbe:wg&&wg.delta<0?"var(--good)":"var(--ink)",
-       kurz:"Das Gewicht seit dem ersten Eintrag.",
-       leit:{label:"Der Weg \u00b7 Gewicht seit Beginn", wert:wg?de(wg.letzt):"\u2014", einheit:"kg heute \u00b7 Start "+(wg?de(wg.erst):"\u2014"),
-             farbe:wg&&wg.delta<0?"var(--good)":"var(--ink)",
-             satz:wg?("Seit dem ersten Eintrag "+(wg.delta<0?"\u2212":"+")+de(Math.abs(wg.delta))+" kg \u00fcber "+zw(Math.max(1,Math.round((D(wp[wp.length-1].date)-D(wp[0].date))/604800000)))+" Wochen."):
-                     "Noch keine zwei Messungen."},
-       info:["Der Weg","<p style='margin:0'>Die eine Linie, die das ganze Vorhaben tr\u00e4gt. Sie steht auch im Gewicht-Reiter \u2013 dort mit Tempo, Prognose und Einordnung daneben, hier als die eine Kurve ohne Bedienelement.</p>"],
-       cap:"Jeder Punkt ist eine Messung. Eine ausgelassene Woche wird gestrichelt \u00fcberbr\u00fcckt, ein l\u00e4ngerer Bruch bleibt als L\u00fccke stehen.",
-       bauen:function(z,gross){ einBildU(z,gross,wegBild(),gross?400:300,520,0); }},
-
-      {key:"soll", label:"Im Soll", wert:sollP!=null?sollP+" %":"\u2014",
-       farbe:sollP==null?"var(--warn)":(sollP>=70?"var(--good)":"var(--ink)"),
-       kurz:"Wo die Blutzuckerwerte liegen.",
-       leit:{label:"Im Soll \u00b7 die letzten vier Wochen", wert:sollP!=null?String(sollP):"\u2014", einheit:sollP!=null?"% der Messungen im Sollbereich":"keine Messung in vier Wochen",
-             farbe:sollP==null?"var(--warn)":(sollP>=70?"var(--good)":"var(--ink)"),
-             satz:soll.n?(zwG(Math.min(12,soll.n))===zw(soll.n)?"":"")+soll.n+" Messungen in vier Wochen, davon "+(soll.z.good||0)+" im Soll, "+((soll.z.warn||0)+(soll.z.high||0))+" dar\u00fcber und "+(soll.z.low||0)+" darunter.":
-                          "In den letzten vier Wochen ist kein Blutzucker gemessen."},
-       info:["Im Soll","<p style='margin:0'>Die Abschnitte kommen aus Deinen Sollwerten \u2013 vor dem Essen und danach getrennt, wie im Blutzucker-Reiter. Keine erfundenen Zonen.</p>"],
-       cap:"Die Breite eines Abschnitts ist sein Anteil an allen Messungen. Das blasse Band darunter sind die vier Wochen davor.",
-       bauen:function(z,gross){ einBildU(z,gross,sollBild(),gross?300:250,480,0); }},
-
-      {key:"abdeckung", label:"Abdeckung", wert:ab.voll+" von "+ab.von,
-       farbe:ab.voll>=ab.von*0.6?"var(--good)":"var(--ink)",
-       kurz:"Welche Quelle wann geliefert hat.",
-       leit:{label:"Abdeckung \u00b7 die letzten "+zw(ab.von)+" Wochen", wert:String(ab.voll), einheit:"von "+ab.von+" Wochen mit allen sechs Quellen",
-             farbe:ab.voll>=ab.von*0.6?"var(--good)":"var(--ink)",
-             satz:"Sechs Quellen: Blutzucker, Gewicht und Blutdruck entstehen Tag f\u00fcr Tag, Befinden, Bewegung und Schlaf am Mess-Sonntag."},
-       info:["Abdeckung","<p style='margin:0'>Dieselbe Rastertafel wie in jedem Fachreiter, hier \u00fcber alle Quellen. Sie sagt nicht, wie gut ein Wert ist \u2013 nur, ob er da ist.</p>"],
-       cap:"Zahl = Messungen dieser Woche, \u2713 = am Mess-Sonntag erfasst, grauer Strich = nicht erfasst.",
-       bauen:function(z,gross){ einBildU(z,gross,abdeckungBild(gross?12:8),gross?330:300,560,0); }},
-
-      {key:"fehlt", label:"Was fehlt", wert:fehltK?String(fehltK):"nichts",
-       farbe:fehltK?"var(--warn)":"var(--good)",
-       kurz:"Die offenen Felder dieser Woche.",
-       leit:{label:"Was fehlt \u00b7 "+w.titel, wert:fehltK?String(fehltK):"0", einheit:fehltK===1?"offenes Feld in dieser Woche":"offene Felder in dieser Woche",
-             farbe:fehltK?"var(--warn)":"var(--good)",
-             satz:fehltK?("Am gr\u00f6ssten ist die L\u00fccke bei "+fehlt[0].n+" \u2013 "+fehlt[0].k+" von "+fehlt[0].von+"."):
-                         "Alles, was diese Woche erfasst werden konnte, ist erfasst."},
-       info:["Was fehlt","<p style='margin:0'>Gez\u00e4hlt werden nur Tage, die schon waren. Was noch nicht war, fehlt nicht \u2013 k\u00fcnftige Tage bleiben aussen vor.</p>"],
-       cap:"Ein Balken je offener Zeile, der l\u00e4ngste zuerst. Nachgetragen wird \u00fcber die Erfassung oder die Abdeckung des Fachreiters.",
-       bauen:function(z,gross){ einBildU(z,gross,fehltBild(w,mahl),gross?320:280,440,0); }}
-    ];
-  }
-
-  // Ein Bild ohne Bedienelement. vorMinW ist die GEMESSENE Untergrenze der Vorschau.
-  function einBildU(ziel,gross,mach,hoehe,minW,vorMinW){
-    const holder=el("div");
-    holder.innerHTML=CHART.box(mach,{h:hoehe,minW:minW,vorMinW:gross?0:vorMinW});
-    ziel.appendChild(holder);
-    if(typeof CHART!=="undefined") CHART.sweep(holder);
-  }
-  // Die Woche traegt als einzige ein Bedienelement - und nur im Modal.
-  function wocheBauen(ziel,gross,w0,mahl0){
-    if(gross){
-      const row=el("div");
-      row.style.cssText="display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:0 0 14px";
-      [["diese Woche",0],["letzte Woche",1],["vorletzte",2]].forEach(function(o){
-        const b=document.createElement("button");
-        const an=zurueck===o[1];
-        b.style.cssText="display:inline-flex;align-items:center;gap:7px;font-family:var(--sans);font-size:12.5px;"+
-          "padding:5px 11px;border-radius:20px;cursor:pointer;border:1px solid "+(an?SERIE(1):"var(--line)")+";"+
-          "background:"+(an?"color-mix(in oklch,"+SERIE(1)+" 14%,transparent)":"transparent")+";color:"+(an?"var(--ink)":"var(--faint)");
-        b.innerHTML='<span style="font-size:13px;line-height:1">'+(an?"\u2713":"\u2014")+'</span>'+o[0];
-        b.onclick=function(ev){ ev.stopPropagation(); zurueck=o[1]; zeichne();
-          const v=links.querySelector(".vorschau"); if(v) v.click(); };
-        row.appendChild(b);
-      });
-      ziel.appendChild(row);
-    }
-    const ww=gross?wocheVon(zurueck):w0, mm=gross?mahlzeiten(ww.key):mahl0;
-    const holder=el("div");
-    holder.innerHTML=CHART.box(wochenBild(ww,mm),{h:gross?430:382,minW:560,vorMinW:gross?0:VORMINW});
-    holder.addEventListener("click",function(ev){
-      const g=ev.target&&ev.target.closest?ev.target.closest("[data-go]"):null;
-      if(g){ ev.preventDefault(); ev.stopPropagation();
-        const z=document.querySelector('.tab[data-tab="'+g.getAttribute("data-go")+'"]'); if(z) z.click(); return; }
-      const t=ev.target&&ev.target.closest?ev.target.closest("[data-erf]"):null;
-      if(!t) return;
-      ev.preventDefault(); ev.stopPropagation();
-      if(typeof window._openEntry==="function") window._openEntry(t.getAttribute("data-erf"));
-    });
-    ziel.appendChild(holder);
-    if(typeof CHART!=="undefined") CHART.sweep(holder);
-  }
-
-  // Leitzahl-Kopf ueber der Buehne - Label mit \u2139, Zahl, EIN Satz. Wie in den
-  // Fachreitern; kein Titel ueber dem Bild.
-  function kopfVon(u){
-    const kopf=el("div");
-    const lab=el("div");
-    lab.style.cssText="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)";
-    lab.appendChild(document.createTextNode(u.leit.label));
-    if(u.info&&typeof infoIcon==="function") lab.appendChild(infoIcon(u.info[0],u.info[1]));
-    kopf.appendChild(lab);
-    const z=el("div");
-    z.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 5px;flex-wrap:wrap";
-    z.innerHTML='<span style="font-size:46px;font-weight:680;letter-spacing:-.03em;line-height:.9;color:'+u.leit.farbe+'">'+u.leit.wert+'</span>'+
-      '<span style="font-size:15px;color:var(--muted)">'+u.leit.einheit+'</span>';
-    kopf.appendChild(z);
-    const s=el("div");
-    s.style.cssText="font-size:14.5px;color:var(--muted);margin-bottom:14px;line-height:1.5";
-    s.textContent=u.leit.satz;
-    kopf.appendChild(s);
-    return kopf;
-  }
-
-  function zeichneLinks(UNTER){
-    const u=UNTER.filter(function(x){ return x.key===gewaehlt; })[0]||UNTER[0];
-    links.innerHTML="";
-    links.appendChild(kopfVon(u));
-    if(EXP){ const d=el("div"); links.appendChild(d); u.bauen(d,false); }
-    else vorschau(links,u.leit.label,u.bauen,(u.key==="weg"?"weight":null));
-    links.appendChild(el("div","cap",u.cap));
-  }
-  function zeichneRechts(UNTER){
-    rechts.innerHTML="";
-    rechts.style.cssText="align-self:stretch;display:flex;flex-direction:column";
-    UNTER.forEach(function(u){
-      const an=u.key===gewaehlt;
-      const b=document.createElement("button");
-      b.type="button"; b.dataset.frage=u.key;
-      b.style.cssText="text-align:left;width:100%;border:0;border-top:1px solid var(--line);"+
-        "border-left:3px solid "+(an?"var(--accent)":"transparent")+";"+
-        "background:"+(an?"var(--surface2)":"transparent")+";color:var(--ink);font-family:inherit;"+
-        "padding:11px 12px;cursor:pointer;flex:1 1 0;display:flex;flex-direction:column;justify-content:center;gap:3px";
-      b.onmouseenter=function(){ if(!an) b.style.background="var(--surface)"; };
-      b.onmouseleave=function(){ if(!an) b.style.background="transparent"; };
-      b.innerHTML='<span style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">'+
-          '<span style="font-size:14.5px">'+u.label+'</span>'+
-          '<span style="font-family:var(--mono);font-size:12px;color:'+u.farbe+'">'+u.wert+'</span></span>'+
-        '<span style="font-size:12.5px;color:var(--faint)">'+u.kurz+'</span>';
-      b.onclick=function(){ gewaehlt=u.key; zeichne(); };
-      rechts.appendChild(b);
-    });
-  }
-  function zeichne(){
-    const w=wocheVon(zurueck), mahl=mahlzeiten(w.key);
-    const UNTER=bauUnter(w,mahl);
-    if(!UNTER.some(function(u){ return u.key===gewaehlt; })) gewaehlt=UNTER[0].key;
-    zeichneLinks(UNTER); zeichneRechts(UNTER);
-  }
-
-  // Gedruckt stehen alle fuenf untereinander - auf Papier fehlten sonst die anderen vier.
-  function flach(){
-    const w=wocheVon(zurueck), mahl=mahlzeiten(w.key);
-    const UNTER=bauUnter(w,mahl);
-    links.innerHTML=""; rechts.innerHTML="";
-    UNTER.forEach(function(u){
-      links.appendChild(kopfVon(u));
-      const d=el("div"); links.appendChild(d); u.bauen(d,false);
-      links.appendChild(el("div","cap",u.cap));
-    });
-    if(typeof CHART!=="undefined") CHART.sweep(links);
-  }
-  window.__FRAGEN.ueberblick=function(){ return gewaehlt; };
-  const _vwU=STATE.__export&&STATE.__export.fragen&&STATE.__export.fragen.ueberblick;
-  if(_vwU&&["woche","weg","soll","abdeckung","fehlt"].indexOf(_vwU)>=0) gewaehlt=_vwU;
-  zeichne();
-  if(!STATE.__export) DRUCK.push({flach:flach,zurueck:zeichne});
-
-})();
-
 /* Die Karte «Im Ziel» ist weg. Ihre Aussage – wie sich die Messungen auf tief / im Soll /
    über Soll / hoch verteilen – steht jetzt in der Lage-Karte des Blutzucker-Reiters, wo
    auch die Sollwerte erklärt sind. Zwei Orte für dieselbe Verteilung war einer zu viel. */
@@ -3293,7 +2604,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
 
 /* ================= Blutzucker-Reiter =================
    Kennzahl-Etage 2, dann EIN Kasten: links die Buehne, rechts die Auswahl – dieselbe
-   Anatomie wie der Ueberblick (#titelseite). Seit Albrechts Korrektur vom 02.08.2026
+   Anatomie wie in allen Fachreitern. Seit Albrechts Korrektur vom 02.08.2026
    FUENF Fragen statt drei (Verlauf, Tagesmuster, Verteilung, Vorperiode, Abdeckung):
    drei gefaltete Zeilen wirkten als Bloecke gegen die Buehne und waren vollgepackt.
    Je Frage EIN Bild; nur die Abdeckung traegt noch eine zweite Brille (Uhrzeit).
@@ -7687,7 +6998,6 @@ document.getElementById("updated").textContent=STATE.updated;
     {h:"Hotspot",t:"Die Tageszeit mit dem höchsten Durchschnittswert – also wo der Blutzucker am ehesten über das Ziel läuft. Steht 'alles im Ziel', gibt es keinen Problembereich."},
     {h:"HbA1c ~",t:"Eine <b>Schätzung</b> des Langzeit-Blutzuckers (Mittel der letzten ~8–12 Wochen), aus deinen Messwerten hochgerechnet. Kein Laborwert – der echte HbA1c kommt von der Ärztin. Dient nur als grobe Tendenz."},
     {grp:"Diagramme & Tabs"},
-    {h:"Überblick · ein Blatt",t:"Oben die vier Ankerzahlen, darunter <b>die Woche</b>: sieben Spalten für Montag bis Sonntag, acht Zeilen. Oben, was <b>Tag für Tag</b> entsteht (Blutzucker, Blutdruck, Gewicht, Mahlzeiten), unter der Linie, was <b>je Woche am Mess-Sonntag</b> erfasst wird (Befinden, Trinkmenge, Bewegung, Schlaf). Grau heisst nicht erfasst. Ein Klick auf den Zeilennamen öffnet den zugehörigen Reiter, ein gestricheltes Feld mit + öffnet die Erfassung für diesen Tag."},
     {h:"Blutzucker · fünf Fragen",t:"Oben die Kennzahlen, darunter ein Bild je Frage – rechts wählen, Klick auf das Bild öffnet es gross mit seinen Bedienelementen. <b>Verlauf</b>: alle Einzelmessungen über die Zeit, mit Zielkorridor. <b>Tagesprofil</b>: nach Tageszeit zusammengefasst – wann kippt es. <b>Verteilung &amp; Messpunkte</b>: Anteile in den vier Bereichen der Arztvorgabe, und an welchen Messpunkten die Werte entstehen. <b>Abdeckung</b>: Messtage und Lücken im Kalender. <b>Uhrzeit</b>: zu welcher Tageszeit gemessen wird. <b>Vorperiode</b>: Vergleich mit der alten Mess-App."},
     {h:"BMI- & Körpermasse-Karten (Tab Gewicht)",t:"Der BMI-Balken zeigt, wo du auf der Skala stehst und wohin die Zielgewichte (100/80 kg) führen. Die Körpermasse-Karte zeigt Brust, Taille, Hüfte und den daraus berechneten THQ."},
     {h:"Akten",t:"Fünf Archive in einem Reiter, links der Inhalt, rechts die Auswahl: <b>Medikation</b> (der Plan, hier bearbeitbar), <b>Kontext</b> (Wochen-Rückblick, Meilensteine), <b>Messwerte</b> (alle Rohdaten als Tabelle), <b>Labor</b> (die Laborblätter) und <b>Krankengeschichte</b> (Diagnosen, Eingriffe, Befunde). Gedruckt stehen alle vier untereinander."},
@@ -8169,7 +7479,7 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
   // Eingefrorener Export: Daten sofort anzeigen, keine Verbinden-/Export-Steuerung.
   if(window.__FROZEN){
     boot();
-    ["connBtn","exportBtn","entryBtn"].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display="none";});
+    ["connBtn","exportBtn","entryBtn","medBtnL"].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display="none";});
     // Export-Modal hat in der Arzt-Kopie nichts verloren – ganz entfernen.
     const em=document.getElementById("exportModal"); if(em) em.remove();
     const enm=document.getElementById("entryModal"); if(enm) enm.remove();
@@ -8367,20 +7677,9 @@ function _buildExportState(){
   if(!picked.history) delete S.history;
   else if(S.history&&S.history.events) S.history.events=_filterArr(S.history.events,lo,hi);
 
-  // Ernaehrung: die Wochen sind ein OBJEKT mit Datumsschluesseln, kein Array – _filterArr
-  // gibt Objekte unveraendert zurueck und der Zeitraum griffe still nicht. Eine Woche
-  // bleibt, wenn sie den Zeitraum ueberlappt (Montag bis Sonntag).
-  if(!picked.nutrition) delete S.nutrition;
-  else if(S.nutrition&&S.nutrition.weeks){
-    const w=S.nutrition.weeks, raus=[];
-    Object.keys(w).forEach(mo=>{
-      const d=new Date(mo+"T12:00:00"); d.setDate(d.getDate()+6);
-      const p=n=>String(n).padStart(2,"0");
-      const so=d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
-      if(!_overlaps(mo,so,lo,hi)) raus.push(mo);
-    });
-    raus.forEach(k=>delete w[k]);
-  }
+  // Ernaehrung ist am 13.08.2026 in eine eigene lokale App gezogen. In der Arztkopie
+  // hat sie nichts verloren – und eine Auswahlzeile dafuer gibt es nicht mehr.
+  delete S.nutrition;
 
   // Ohne den Zusatzschalter werden Pfad und Link nicht nur ausgeblendet, sondern aus
   // den Daten entfernt. Sonst staenden sie im Quelltext der Datei, unsichtbar, aber da.
@@ -9147,11 +8446,10 @@ window._erfFenster=_erfFenster;
 } // Ende if(!window.__FROZEN) – Export-Setup nur im echten Tool
 
 </script>
-<!-- Die vier Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
+<!-- Die drei Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
 <div class="weltLight" id="lichtFenster">
   <div id="vollModal" hidden></div>
   <div id="hilfeModal" hidden></div>
-  <div id="expModal" hidden></div>
   <div id="medModal" hidden></div>
 </div>
 
@@ -10371,372 +9669,6 @@ function legendeVoll(d){
 }
 
 /* ============================================================================
-   Arzt-Export – ein durchlaufender Bericht, keine Kacheln, keine Bedienung.
-   Der Bericht rechnet NICHT neu: jede Zahl kommt aus REG() bzw. kachelDaten(),
-   also aus derselben Stelle wie die Kachel im Werkzeug. Er liest nur aus STATE
-   und fasst den gerenderten Bildschirm nirgends an. Die Diagramme sind SVG mit
-   fester viewBox und preserveAspectRatio="none" – im Druck gibt es keine
-   Fensterbreite, also darf keine Zeichnung von clientWidth abhaengen.
-   ========================================================================== */
-const EXP = { anliegen:['','',''], zeitraum:'alles',
-              teile:{ kennzahlen:true, einzel:true, labor:true, meds:true, docs:true } };
-const EXPF = { gewicht:'d0', thq:'d0', bz:'d1', bd:'d2', schlaf:'d0', schritte:'d1', trinken:'d2' };
-
-function letzterTermin(){
-  const t = (STATE.termine||[]).filter(x => x && x.date)
-    .map(x => ({ d:vonIso(x.date), wer:x.wer||'' }))
-    .filter(x => x.d.getTime() <= heute().getTime())
-    .sort((a,b) => a.d - b.d);
-  return t.length ? t[t.length-1] : null;
-}
-function expVon(){
-  if(EXP.zeitraum==='termin'){ const t = letzterTermin(); if(t) return t.d; }
-  if(EXP.zeitraum==='3m'){ const h = heute(); return new Date(h.getFullYear(), h.getMonth()-3, h.getDate()); }
-  return null;
-}
-function imZeit(s, von){ return von ? s.filter(x => x.d.getTime() >= von.getTime()) : s; }
-function dLang(d){ return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear(); }
-function dKurz(d){ return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'; }
-/* Eine Spanne ueber Jahresgrenzen muss das Jahr nennen – «10.08.–02.08.2026» liest
-   sich sonst als zehn Tage statt als zehn Jahre. */
-function dSpanne(a, b){ return (a.getFullYear()===b.getFullYear() ? dKurz(a) : dLang(a))+'–'+dLang(b); }
-function jahreSeit(s){
-  const g = vonIso(s), h = heute();
-  let a = h.getFullYear()-g.getFullYear();
-  const m = h.getMonth()-g.getMonth();
-  if(m<0 || (m===0 && h.getDate()<g.getDate())) a--;
-  return a;
-}
-function monateSeit(s){
-  const a = vonIso(s), h = heute();
-  return Math.max(0, (h.getFullYear()-a.getFullYear())*12 + (h.getMonth()-a.getMonth()));
-}
-
-function oeffneExport(){ renderExport(); }
-function schliesseExport(){ const m = el('expModal'); m.hidden = true; m.innerHTML = ''; }
-function renderExport(){
-  const m = el('expModal'), P = STATE.patient||{}, T = letzterTermin();
-  const hak = (k,l) => '<label class="exp-hak"><input type="checkbox" data-teil="'+k+'"'+(EXP.teile[k]?' checked':'')+'><span>'+esc(l)+'</span></label>';
-  const rad = (k,l,aus) => '<label class="exp-hak"'+(aus?' style="opacity:.45"':'')+'><input type="radio" name="expZ" data-z="'+k+'"'+(EXP.zeitraum===k?' checked':'')+(aus?' disabled':'')+'><span>'+esc(l)+'</span></label>';
-  m.hidden = false;
-  m.innerHTML = '<div class="schirm" id="expSchirm"><div class="dialog exp-dialog">'+
-    '<div class="d-kopf"><div><div class="d-titel">Arzt-Export</div>'+
-      '<div style="font-size:22px;font-weight:600;letter-spacing:-.025em;margin-top:4px">Bericht für die Sprechstunde</div></div>'+
-      '<button type="button" class="rund" id="expZu">×</button></div>'+
-    (P.geboren ? '' : '<div class="schreibhinweis">Ohne <b>patient.geboren</b> in der Monitoring.json bleibt der Kopf unvollständig — ohne Geburtsdatum ist das Blatt kein Patientendokument.</div>')+
-    '<div class="exp-zeile exp-anl"><div class="d-titel">Worüber ich sprechen möchte</div>'+
-      EXP.anliegen.map((a,i) => '<input type="text" data-anl="'+i+'" value="'+esc(a)+'" placeholder="'+(i+1)+'. Anliegen — steht zuoberst im Bericht">').join('')+
-    '</div>'+
-    '<div class="exp-zeile"><div class="d-titel">Zeitraum</div>'+
-      rad('termin', T ? ('seit dem letzten Termin — '+dLang(T.d)+(T.wer?', '+T.wer:'')) : 'seit dem letzten Termin — keine Termine in der Datei', !T)+
-      rad('3m','die letzten 3 Monate')+rad('alles','alles')+
-    '</div>'+
-    '<div class="exp-zeile"><div class="d-titel">Was in den Bericht kommt</div>'+
-      hak('kennzahlen','Kennzahlen und Verläufe')+hak('einzel','Einzelwerte')+hak('labor','Labor')+
-      hak('meds','Medikation und Diagnosen')+hak('docs','Dokumentpfade und Links')+
-      ((STATE.meds && (STATE.meds.liste||[]).length) ? ''
-        : '<div style="font-size:12.5px;color:var(--k-dim);padding-left:26px">Keine Medikation in der Datei — oben rechts unter «Medikation» erfassen.</div>')+
-    '</div>'+
-    '<div class="erf-fuss"><div class="erf-meldung" id="expMeld"></div>'+
-      '<button type="button" class="knopf still" id="expAb">Abbrechen</button>'+
-      '<button type="button" class="knopf" id="expGoL">Bericht erzeugen</button></div>'+
-  '</div></div>';
-  el('expZu').addEventListener('click', schliesseExport);
-  el('expAb').addEventListener('click', schliesseExport);
-  el('expSchirm').addEventListener('click', e => { if(e.target.id==='expSchirm') schliesseExport(); });
-  m.querySelectorAll('[data-teil]').forEach(c => c.addEventListener('change', () => { EXP.teile[c.dataset.teil] = c.checked; }));
-  m.querySelectorAll('[data-z]').forEach(r => r.addEventListener('change', () => { if(r.checked) EXP.zeitraum = r.dataset.z; }));
-  m.querySelectorAll('[data-anl]').forEach(i => i.addEventListener('input', () => { EXP.anliegen[+i.dataset.anl] = i.value; }));
-  el('expGoL').addEventListener('click', erzeugeBericht);
-}
-function erzeugeBericht(){
-  if(!REG().some(d => d.s.length)){ el('expMeld').textContent = 'Keine Daten — es gibt nichts zu berichten.'; return; }
-  const html = baueBericht();
-  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'Monitoring_Arzt_'+iso(heute())+'.html';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-  el('expMeld').textContent = 'Heruntergeladen. Zum Drucken die Datei im Browser öffnen und Strg+P — sie wird dabei von selbst hell.';
-}
-
-/* Vorschaubild im Bericht: feste viewBox, keine gemessene Breite. */
-function expSpark(s, zone, farbe, s2, farbe2){
-  const W = 220, H = 44, o = 5;
-  let vals = s.filter(x => x.v!==null).map(x => x.v);
-  if(s2) vals = vals.concat(s2.filter(x => x.v!==null).map(x => x.v));
-  if(!vals.length) return '';
-  let mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-  if(zone){ mn = Math.min(mn, zone[0]); mx = Math.max(mx, zone[1]); }
-  const sp = (mx-mn)||1, n = Math.max(s.length, s2?s2.length:0);
-  const X = i => n<2 ? W/2 : i/(n-1)*W;
-  const Y = v => o + (1-(v-mn)/sp)*(H-o*2);
-  let out = '';
-  if(zone){
-    const y1 = Y(zone[1]), y2 = Y(zone[0]);
-    out += '<rect x="0" y="'+Math.min(y1,y2).toFixed(1)+'" width="'+W+'" height="'+Math.abs(y2-y1).toFixed(1)+'" style="fill:var(--d2)" opacity=".2"></rect>';
-  }
-  const reihe = (r, f, br) => {
-    let g = '', lauf = [], vor = -1, pk = '';
-    const seg = () => { if(lauf.length>1) g += '<polyline points="'+lauf.join(' ')+'" fill="none" style="stroke:var(--'+f+')" stroke-width="'+br+'" stroke-linejoin="round"></polyline>'; lauf = []; };
-    r.forEach((x,i) => {
-      if(x.v===null) return;
-      if(vor>=0 && i-vor>1){
-        seg();
-        g += '<line x1="'+X(vor).toFixed(1)+'" y1="'+Y(r[vor].v).toFixed(1)+'" x2="'+X(i).toFixed(1)+'" y2="'+Y(x.v).toFixed(1)+'" style="stroke:var(--'+f+')" stroke-width="1" stroke-dasharray="2 5"></line>';
-      }
-      lauf.push(X(i).toFixed(1)+','+Y(x.v).toFixed(1));
-      vor = i;
-    });
-    seg();
-    const pts = r.map((x,i) => x.v===null?null:[X(i),Y(x.v)]).filter(Boolean);
-    if(pts.length <= 40) pts.forEach(P => {
-      const rr = 2.6, x = P[0], y = P[1];
-      pk += '<path d="M'+x.toFixed(1)+' '+(y-rr).toFixed(1)+'L'+(x+rr).toFixed(1)+' '+y.toFixed(1)+
-            'L'+x.toFixed(1)+' '+(y+rr).toFixed(1)+'L'+(x-rr).toFixed(1)+' '+y.toFixed(1)+'Z" style="fill:var(--'+f+')"></path>';
-    });
-    return g + pk;
-  };
-  out += reihe(s, farbe, 1.6);
-  if(s2) out += reihe(s2, farbe2||'d2', 1.3);
-  return '<svg viewBox="0 0 220 44" width="100%" height="44" preserveAspectRatio="none" style="display:block;overflow:visible">'+out+'</svg>';
-}
-
-function expCSS(){
-  return '@page{margin:14mm}'+
-  ':root{--b:#24282B;--k:#2B3034;--t:#E7EAEC;--t2:#B2BABE;--t3:#8C959A;--l:#3A4045;--l2:#33383C;'+
-    '--w:#C9A87C;--d0:#DDE3E6;--d1:#AAB2B7;--d2:#828B90}'+
-  '@media print{:root{--b:#FFFFFF;--k:#FFFFFF;--t:#1A1D1F;--t2:#4A5257;--t3:#6B7378;--l:#C9CFD3;--l2:#E1E5E7;'+
-    '--w:#8A6A32;--d0:#2E3438;--d1:#525A5F;--d2:#7C858A}'+
-    '.blatt{max-width:none;padding:0;gap:18px}.kz,.pv,.blk{break-inside:avoid}}'+
-  '*{box-sizing:border-box}html,body{margin:0;padding:0}'+
-  'body{background:var(--b);color:var(--t);font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;'+
-    'font-size:15px;line-height:1.5;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;text-wrap:pretty}'+
-  'a{color:var(--t2);text-decoration:none}a:hover{color:var(--t)}'+
-  '.blatt{max-width:980px;margin:0 auto;padding:40px 44px 52px;background:var(--k);display:flex;flex-direction:column;gap:26px}'+
-  '.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}'+
-  '.h{font-size:15px;font-weight:600;letter-spacing:-.015em}'+
-  '.kopf{display:flex;align-items:flex-start;justify-content:space-between;gap:30px;border-bottom:1px solid var(--l);padding-bottom:20px;flex-wrap:wrap}'+
-  '.kopf .name{font-size:27px;font-weight:600;letter-spacing:-.025em}'+
-  '.kopf .sub{font-size:13.5px;color:var(--t2)}'+
-  '.kopf .re{text-align:right;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--t2)}'+
-  '.marke{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.2em;color:var(--t3)}'+
-  '.anl{border-left:2px solid var(--w);padding:2px 0 2px 18px;display:flex;flex-direction:column;gap:8px}'+
-  '.anl .t{font-size:13px;color:var(--w);font-weight:600}'+
-  '.anl div.z{font-size:14.5px}'+
-  '.blk{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--l);padding-top:22px}'+
-  '.kz{display:grid;grid-template-columns:168px 124px 1fr 200px;align-items:center;gap:16px;padding:13px 0;border-top:1px solid var(--l)}'+
-  '.kz:first-of-type{border-top:0}'+
-  '.kz .n{font-size:14.5px}'+
-  '.kz .z{display:flex;align-items:baseline;gap:5px}'+
-  '.kz .z b{font-size:25px;font-weight:600;letter-spacing:-.03em}'+
-  '.kz .z span{font-size:13px;color:var(--t2)}'+
-  '.kz .e{font-size:13px;color:var(--t2)}'+
-  '.kz .b{justify-self:stretch}'+
-  '.w{color:var(--w)}'+
-  '.leg{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;padding-top:12px}'+
-  '.leg div{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)}'+
-  '.fuss{font-size:12px;color:var(--t3)}'+
-  '.sp3{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:34px}'+
-  '.sp2{display:grid;grid-template-columns:1fr 1fr;gap:32px}'+
-  '.spalte{display:flex;flex-direction:column;gap:7px}'+
-  '.ktitel{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.12em;color:var(--t3)}'+
-  '.paare{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}'+
-  '.paare .d{color:var(--t3)}'+
-  '.bdl{display:grid;grid-template-columns:auto auto 1fr auto;gap:4px 14px;font-size:13px}'+
-  '.bdl .d{color:var(--t3)}'+
-  '.med{display:grid;grid-template-columns:1.9fr .9fr 1.5fr 1fr;font-size:13.5px}'+
-  '.med .k{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:10px;letter-spacing:.12em;color:var(--t3);padding-bottom:8px}'+
-  '.med .c{border-top:1px solid var(--l2);padding:8px 0}'+
-  '.med .c.g{color:var(--t2)}.med .c.gg{color:var(--t3)}'+
-  '.med .c.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12.5px}'+
-  '.zeit{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;color:var(--t2)}'+
-  '.zeit .d{color:var(--t3);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:11.5px}'+
-  '.dok{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--t3);border-top:1px solid var(--l2);padding-top:16px}'+
-  '.dok .p{word-break:break-all}';
-}
-function expLegende(mitZweit, mitBand){
-  const s = (f,br,dash) => '<svg width="26" height="10"><path d="M0 5 L26 5" style="stroke:var(--'+f+')" stroke-width="'+br+'"'+(dash?' stroke-dasharray="'+dash+'"':'')+'></path></svg>';
-  let out = '<div class="leg">'+
-    '<div>'+s('d0',1.6)+'<span>erreicht — durchgezogen</span></div>'+
-    '<div>'+s('d0',1,'2 5')+'<span>Lücke zwischen zwei Messpunkten</span></div>'+
-    '<div><svg width="26" height="10"><path d="M13 2L17 5L13 8L9 5Z" style="fill:var(--d0)"></path></svg><span>einzelne Messung</span></div>';
-  if(mitBand) out += '<div><svg width="26" height="11"><rect width="26" height="11" style="fill:var(--d2)" opacity=".2"></rect></svg><span>Zielbereich</span></div>';
-  if(mitZweit) out += '<div>'+s('d2',1.3)+'<span>zweite Reihe — diastolisch</span></div>';
-  return out+'</div>';
-}
-
-function baueBericht(){
-  const P = STATE.patient||{}, von = expVon(), defs = REG(), H = heute();
-  let erste = null, letzte = null;
-  defs.forEach(d => {
-    const a = ersterE(d.s), b = letzterE(d.s);
-    if(a && (!erste || a.d < erste)) erste = a.d;
-    if(b && (!letzte || b.d > letzte)) letzte = b.d;
-  });
-  const zVon = (von && erste && von > erste) ? von : erste;
-  const teile = [];
-
-  /* 1 · Kopf */
-  const gebT = P.geboren ? ('geboren '+dLang(vonIso(P.geboren))+' · '+jahreSeit(P.geboren)+' Jahre') : '';
-  const groesse = (W().heightCm ? W().heightCm+' cm' : '');
-  const zeile2 = [gebT, groesse, P.adresse||''].filter(Boolean).join(' · ');
-  teile.push('<div class="kopf"><div style="display:flex;flex-direction:column;gap:6px">'+
-    '<div class="marke">MONITORING · BERICHT FÜR DIE SPRECHSTUNDE</div>'+
-    '<div class="name">'+esc(P.name||'—')+'</div>'+
-    (zeile2 ? '<div class="sub">'+esc(zeile2)+'</div>' : '')+
-    '</div><div class="re">'+
-      '<div>erstellt '+dLang(H)+'</div>'+
-      '<div>Daten '+(zVon?dLang(zVon):'—')+' – '+(letzte?dLang(letzte):'—')+'</div>'+
-      '<div style="color:var(--t3)">Selbstmessung, kein ärztlicher Befund</div>'+
-    '</div></div>');
-
-  /* 2 · Worüber ich sprechen möchte */
-  const anl = EXP.anliegen.map(a => String(a||'').trim()).filter(Boolean);
-  if(anl.length) teile.push('<div class="anl"><div class="t">Worüber ich sprechen möchte</div>'+
-    anl.map((a,i) => '<div class="z">'+(i+1)+' &nbsp;'+esc(a)+'</div>').join('')+'</div>');
-
-  /* 3 · Kennzahlen – jede Zahl aus kachelDaten(), also aus REG() */
-  if(EXP.teile.kennzahlen){
-    const drin = [], draussen = [];
-    defs.forEach(d => (imZeit(d.s, von).some(x => x.v!==null) ? drin : draussen).push(d));
-    if(drin.length){
-      let mitZweit = false, mitBand = false;
-      const zeilen = drin.map(d => {
-        const k = kachelDaten(d), s = imZeit(d.s, von), s2 = d.s2 ? imZeit(d.s2, von) : null;
-        const n = s.filter(x => x.v!==null).length, a = ersterE(s), b = letzterE(s);
-        if(s2) mitZweit = true;
-        if(d.zone) mitBand = true;
-        const bits = [];
-        bits.push((k.delta ? '<span class="w">'+esc(k.delta)+'</span> ' : '')+esc(k.dtext));
-        bits.push(n+(d.woche?' abgeschlossene Woche'+(n===1?'':'n'):' Messung'+(n===1?'':'en'))+
-          (a&&b ? ' '+dSpanne(a.d, b.d) : ''));
-        if(d.zone) bits.push((d.zoneName||'Zielbereich')+' '+nf(d.zone[0],d.dez)+'–'+nf(d.zone[1],d.dez)+(d.einheit&&!d.woche?' '+d.einheit:''));
-        return '<div class="kz"><div class="n">'+esc(d.label)+'</div>'+
-          '<div class="z"><b>'+esc(k.wert)+'</b>'+(d.einheit?'<span>'+esc(d.einheit)+'</span>':'')+'</div>'+
-          '<div class="e">'+bits.join(' · ')+'</div>'+
-          '<div class="b">'+expSpark(s, d.zone, EXPF[d.key]||'d0', s2, 'd2')+'</div></div>';
-      }).join('');
-      teile.push('<div class="blk" style="border-top:0;padding-top:0"><div class="h">Kennzahlen</div>'+
-        '<div>'+zeilen+'</div>'+ expLegende(mitZweit, mitBand)+
-        (draussen.length ? '<div class="fuss">Ohne Messung im Zeitraum und deshalb nicht im Bericht: '+
-          esc(draussen.map(d => d.label).join(' · '))+'.</div>' : '')+
-        '</div>');
-    }
-  }
-
-  /* 4 · Einzelwerte */
-  if(EXP.teile.einzel){
-    const inP = d => !von || d.getTime() >= von.getTime();
-    const kap = a => a.length>26 ? a.slice(-26) : a;
-    const gw = kap((W().points||[]).filter(p => typeof p.value==='number' && inP(vonIso(p.date)))
-      .sort((a,b) => String(a.date).localeCompare(String(b.date))));
-    const bz = [];
-    ((STATE.glucose&&STATE.glucose.days)||[]).forEach(dd => {
-      if(!inP(vonIso(dd.iso))) return;
-      (dd.rows||[]).forEach(r => { if(r.slot!=='nüchtern') return;
-        (r.values||[]).forEach(x => { if(typeof x.v==='number') bz.push({ d:vonIso(dd.iso), v:x.v }); }); });
-    });
-    const bd = kap(((STATE.bloodpressure&&STATE.bloodpressure.points)||[])
-      .filter(p => inP(vonIso(p.iso)))
-      .sort((a,b) => String(a.iso+(a.time||'')).localeCompare(String(b.iso+(b.time||'')))));
-    if(gw.length || bz.length || bd.length){
-      const sp = [];
-      /* Ueber Jahresgrenzen traegt jede Zeile ihr Jahr. */
-      const dl = arr => { if(!arr.length) return dKurz;
-        return arr[0].getFullYear()===arr[arr.length-1].getFullYear() ? dKurz : dLang; };
-      const gwD = dl(gw.map(p => vonIso(p.date)));
-      const bzK = kap(bz), bzD = dl(bzK.map(p => p.d));
-      const bdD = dl(bd.map(p => vonIso(p.iso)));
-      if(gw.length) sp.push('<div class="spalte"><div class="ktitel">GEWICHT · KG</div><div class="paare">'+
-        gw.map(p => '<span class="d">'+gwD(vonIso(p.date))+'</span><span>'+nf(p.value,1)+'</span>').join('')+'</div></div>');
-      if(bz.length) sp.push('<div class="spalte"><div class="ktitel">NÜCHTERN · MMOL/L</div><div class="paare">'+
-        bzK.map(p => '<span class="d">'+bzD(p.d)+'</span><span>'+nf(p.v,1)+'</span>').join('')+'</div></div>');
-      if(bd.length) sp.push('<div class="spalte"><div class="ktitel">BLUTDRUCK · MMHG, EINZELMESSUNGEN</div><div class="bdl">'+
-        bd.map(p => '<span class="d">'+bdD(vonIso(p.iso))+'</span><span class="d">'+esc(p.time||'—')+'</span>'+
-          '<span>'+Math.round(p.sys)+'/'+Math.round(p.dia)+'</span><span class="d">'+(p.pulse?'P '+Math.round(p.pulse):'—')+'</span>').join('')+
-        '</div></div>');
-      teile.push('<div class="blk"><div class="h">Einzelwerte</div><div class="sp3">'+sp.join('')+'</div>'+
-        '<div class="fuss">Höchstens die letzten 26 Werte je Spalte; ältere stehen in der Monitoring-Datei.</div></div>');
-    }
-  }
-
-  /* 5 · Medikation */
-  if(EXP.teile.meds && STATE.meds && (STATE.meds.liste||[]).length){
-    const M = STATE.meds, mon = M.stand ? monateSeit(M.stand) : null;
-    teile.push('<div class="blk"><div class="h">Medikation</div><div class="med">'+
-      '<div class="k">PRÄPARAT</div><div class="k">M–MI–A–N</div><div class="k">WIRKSTOFF</div><div class="k">VERORDNET</div>'+
-      M.liste.map(x => '<div class="c">'+esc(x.name||'')+'</div><div class="c m">'+esc(x.dosis||'')+'</div>'+
-        '<div class="c g">'+esc(x.wirkstoff||'')+'</div><div class="c gg">'+esc(x.verordner||'')+'</div>').join('')+
-      '</div>'+
-      '<div class="fuss">'+(M.quelle?esc(M.quelle)+' ':'')+
-        (M.stand?'Stand '+dLang(vonIso(M.stand))+'. ':'')+
-        (mon!==null&&mon>=6 ? '<span class="w">Der Plan ist '+mon+' Monate alt.</span>' : '')+
-      '</div></div>');
-  }
-
-  /* 6 · Labor und Vorgeschichte, nebeneinander */
-  const spalten = [];
-  if(EXP.teile.labor && STATE.lab && (STATE.lab.panels||[]).length){
-    const pan = (STATE.lab.panels||[]).filter(p => p && p.date && p.values)
-      .sort((a,b) => String(a.date).localeCompare(String(b.date)));
-    const hb = pan.filter(p => typeof p.values.hba1c==='number').map(p => ({ iso:p.date, d:vonIso(p.date), v:p.values.hba1c }));
-    const letzteHb = hb.length ? hb[hb.length-1] : null;
-    const ref = (STATE.lab.params||[]).find(x => x.key==='hba1c');
-    const jahre = pan.length ? (vonIso(pan[0].date).getFullYear()+'–'+vonIso(pan[pan.length-1].date).getFullYear()) : '';
-    const letzteDrei = pan.slice(-3).reverse();
-    const zeig = ['hba1c','glucose','crp','ldl'];
-    spalten.push('<div class="spalte" style="gap:11px"><div class="h">Labor</div>'+
-      (letzteHb ? '<div style="display:flex;align-items:flex-end;gap:18px"><div>'+
-        '<div style="display:flex;align-items:baseline;gap:6px"><b class="w" style="font-size:27px;font-weight:600;letter-spacing:-.03em">'+
-          nf(letzteHb.v,1)+'</b><span style="font-size:13px;color:var(--t2)">% HbA1c</span></div>'+
-        '<div style="font-size:12px;color:var(--t3);margin-top:2px">'+dLang(letzteHb.d)+
-          (ref&&ref.ref?' · Referenz '+nf(ref.ref[0],1)+'–'+nf(ref.ref[1],1):'')+'</div></div>'+
-        '<div style="width:180px">'+expSpark(reiheAus(hb, letzteHb.d), ref&&ref.ref?ref.ref:null, 'd1')+'</div></div>' : '')+
-      '<div class="paare">'+letzteDrei.map(p => '<span class="d">'+dLang(vonIso(p.date))+'</span><span>'+
-        zeig.filter(k => typeof p.values[k]==='number')
-            .map(k => { const pa = (STATE.lab.params||[]).find(x => x.key===k);
-              const hoch = p.flags && p.flags[k];
-              return esc(pa?pa.label:k)+' '+(hoch?'<span class="w">':'<span>')+nf(p.values[k],1)+'</span>'; })
-            .join(' · ')+'</span>').join('')+'</div>'+
-      '<div class="fuss">'+pan.length+' Laborblätter '+jahre+' in der Akte.'+
-        (letzteHb ? ' Seit dem letzten HbA1c sind '+monateSeit(letzteHb.iso)+' Monate vergangen.' : '')+'</div></div>');
-  }
-  if(EXP.teile.meds && STATE.history && (STATE.history.events||[]).length){
-    const ev = (STATE.history.events||[]).filter(e => e && e.date)
-      .filter(e => vonIso(e.date).getTime() <= H.getTime())
-      .sort((a,b) => String(a.date).localeCompare(String(b.date)));
-    const wichtig = ev.filter(e => e.mark || e.kind==='op' || e.kind==='krankheit').slice(-8);
-    const zeile = (P.diagnosen||[]).length ? P.diagnosen.join(' · ') : '';
-    spalten.push('<div class="spalte" style="gap:11px"><div class="h">Diagnosen und Vorgeschichte</div>'+
-      (zeile ? '<div style="font-size:13.5px;line-height:1.7">'+esc(zeile)+'</div>' : '')+
-      '<div class="zeit">'+(wichtig.length?wichtig:ev.slice(-8)).map(e => {
-        const d = vonIso(e.date);
-        return '<span class="d">'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()+'</span><span>'+esc(e.title||'')+'</span>';
-      }).join('')+'</div>'+
-      '<div class="fuss">'+ev.length+' Einträge in der Krankengeschichte.</div></div>');
-  }
-  if(spalten.length) teile.push('<div class="blk"><div class="'+(spalten.length>1?'sp2':'spalte')+'">'+spalten.join('')+'</div></div>');
-
-  /* 7 · Unterlagen */
-  if(EXP.teile.docs){
-    const dok = [];
-    ((STATE.history&&STATE.history.events)||[]).forEach(e => (e.docs||[]).forEach(x => dok.push(x)));
-    ((STATE.lab&&STATE.lab.panels)||[]).forEach(p => (p.docs||[]).forEach(x => dok.push(x)));
-    if(dok.length) teile.push('<div class="dok"><div>Unterlagen auf Wunsch:</div>'+
-      dok.slice(0,10).map(x => '<div>'+(x.url?'<a href="'+esc(x.url)+'">'+esc(x.title||'Dokument')+'</a>':esc(x.title||'Dokument'))+
-        (x.desc?' — '+esc(x.desc):'')+(x.path?'<div class="p mono" style="font-size:10.5px">'+esc(x.path)+'</div>':'')+'</div>').join('')+
-      '</div>');
-  }
-
-  return '<!DOCTYPE html>\n<html lang="de"><head><meta charset="utf-8">'+
-    '<meta name="viewport" content="width=device-width, initial-scale=1">'+
-    '<title>Monitoring · Bericht '+esc(P.name||'')+' · '+dLang(H)+'</title>'+
-    '<style>'+expCSS()+'</style></head><body><div class="blatt">'+teile.join('')+'</div></body></html>';
-}
-
-/* ============================================================================
    Medikation – Präparate hinzufügen, ändern, absetzen. Bewusst kein Teil des
    Erfassen-Dialogs: der sammelt Messwerte des Tages, das hier ist ein Plan, der
    sich zweimal im Jahr ändert. Geschrieben wird nach STATE.meds und in die Datei.
@@ -10905,12 +9837,10 @@ function renderHilfe(){
 }
 
 el('hilfeBtnL').addEventListener('click', oeffneHilfe);
-el('exportBtnL').addEventListener('click', oeffneExport);
 el('medBtnL').addEventListener('click', oeffneMeds);
 document.addEventListener('keydown', e => {
   if(e.key!=='Escape') return;
   if(UI.meds) schliesseMeds();
-  else if(!el('expModal').hidden) schliesseExport();
   else if(UI.hilfe) schliesseHilfe();
   else if(UI.str) { UI.str = null; renderVoll(); }
   else if(UI.offen) schliesseVoll();
