@@ -1763,532 +1763,15 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   }
 
   /* ============================================================
-     REGISTER — je Kennzahl: Wert-Getter, Ampel, Einheit, Label,
-     Tab-Inhalte (info/anchor/chart/table). Eine Stelle, die alles weiss.
+     HIER STAND DAS ZWEITE REGISTER (bis 14.08.2026, Vorschlag 01)
+     REGISTRY + register(), 13 Kennzahl-Eintraege mit compute()/content(), der generische
+     lineChart() fuer ihre Modale, metricCard() und die Modal-Steuerung mit vier Reitern.
+     Alles entfallen: es gibt EIN Register (REG()), EINE Karte (kzKarte) und EIN Modal
+     (oeffneVoll), alle in der Kennzahl-Schicht weiter unten. Was hier gerechnet wurde,
+     rechnet dort - aus derselben Tagesreihe, aus der auch das Bild entsteht.
+     Geblieben ist aus diesem Block nur sparkArea(): den Kartenhintergrund zeichnet
+     weiterhin die eine Karte damit.
      ============================================================ */
-  const REGISTRY={};
-  function register(key,def){REGISTRY[key]=def;}
-
-  /* ============================================================
-     HIER STAND DIE ZWEITE WELT (bis 14.08.2026, Vorschlag 01 «eine Welt»)
-     - metricCard(): eine dritte Kartenoptik, seit dem Wegfall der KPI-Zeile ohne Platz.
-     - Die Modal-Steuerung mit vier Reitern (Info · Anker · Verlauf · Tabelle).
-     Beides ist entfallen. Es gibt EINE Karte (kzKarte) und EIN Modal (oeffneVoll),
-     beide in der Kennzahl-Schicht weiter unten. REGISTRY und register() bleiben als
-     Rechenstelle der noch nicht umgezogenen Kennzahlen; ihre Inhalte holt sich das eine
-     Modal ueber content().
-     ============================================================ */
-
-  /* ---- Generischer Linien-Chart fuer das Modal (aus Punkten) ----
-     Zeichnet auf dem Diagramm-Fundament: Anzeigebreite = Zeichenbereich, drei
-     Achsenwerte, zwei Hilfslinien, ausgeduennte X-Beschriftung, Wert am Linienende,
-     Trefferflaeche in den einen Tooltip. Nimmt {v,label} und {x,y,lab}. */
-  function lineChart(points,color,fmt,unit,opt){
-    const o=opt||{};
-    const P=CHART.norm(points);
-    const f=fmt||CHART.fmt;
-    if(!CHART.vals(P).length)
-      return '<div style="border:1px dashed var(--line);border-radius:10px;padding:20px;color:var(--muted);font-size:13.5px">Noch keine Werte.</div>';
-    if(CHART.vals(P).length<2){
-      // Der eine Punkt mit seinem Datum – das Datum war beim Umbau verloren gegangen.
-      let one=null; for(let i=0;i<P.length;i++){ if(P[i].v!=null){ one=P[i]; break; } }
-      return '<div style="border:1px dashed var(--line);border-radius:10px;padding:20px;color:var(--muted);font-size:13.5px;line-height:1.6">Erst <b>ein</b> Messpunkt ('+f(one.v)+(unit?" "+unit:"")+(one.label?', '+one.label:'')+').<br>Der Verlauf entsteht ab dem zweiten Punkt.</div>';
-    }
-    return CHART.box(function(W,H){
-      const vs=CHART.vals(P);
-      let mn,mx;
-      if(o.mn!=null&&o.mx!=null){ mn=o.mn; mx=o.mx; }   // gedeckelte Skala: nicht polstern
-      else { mn=Math.min.apply(null,vs); mx=Math.max.apply(null,vs);
-             const pad=(mx-mn)*0.15||Math.abs(mx)*0.1||1; mn-=pad; mx+=pad; }
-      // Raender aus allen drei Texten, die sie beanspruchen – gerechnet, nicht geraten.
-      const achse=[f(mx),f((mn+mx)/2),f(mn)];
-      const xTexte=P.map(function(p){return String(p.label).split("-")[0];});
-      const endTxt=f(CHART.vals(P)[CHART.vals(P).length-1])+(unit?" "+unit:"");
-      const g=CHART.geo(W,H,mn,mx,P.length,CHART.margins(achse,xTexte,endTxt));
-      // Letzter gemessener Punkt – nicht die letzte Stelle, die kann eine Luecke sein.
-      let last=null,lastI=-1; for(let i=P.length-1;i>=0;i--){ if(P[i].v!=null){ last=P[i]; lastI=i; break; } }
-      return CHART.axis(g,f,o.ticks)+CHART.unitLabel(g,unit)+
-             CHART.xLabels(g,xTexte)+
-             CHART.line(g,P,color)+
-             CHART.dots(g,P,color,function(p){return p.label+": "+f(p.v)+(unit?" "+unit:"");})+
-             (last?CHART.endLabel(g,g.x(lastI),g.y(last.v),endTxt,color):"");
-    },{h:250});
-  }
-
-  /* ============================================================
-     ERSTE KENNZAHL: Ø Tempo aktuell (4-Wochen-Fenster).
-     Wert/Regeln/Inhalte alle aus vorhandenen Gettern (wp, win4, rate28).
-     Ampel nach Albrechts Vorgabe: Fenster-Differenz in kg.
-       Abnahme oder <=+2kg = grün · >+3kg = orange · >+5kg = rot
-     ============================================================ */
-  function tempoState(){
-    // Veraenderung ueber das 4-Wochen-Fenster in kg (positiv = Zunahme)
-    if(win4.length<2)return"none";
-    const diff=win4[win4.length-1].value-win4[0].value; // + = zugenommen
-    if(diff>5)return"high";
-    if(diff>3)return"warn";
-    return"good";
-  }
-  // Punkte des 4-Wochen-Fensters, aufsteigend, fuer Chart/Tabelle/Spark
-  function tempoPoints(){
-    return win4.map(p=>({label:dmy(p.date),v:p.value,date:p.date}));
-  }
-
-  register("tempo_akt",{
-    key:"tempo_akt",
-    label:"Ø Tempo aktuell",
-    compute(){
-      const pts=tempoPoints();
-      const state=tempoState();
-      // Delta = Veraenderung der Wochenrate ggü. Gesamtrate? Nein: hier Fenster-kg als Tendenz.
-      const diff = pts.length>=2 ? (pts[pts.length-1].v-pts[0].v) : null; // + = Zunahme
-      let delta=null;
-      if(diff!=null&&Math.abs(diff)>=0.05){
-        delta={arrow: diff<0 ? "↘" : "↗", text: de(Math.abs(diff))+" kg / 4 Wo"};
-      }
-      return {
-        valStr:"−"+de2(rate28),
-        unit:"kg/Wo",
-        state,
-        delta,
-        spark:pts
-      };
-    },
-    content(){
-      const pts=tempoPoints();
-      // Chart
-      const chart=lineChart(pts,"var(--good)",de,"kg");
-      // Tabelle = die Punkte, die der Berechnung zugrunde liegen (das "Woraus")
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>Gewicht (kg)</th><th>Δ</th></tr></thead><tbody>';
-      pts.slice().reverse().forEach((p,i,arr)=>{
-        const prev=arr[i+1];const d=prev?(p.v-prev.v):null;
-        table+='<tr><td>'+p.label+'</td><td class="num">'+de(p.v)+'</td><td class="num">'+(d==null?"–":(d>0?"+":"−")+de(Math.abs(d)))+'</td></tr>';
-      });
-      table+='</tbody></table>';
-      const diff = pts.length>=2 ? (pts[pts.length-1].v-pts[0].v) : 0;
-      table+='<p class="cap">Über das Fenster: '+(diff<0?"−":"+")+de(Math.abs(diff))+' kg. Ampel: bis +2 kg grün, ab +3 orange, ab +5 rot.</p>';
-      // Info
-      const info="<p style='margin:0 0 10px'>Abnahmetempo über die letzten 4 Wochen – der massgebliche Wert. Kurzfristige Einzelwochen schwanken zu stark (Stoffwechsel-Rauschen).</p>"+
-                 "<p style='margin:0'>Die Tabelle zeigt genau die Gewichtspunkte, aus denen dieses Tempo gerechnet ist.</p>";
-      return {
-        short:"4-WOCHEN-TREND · MASSGEBLICH",
-        info,
-        anchor:"",            // kein Anker bei Tempo -> Tab wird ausgeblendet
-        chart,
-        table
-      };
-    }
-  });
-
-  /* ---- Renderer: Tempo-Card in den kpis-Container (vorerst zusaetzlich) ---- */
-
-  /* ============================================================
-     KOPF-KENNZAHLEN — alle ins Register. Werte/Ampeln/Infos aus
-     vorhandenen Gettern (wp, bmi, bmiCat, whr, whrCat, hot, sd, cnt, pct …).
-     Kennzahlen ohne Verlauf liefern kein chart -> Tab blendet sich aus.
-     ============================================================ */
-
-  // Gemeinsamer Helfer: Zeitreihe aus den Gewichtspunkten (fuer weight/bmi)
-  function weightSeries(mapVal){
-    return wp.map(p=>({label:dmy(p.date),v:mapVal(p.value),date:p.date}));
-  }
-  // Delta zwischen letztem und vorletztem Punkt einer Reihe
-  function lastDelta(series){
-    if(series.length<2)return null;
-    const d=series[series.length-1].v-series[series.length-2].v;
-    if(Math.abs(d)<0.05)return null;
-    return d;
-  }
-
-  // ---- Gewicht ----
-  register("gewicht",{
-    key:"gewicht", label:"Gewicht",
-    compute(){
-      const s=weightSeries(v=>v);
-      // Delta = Gesamtabnahme seit Projektstart (nicht die letzte Einzelwoche)
-      const total=startW-now;   // positiv = abgenommen
-      return {
-        valStr:de(now), unit:"kg", state:"none",
-        delta: Math.abs(total)>=0.05 ? {arrow: total>0?"↘":"↗", text:de(Math.abs(total))+" kg gesamt"} : null,
-        spark:s
-      };
-    },
-    content(){
-      const s=weightSeries(v=>v);
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>Gewicht (kg)</th><th>Δ</th></tr></thead><tbody>';
-      s.slice().reverse().forEach((p,i,arr)=>{const prev=arr[i+1];const d=prev?(p.v-prev.v):null;
-        table+='<tr><td>'+p.label+'</td><td class="num">'+de(p.v)+'</td><td class="num">'+(d==null?"–":(d>0?"+":"−")+de(Math.abs(d)))+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:"SEIT START −"+de(startW-now)+" KG",
-        info:"<p style='margin:0'>Aktuelles Körpergewicht. Massgeblich ist der 4-Wochen-Trend, nicht die Einzelwoche.</p>",
-        anchor:"",
-        chart:lineChart(s,"var(--accent)",de,"kg"),
-        table
-      };
-    }
-  });
-
-  // ---- BMI ----
-  register("bmi",{
-    key:"bmi", label:"BMI",
-    compute(){
-      const cat=bmiCat(bmiNow);
-      const s=weightSeries(v=>bmi(v));
-      return {
-        valStr:de(bmiNow), unit:"", state:cat[1],
-        delta:null,
-        spark:s
-      };
-    },
-    content(){
-      const cat=bmiCat(bmiNow);
-      const s=weightSeries(v=>bmi(v));
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>BMI</th></tr></thead><tbody>';
-      s.slice().reverse().forEach(p=>{table+='<tr><td>'+p.label+'</td><td class="num">'+de(p.v)+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:cat[0].toUpperCase()+" · "+STATE.weight.heightCm+" CM",
-        info:"<p style='margin:0'>Body-Mass-Index bei "+STATE.weight.heightCm+" cm: aktuell "+cat[0]+". Grober Richtwert, sagt nichts über Muskel/Fett-Verteilung.</p>",
-        anchor:"",
-        chart:lineChart(s,"var(--"+cat[1]+")",de,""),
-        table
-      };
-    }
-  });
-
-  // ---- THQ (nur wenn Körpermasse vorhanden) ----
-  // ---- THQ (Taille/Hüfte) — immer registriert, liest live aus STATE.body ----
-  register("thq",{
-    key:"thq", label:"THQ",
-    compute(){
-      const pts=bodyPts;
-      const b=pts.length?pts[pts.length-1]:null;
-      if(!b||!b.waist||!b.hip)return { valStr:"–", unit:"", state:"none", delta:null, spark:null };
-      const r=b.waist/b.hip;
-      return { valStr:de(r), unit:"", state:whrCat(r)[1], delta:null, spark:null };
-    },
-    content(){
-      const pts=bodyPts;
-      const b=pts.length?pts[pts.length-1]:null;
-      if(!b||!b.waist||!b.hip)return {
-        short:"NOCH KEINE KÖRPERMASSE",
-        info:"<p style='margin:0'>Taille-Hüft-Quotient: Marker für die Fettverteilung, aussagekräftiger als der BMI allein. Wird angezeigt, sobald Taille und Hüfte erfasst sind.</p>",
-        anchor:"", chart:"", table:""
-      };
-      const r=b.waist/b.hip;const cat=whrCat(r);
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>Taille</th><th>Hüfte</th><th>THQ</th></tr></thead><tbody>';
-      pts.slice().reverse().forEach(p=>{const q=(p.waist&&p.hip)?de(p.waist/p.hip):"–";
-        table+='<tr><td>'+dmy(p.date)+'</td><td class="num">'+(p.waist||"–")+'</td><td class="num">'+(p.hip||"–")+'</td><td class="num">'+q+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:cat[0].toUpperCase()+" · TAILLE/HÜFTE",
-        info:"<p style='margin:0'>Taille-Hüft-Quotient: "+cat[0]+". Marker für die Fettverteilung – aussagekräftiger als der BMI allein.</p>",
-        anchor:"",
-        chart:"",
-        table
-      };
-    }
-  });
-
-  // ---- Stabilität (σ) ----
-  register("stabil",{
-    key:"stabil", label:"BZ Stabilität",
-    compute(){
-      return { valStr:"σ "+de(sd), unit:"", state:sd<2.0?"good":"warn", delta:null, spark:null };
-    },
-    content(){
-      return {
-        short:"σ UNTER 2,0 = STABIL · SPANNE "+de(vmn)+"–"+de(vmx),
-        info:"<p style='margin:0 0 10px'>σ (Sigma) = Schwankungsbreite der Blutzuckerwerte. Klein ist gut: ruhige Werte sind stoffwechselgesünder als starke Ausschläge.</p>"+
-             "<p style='margin:0'>Orientierung unter 2,0 = stabil. Stammt aus der CGM-Messung, für Fingermessungen nur grobe Orientierung. Spanne aktuell "+de(vmn)+"–"+de(vmx)+" mmol/L.</p>",
-        anchor:"", chart:"", table:""
-      };
-    }
-  });
-
-  // ---- Hotspot ----
-  register("hotspot",{
-    key:"hotspot", label:"BZ Hotspot",
-    compute(){
-      return { valStr: hot?hot.slot:"—", unit:"", state: hot?"warn":"good", delta:null, spark:null };
-    },
-    content(){
-      const lbl={good:"im Ziel",warn:"über Soll",high:"kritisch",low:"tief",none:"—"};
-      let table='<table class="mt"><thead><tr><th>Tageszeit</th><th>Ø mmol/L</th><th>Status</th></tr></thead><tbody>';
-      slotSum.filter(s=>s.n>0).forEach(s=>{
-        table+='<tr><td>'+s.slot+'</td><td class="num">'+de(s.avg)+'</td><td>'+lbl[s.st]+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short: hot?"Ø "+de(hot.avg)+" MMOL/L · ÜBER SOLL":"ALLES IM ZIEL",
-        info:"<p style='margin:0'>"+(hot?"Die Tageszeit mit den höchsten Blutzuckerwerten ("+hot.slot+", Ø "+de(hot.avg)+" mmol/L) – der Ansatzpunkt, falls du gezielt gegensteuern willst.":"Kein Ausreisser – alle Tageszeiten liegen im Ziel.")+"</p>",
-        anchor:"", chart:"", table
-      };
-    }
-  });
-
-  // ---- HbA1c ----
-  // Nur Werte ab 2026 (laufende Beobachtungsperiode). Aeltere Laborwerte stehen im
-  // Labor-Tab; in der Kachel wuerden sie als aktueller Stand missverstanden.
-  function _hba1cCurrent(){
-    const out=[];
-    ((STATE.lab&&STATE.lab.panels)||[]).forEach(p=>{
-      const v=p&&p.values?p.values.hba1c:null;
-      if(v!=null&&p.date&&p.date>="2026-01-01") out.push({date:p.date,value:v});
-    });
-    ((STATE.hba1cLab)||[]).forEach(r=>{
-      if(r&&r.date&&r.date>="2026-01-01"&&r.value!=null) out.push({date:r.date,value:r.value});
-    });
-    out.sort((a,b)=>a.date<b.date?-1:1);
-    return out.length?out[out.length-1]:null;
-  }
-  register("hba1c",{
-    key:"hba1c", label:"HbA1c",
-    compute(){
-      const last=_hba1cCurrent();
-      if(!last)return { valStr:"—", unit:"", state:"none", delta:null, spark:null };
-      const st=last.value<7.0?"good":last.value<8.0?"warn":"high";
-      return { valStr:de(last.value), unit:"%", state:st, delta:null, spark:null };
-    },
-    content(){
-      const last=_hba1cCurrent();
-      if(!last)return {
-        short:"LABORWERT – NACH ARZTTERMIN",
-        info:"<p style='margin:0'>Langzeit-Blutzuckerwert über die letzten ~3 Monate. Wird nach dem ersten Arzttermin als echter Laborwert eingetragen.</p>",
-        anchor:"", chart:"", table:""
-      };
-      return {
-        short:"LABOR · "+dmy(last.date),
-        info:"<p style='margin:0'>Langzeit-Blutzucker (letzte ~3 Monate), Laborwert vom Arzt. Unter 7% gut, unter 8% grenzwertig.</p>",
-        anchor:"", chart:"", table:""
-      };
-    }
-  });
-
-  // ---- Trinkmenge (Wochen-Toggle: Ziel erreicht Ja/Nein) ----
-  register("fluid",{
-    key:"fluid", label:"Trinkmenge",
-    compute(){
-      // Nur neues Format (goalMet). Chronologisch nach weekStart, neueste zuerst.
-      const wks=((STATE.fluid&&STATE.fluid.weeks)||[])
-        .filter(w=>w.goalMet!=null)
-        .slice().sort((a,b)=>(a.weekStart<b.weekStart?1:-1));
-      const last=wks.length?wks[0]:null;
-      const met = last ? last.goalMet===true : null;
-      const spark=wks.slice().reverse().map(w=>({label:w.label,v:w.goalMet?1:0}));
-      return {
-        valStr: met==null?"–":(met?"Erreicht":"Nicht erreicht"),
-        unit:"", state: met==null?"none":(met?"good":"high"), delta:null,
-        spark: spark.length>=2?spark:null
-      };
-    },
-    content(){
-      const wks=((STATE.fluid&&STATE.fluid.weeks)||[])
-        .filter(w=>w.goalMet!=null)
-        .slice().sort((a,b)=>(a.weekStart<b.weekStart?1:-1));
-      let table='<table class="mt"><thead><tr><th>Woche</th><th>Wochenziel</th></tr></thead><tbody>';
-      wks.forEach(w=>{
-        const t = w.goalMet?"erreicht":"nicht erreicht";
-        table+='<tr><td>'+w.label+'</td><td>'+t+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:"WOCHENZIEL Ø 3 L/TAG",
-        info:"<p style='margin:0 0 10px'>Ziel sind 3 Liter pro Tag. 2,25 Liter sind auch ok.</p>"+
-             "<p style='margin:0'>Rot wird es, wenn das Ziel an zwei Tagen oder mehr in der Woche nicht erreicht wird. Erfasst wird pro Woche als «erreicht / nicht erreicht».</p>",
-        anchor:"", chart:"", table
-      };
-    }
-  });
-
-  // ---- Verdauung (Wochen-Sterne 1–5) ----
-  register("digest",{
-    key:"digest", label:"Verdauung",
-    compute(){
-      const wks=(STATE.digestion&&STATE.digestion.weeks)||[];
-      // Letzte Woche MIT Bewertung – eine frisch angelegte, noch leere Woche
-      // (nur label) soll den Wert der Vorwoche nicht auf "–" überschreiben.
-      const rated=wks.filter(w=>w.stars!=null);
-      const last=rated.length?rated[rated.length-1]:null;
-      const st = last ? last.stars : null;
-      const spark=wks.filter(w=>w.stars!=null).map(w=>({label:w.label,v:w.stars}));
-      const state = st==null?"none":(st>=4?"good":st>=2?"warn":"high");
-      return {
-        valStr: st==null?"–":"★ "+st, unit: st==null?"":"/5",
-        state, delta:null, spark: spark.length>=2?spark:null
-      };
-    },
-    content(){
-      const wks=(STATE.digestion&&STATE.digestion.weeks)||[];
-      let table='<table class="mt"><thead><tr><th>Woche</th><th>Sterne</th></tr></thead><tbody>';
-      wks.slice().reverse().forEach(w=>{
-        table+='<tr><td>'+w.label+'</td><td class="num">'+(w.stars!=null?w.stars+"/5":"–")+'</td></tr>';});
-      table+='</tbody></table>';
-      const anchor='<div style="font-size:13px;color:var(--muted);line-height:1.7">'+
-        '<b>5 Sterne</b> – alles tiptop<br>'+
-        '<b>4 Sterne</b> – 1–2 nicht optimale Tage<br>'+
-        '<b>3 Sterne</b> – 2–3 nicht optimale Tage<br>'+
-        '<b>2 Sterne</b> – 4–5 nicht optimale Tage<br>'+
-        '<b>1 Stern</b> – Alarm</div>';
-      return {
-        short:"STUHLGANG · WOCHE",
-        info:"<p style='margin:0 0 10px'>Erreicht heisst: mindestens 5 von 7 Tagen kein Durchfall, regelmässiger Stuhlgang.</p>"+
-             "<p style='margin:0'>Darunter ist es ein Zeichen, dass die Ernährung nicht optimal war (zu viel Rohkost, Paprika, Stress). Ampel: 4–5 grün, 2–3 orange, 1 rot.</p>",
-        anchor,
-        chart:"", table
-      };
-    }
-  });
-
-  // ---- Schritte (Fitbit-Wochenwert) ----
-  register("steps",{
-    key:"steps", label:"Schritte",
-    compute(){
-      const wks=((STATE.fitbit&&STATE.fitbit.weeks)||[])
-        .slice().sort((a,b)=>(a.weekStart<b.weekStart?-1:1));
-      const val=w=>w&&w.steps?w.steps.avg:null;
-      let cur=null;
-      for(let i=wks.length-1;i>=0;i--){ const v=val(wks[i]); if(v!=null){cur=v;break;} }
-      const spark=wks.map(w=>({label:w.label,v:val(w)})).filter(p=>p.v!=null);
-      return {
-        valStr: cur!=null?cur.toLocaleString("de-CH"):"–", unit:"Ø/Tag",
-        state:"none", delta:null, spark: spark.length>=2?spark:null
-      };
-    },
-    content(){
-      const wks=((STATE.fitbit&&STATE.fitbit.weeks)||[])
-        .slice().sort((a,b)=>(a.weekStart<b.weekStart?-1:1));
-      const val=w=>w&&w.steps?w.steps.avg:null;
-      const pts=wks.map(w=>({label:w.label,v:val(w)})).filter(p=>p.v!=null);
-      let table='<table class="mt"><thead><tr><th>Woche</th><th>Ø Schritte/Tag</th></tr></thead><tbody>';
-      wks.slice().reverse().forEach(w=>{const v=val(w);
-        table+='<tr><td>'+w.label+'</td><td class="num">'+(v!=null?v.toLocaleString("de-CH"):"–")+'</td></tr>';});
-      table+='</tbody></table>';
-      return {
-        short:"Ø PRO TAG · WOCHENTREND",
-        info:"<p style='margin:0'>Durchschnittliche Schritte pro Tag im Wochentrend, aus dem Fitbit. Höher ist besser, ohne Streak-Zwang – der Wert hängt mit den Bahnhofswegen zusammen.</p>",
-        anchor:"",
-        chart: pts.length>=2 ? lineChart(pts,"var(--accent)",v=>Math.round(v).toLocaleString("de-CH"),""):"",
-        table
-      };
-    }
-  });
-
-  // ---- Blutdruck (letzte Messung sys/dia) ----
-  register("bp",{
-    key:"bp", label:"Blutdruck",
-    compute(){
-      const pts=((STATE.bloodpressure&&STATE.bloodpressure.points)||[]).slice().sort((a,b)=>new Date(a.iso)-new Date(b.iso));
-      const last=pts.length?pts[pts.length-1]:null;
-      return {
-        valStr: last?last.sys+"/"+last.dia:"–", unit:"mmHg",
-        state:"none", delta:null, spark:null
-      };
-    },
-    content(){
-      const pts=((STATE.bloodpressure&&STATE.bloodpressure.points)||[]).slice().sort((a,b)=>new Date(a.iso)-new Date(b.iso));
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>Zeit</th><th>sys/dia</th><th>PD</th></tr></thead><tbody>';
-      pts.slice().reverse().forEach(p=>{
-        table+='<tr><td>'+dmy(p.iso)+'</td><td>'+(p.time||"")+'</td><td class="num">'+p.sys+'/'+p.dia+'</td><td class="num">'+(p.sys-p.dia)+'</td></tr>';});
-      table+='</tbody></table>';
-      const ppts=pts.map(p=>({label:dmy(p.iso),v:p.sys}));
-      return {
-        short:"LETZTE MESSUNG · OMRON",
-        info:"<p style='margin:0 0 10px'>Sporadische Messungen (Omron). Angezeigt ist die letzte Messung, systolisch/diastolisch.</p>"+
-             "<p style='margin:0'>ESC 2024 (Orientierung, kein Urteil): nicht erhöht &lt;120/&lt;70, erhöht 120–139/70–89, Hypertonie ≥140/≥90. Verbindlich bleibt die ärztliche Beurteilung.</p>",
-        anchor:"",
-        chart: ppts.length>=2 ? lineChart(ppts,"var(--accent)",v=>Math.round(v)+"",""):"",
-        table
-      };
-    }
-  });
-
-  /* ============================================================
-     VITALWERTE (Fitbit-Wochenwerte) — nach steps-Muster.
-     Je Card ein Getter auf fitbit.weeks[]. Wochentrend, kein Streak-Zwang.
-     ============================================================ */
-  function _fbCard(key,label,getVal,unit,fmt,info,digits){
-    const f = fmt || (v=>String(v));
-    register(key,{
-      key, label,
-      compute(){
-        const wks=((STATE.fitbit&&STATE.fitbit.weeks)||[])
-          .slice().sort((a,b)=>(a.weekStart<b.weekStart?-1:1));
-        // neueste Woche, die für DIESE Kennzahl einen Wert hat
-        let cur=null;
-        for(let i=wks.length-1;i>=0;i--){ const v=getVal(wks[i]); if(v!=null){cur=v;break;} }
-        const spark=wks.map(w=>({label:w.label,v:getVal(w)})).filter(p=>p.v!=null);
-        return { valStr: cur!=null?f(cur):"–", unit: cur!=null?unit:"",
-          state:"none", delta:null, spark: spark.length>=2?spark:null };
-      },
-      content(){
-        const wks=((STATE.fitbit&&STATE.fitbit.weeks)||[])
-          .slice().sort((a,b)=>(a.weekStart<b.weekStart?-1:1));
-        const pts=wks.map(w=>({label:w.label,v:getVal(w)})).filter(p=>p.v!=null);
-        let table='<table class="mt"><thead><tr><th>Woche</th><th>'+label+'</th></tr></thead><tbody>';
-        wks.slice().reverse().forEach(w=>{const v=getVal(w);
-          table+='<tr><td>'+w.label+'</td><td class="num">'+(v!=null?f(v)+(unit?" "+unit:""):"–")+'</td></tr>';});
-        table+='</tbody></table>';
-        return { short:"WOCHENTREND · FITBIT", info:"<p style='margin:0'>"+info+"</p>", anchor:"",
-          chart: pts.length>=2 ? lineChart(pts,"var(--accent)",v=>f(v),unit):"", table };
-      }
-    });
-  }
-  _fbCard("rhr","Ruhepuls", w=>w&&w.rhr?w.rhr.avg:null, "bpm", v=>Math.round(v),
-    "Ruhepuls im Wochentrend aus dem Fitbit. Tiefer ist meist besser – sinkt oft mit steigender Fitness.");
-  _fbCard("sleep_h","Schlaf", w=>w&&w.sleep?w.sleep.avgH:null, "h", v=>de(v),
-    "Durchschnittliche Schlafdauer pro Nacht im Wochentrend, aus dem Fitbit.");
-  _fbCard("sleep_idx","Schlaf-Index", w=>w&&w.sleep?w.sleep.idx:null, "", v=>Math.round(v),
-    "Fitbit-Schlaf-Index (0–100). Höher ist besser – fasst Dauer, Tiefe und Ruhe zusammen.");
-  _fbCard("sleep_eff","Schlaf-Effizienz", w=>w&&w.sleep?w.sleep.eff:null, "%", v=>Math.round(v),
-    "Anteil der Zeit im Bett, der wirklich geschlafen wurde. Höher ist besser.");
-  _fbCard("readiness","Tagesform", w=>w&&w.readiness?w.readiness.avg:null, "", v=>Math.round(v),
-    "Fitbit-Tagesform (0–100) im Wochentrend – Bereitschaft aus Puls, Schlaf und Aktivität. Höher ist besser.");
-
-  /* ============================================================
-     BEFINDEN (6 verankerte Skalen 1–5) — nach digest-Muster.
-     Werte aus befinden.entries[]. Anker-Tab = 1–5-Legende aus dims.
-     ============================================================ */
-  (function(){
-    const dims=(STATE.befinden&&STATE.befinden.dims)||[];
-    dims.forEach(dim=>{
-      const key="bef_"+dim.key;
-      register(key,{
-        key, label:dim.label,
-        compute(){
-          const es=((STATE.befinden&&STATE.befinden.entries)||[])
-            .filter(e=>e[dim.key]!=null)
-            .slice().sort((a,b)=>(a.iso<b.iso?1:-1));
-          const cur=es.length?es[0][dim.key]:null;
-          const spark=es.slice().reverse().map(e=>({label:e.label||e.iso,v:e[dim.key]}));
-          const state = cur==null?"none":(cur>=4?"good":cur>=3?"warn":"high");
-          return { valStr: cur==null?"–":cur+"/5", unit:"", state, delta:null,
-            spark: spark.length>=2?spark:null };
-        },
-        content(){
-          const es=((STATE.befinden&&STATE.befinden.entries)||[])
-            .filter(e=>e[dim.key]!=null)
-            .slice().sort((a,b)=>(a.iso<b.iso?1:-1));
-          let table='<table class="mt"><thead><tr><th>Woche</th><th>'+dim.label+'</th></tr></thead><tbody>';
-          es.forEach(e=>{table+='<tr><td>'+(e.label||e.iso)+'</td><td class="num">'+e[dim.key]+'/5</td></tr>';});
-          table+='</tbody></table>';
-          const anchors=dim.anchors||[];
-          let anchor='<div style="font-size:13px;color:var(--muted);line-height:1.7">';
-          anchors.forEach((a,i)=>{ anchor+='<b>'+(i+1)+'</b> – '+a+'<br>'; });
-          anchor+='</div>';
-          const pts=es.slice().reverse().map(e=>({label:e.label||e.iso,v:e[dim.key]}));
-          return { short:"SELBSTEINSCHÄTZUNG 1–5 · WOCHE",
-            info:"<p style='margin:0'>Wöchentliche Selbsteinschätzung «"+dim.label+"» auf einer verankerten Skala 1–5. Die Bedeutung der Stufen steht im Anker-Tab.</p>",
-            anchor,
-            // Gedeckelte Skala: feste Spanne 1–5, alle fuenf Stufen an der Achse.
-            // Ohne das polsterte die Achse auf 0,7–5,3 und zwei gleiche Wochen
-            // sahen wie eine Kurve aus.
-            chart: pts.length>=2 ? lineChart(pts,"var(--accent)",v=>String(v).replace(".",","),"",{mn:1,mx:5,ticks:[5,4,3,2,1]}):"", table };
-        }
-      });
-    });
-  })();
-
-  /* ---- Reihenfolge der Kopf-Kennzahlen ---- */
 
   // Die Ernaehrungs-Kennzahlen sind mit dem Modul ausgezogen (13.08.2026) - sie rechneten
   // ausschliesslich ueber Nutrition. Der Reiter Ueberblick und die Ankerzahl «Im Soll»
@@ -2336,14 +1819,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     (eintraege||[]).forEach(function(e){
       if(!e) return;
       const key=(typeof e==="string")?e:e.key;
-      // Umbau «eine Welt» (14.08.2026): was im einen Register steht, kommt von dort –
-      // eine Rechenstelle, eine Karte, ein Modal. Der Rest laeuft bis zu seinem Umzug
-      // weiter ueber REGISTRY.
+      // Umbau «eine Welt» (14.08.2026): jede Kennzahl kommt aus dem einen Register -
+      // eine Rechenstelle, eine Karte, ein Modal. Seit dem zweiten Teil gibt es keinen
+      // zweiten Weg mehr: was _kzEins nicht kennt, gibt es nicht.
       if(typeof window._kzEins==="function"){
-        const eins=window._kzEins(key,e);
+        const eins=window._kzEins(key);
         if(eins){ reihe.appendChild(eins); n++; return; }
       }
-      /* Kein Rueckfallweg mehr: was _kzEins nicht kennt, gibt es nicht. */
     });
     return n?reihe:null;
   }
@@ -2384,8 +1866,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       if(alt&&neu){ r.wrap.replaceChild(neu,alt); r.wrap.hidden=false; }
     });
   };
-  window._kzRegister=function(key,def){ REGISTRY[key]=def; };
-  window._kzLineChart=lineChart;
   // Eine Tabelle, ein Bauplan – erste Spalte Text, alle weiteren Zahlen.
   window._kzTabelle=function(kopf,zeilen){
     if(!zeilen||!zeilen.length) return "";
@@ -2396,11 +1876,9 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   };
 
 
-  // Exponiere fuer Tests/Weiterbau. _renderMetricGroup, _metricCard und _openMetric
-  // sind am 14.08.2026 entfallen - es gibt eine Karte (kzKarte) und ein Modal
-  // (oeffneVoll), beide in der Kennzahl-Schicht.
-  window._REGISTRY=REGISTRY;
-  window._sparkArea=sparkArea;   // die eine Karte zeichnet damit ihren Kartenhintergrund
+  // Die eine Karte zeichnet ihren Kartenhintergrund damit. _REGISTRY, _kzRegister,
+  // _kzLineChart, _renderMetricGroup, _metricCard und _openMetric sind entfallen.
+  window._sparkArea=sparkArea;
 
 })();
 
@@ -3062,97 +2540,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
           "<p style='margin:0'>Verglichen wird, was vergleichbar ist: alle Messungen gegen alle"+(bl.fasting?", nüchtern gegen nüchtern (damals Ø "+de(bl.fasting.avg)+" mmol/L)":"")+". Ein Ø über Messpunkte mit verschiedenen Sollwerten taugt zum Vergleich zweier Zeiträume – nicht als Lagebeurteilung.</p>"],
     cap:CAP_VOR, bauen:bauVorperiode});
 
-  /* ---------- Etage 2 · die vier Zahlen dieses Reiters (Lieferung 5a) ----------
-     Sie loest die flache KPI-Zeile ab: 17 px gegen die 25 px der Anker, und JEDE Zahl
-     oeffnet ihr Modal mit Verlauf, Erklaerung und Tabelle. Gerechnet wird aus denselben
-     Reihen, aus denen die Bilder entstehen – kein zweiter Rechenweg.
-     Zwei Zahlen der alten Zeile sind bewusst weg: «Im Sollbereich» steht als Anker ueber
-     allen Reitern, und «Ø aller Messungen» ist ein Mittel ueber Slots mit verschiedenen
-     Sollwerten – es bedeutet nichts. Ø und Streuung stehen jetzt in der Erklaerung der
-     Verteilung, «Über Soll» und «Tiefwerte» sind das Bild dieser Frage. */
-  const woSo=function(iso){ const d=new Date(iso+"T00:00:00");
-    d.setDate(d.getDate()+((7-d.getDay())%7)); return d.toISOString().slice(0,10); };
-  const WOB=(function(){
-    const m={}, o=[];
-    G.days.forEach(function(d){
-      const k=woSo(d.iso);
-      if(!m[k]){ m[k]={key:k,label:kurzD(k),alle:[],nue:[],nach:[],tage:0}; o.push(m[k]); }
-      let n=0;
-      d.rows.forEach(function(r){ (r.values||[]).forEach(function(v){ n++;
-        m[k].alle.push(v.v);
-        if(r.slot==="nüchtern") m[k].nue.push(v.v);
-        if(typeOf(r.slot)==="post") m[k].nach.push(v.v); }); });
-      if(n) m[k].tage++;
-    });
-    return o.filter(function(w){ return w.alle.length; }).sort(function(a,b){ return a.key<b.key?-1:1; });
-  })();
-  const mw=function(a){ return a.length?a.reduce(function(s,v){return s+v;},0)/a.length:null; };
-  // Eine Woche ohne Wert bleibt eine LUECKE (v:null) – line() ueberbrueckt sie
-  // gestrichelt, dots() setzt keinen Punkt. Herausfiltern hiesse, die Woche gaebe es nicht.
-  const woPts=function(fn){ return WOB.map(function(w){ return {label:w.label,v:fn(w)}; }); };
-  const nachWerte=sort(ALL.filter(function(r){ return typeOf(r.slot)==="post"; }).map(function(r){ return r.v; }));
-  const nachMittel=nachWerte.length?mw(nachWerte):null;
-  const LC=function(p,c,u){ return typeof window._kzLineChart==="function"?window._kzLineChart(p,c,de,u):""; };
-  const TB=function(k,z){ return typeof window._kzTabelle==="function"?window._kzTabelle(k,z):""; };
-
-  const KZ_NUE={ key:"bz_nue", label:"Nüchtern Ø",
-    compute:function(){
-      if(nuMittel==null) return {valStr:"—",unit:"",state:"none",delta:null,spark:null};
-      return {valStr:de(nuMittel), unit:"mmol/L",
-        state:nuMittel<=preHi?"good":"warn",
-        delta:{arrow:nuMittel<=preHi?"✓":"↗",text:"Median "+de(q(nuWerte,.5))+" · n="+nuWerte.length},
-        spark:woPts(function(w){ return mw(w.nue); })};
-    },
-    content:function(){
-      return {short:"NÜCHTERN · SOLL ≤ "+de(preHi)+" MMOL/L",
-        info:"<p style='margin:0 0 12px'>Mittel aller "+nuWerte.length+" Nüchternmessungen"+
-             (nuWerte.length?", Spanne "+de(nuWerte[0])+"–"+de(nuWerte[nuWerte.length-1])+" mmol/L, Median "+de(q(nuWerte,.5)):"")+".</p>"+
-             "<p style='margin:0'>Gerechnet gegen den Sollwert vor dem Essen (≤ "+de(preHi)+"), nicht gegen einen Korridor über alle Messungen. Eine Woche ohne Nüchternwert bleibt eine Lücke: die Linie überbrückt sie dünn gestrichelt, einen Punkt setzt sie dort nicht.</p>",
-        anchor:"", chart:LC(woPts(function(w){ return mw(w.nue); }),SERIE(3),"mmol/L"),
-        table:TB(["Woche","Nüchtern Ø","Messungen"],WOB.slice().reverse().map(function(w){
-          return [w.label, w.nue.length?de(mw(w.nue)):"–", w.nue.length]; }))};
-    }};
-
-  const KZ_NACH={ key:"bz_nach", label:"nach dem Essen Ø",
-    compute:function(){
-      if(nachMittel==null) return {valStr:"—",unit:"",state:"none",delta:null,spark:null};
-      const ueb=nachWerte.filter(function(v){ return v>postHi; }).length;
-      return {valStr:de(nachMittel), unit:"mmol/L",
-        state:nachMittel<=postHi?"good":"warn",
-        delta:{arrow:ueb?"↗":"✓", text:ueb?ueb+" von "+nachWerte.length+" über "+de(postHi):"alle unter "+de(postHi)},
-        spark:woPts(function(w){ return mw(w.nach); })};
-    },
-    content:function(){
-      const ueb=nachWerte.filter(function(v){ return v>postHi; }).length;
-      return {short:"NACH DEM ESSEN · SOLL ≤ "+de(postHi)+" MMOL/L",
-        info:"<p style='margin:0 0 12px'>Mittel aller "+nachWerte.length+" Messungen nach einer Mahlzeit"+
-             (nachWerte.length?", Spanne "+de(nachWerte[0])+"–"+de(nachWerte[nachWerte.length-1])+" mmol/L":"")+". "+
-             (ueb?"<b>"+ueb+"</b> davon liegen über "+de(postHi)+".":"Keine davon liegt über "+de(postHi)+".")+"</p>"+
-             "<p style='margin:0'>Nach dem Essen gilt eine andere Grenze als davor – darum stehen die beiden Zahlen nebeneinander und nicht als eine. Welcher Messpunkt am höchsten liegt, zeigt das Tagesprofil im Modal des Verlaufs.</p>",
-        anchor:"", chart:LC(woPts(function(w){ return mw(w.nach); }),SERIE(4),"mmol/L"),
-        table:TB(["Woche","nach dem Essen Ø","Messungen"],WOB.slice().reverse().map(function(w){
-          return [w.label, w.nach.length?de(mw(w.nach)):"–", w.nach.length]; }))};
-    }};
-
-  const KZ_TAGE={ key:"bz_tage", label:"Messtage",
-    compute:function(){
-      return {valStr:tage.length+" / "+spanne, unit:"Tage",
-        state:luecken>tage.length?"warn":"none",
-        delta:{arrow:"→", text:luecken+" Tage ohne Messung"},
-        spark:woPts(function(w){ return w.tage; })};
-    },
-    content:function(){
-      return {short:"MESSTAGE JE WOCHE · "+ALL.length+" MESSUNGEN",
-        info:"<p style='margin:0 0 12px'>An "+tage.length+" von "+spanne+" Kalendertagen wurde gemessen, an "+luecken+" nicht."+
-             (sonntageImZeitraum?" Die vollen Tagesprofile entstehen sonntags: "+sonntageVoll+" von "+sonntageImZeitraum+" Sonntagen tragen fünf oder mehr Messungen.":"")+"</p>"+
-             "<p style='margin:0'>Der Kalender der Frage «Abdeckung» zeigt dieselben Tage als Raster, und die zweite Brille dort zeigt die Uhrzeit. Diese Zahl ist die Zusammenfassung, nicht ein zweites Bild.</p>",
-        anchor:"", chart:LC(woPts(function(w){ return w.tage; }),"var(--accent)","Tage"),
-        table:TB(["Woche","Messtage","Messungen"],WOB.slice().reverse().map(function(w){
-          return [w.label, w.tage, w.alle.length]; }))};
-    }};
-
+  /* ---------- Etage 2 · die vier Zahlen dieses Reiters ----------
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) ins eine Register gezogen: der Reiter
+     nennt nur noch die Namen. Was hier stand - Wochenreihen, Wochentabellen, zwei
+     Sollwerte, der HbA1c-Laborwert - rechnet jetzt in REG() aus derselben Quelle wie die
+     Kachel «Blutzucker». */
   if(typeof window._kzReihe==="function")
-    window._kzReihe(host,[KZ_NUE,KZ_NACH,"hba1c",KZ_TAGE],{titel:"Blutzucker"});
+    window._kzReihe(host,["bz_nue","bz_nach","hba1c","bz_tage"],{titel:"Blutzucker"});
 
   const raster=el("div","ts-raster"); raster.id="bzraster";
   const links=el("div"); links.id="bzlinks"; links.style.minWidth="0";
@@ -4084,60 +3478,12 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      cap:null, bauen:bauAbdeckungBrillen}
   ];
 
-  /* ---------- Etage 2 · die vier Zahlen dieses Reiters (Lieferung 5a) ----------
-     BMI, Taille, bis Ziel 1, Tempo aktuell -- je 17 px, und jede ist ein Knopf.
-     «Heute» und «Seit Start» sind weg: sie stehen als Anker «Gewicht» ueber allen
-     Reitern, mit dem Abstand zum Start als Unterzeile. Doppelt zaehlt nicht zweimal.
-     Rueckschlaege und die Zahl der Messungen stehen in der Erklaerung von «bis Ziel 1». */
-  const kzD=function(iso){ return String(iso).slice(8)+"."+String(iso).slice(5,7)+"."; };
-  const kzBI=function(p){ return p.iso||p.date||""; };
-  const kzLC=function(p,c,f,u){ return typeof window._kzLineChart==="function"?window._kzLineChart(p,c,f,u):""; };
-  const kzTB=function(k,z){ return typeof window._kzTabelle==="function"?window._kzTabelle(k,z):""; };
-  const kzTaille=bodyPts.filter(function(p){ return bz(p,"waist")!=null; });
-
-  const KZ_TAILLE={ key:"gw_taille", label:"Taille",
-    compute:function(){
-      const jt=bz(bLetzt,"waist");
-      if(jt==null) return {valStr:"—",unit:"",state:"none",delta:null,spark:null};
-      const et=kzTaille.length?bz(kzTaille[0],"waist"):null;
-      const d=(et!=null&&kzTaille.length>1)?jt-et:null;
-      return {valStr:String(Math.round(jt)), unit:"cm", state:"none",
-        delta:d!=null?{arrow:d<0?"↘":d>0?"↗":"→",text:(d<0?"−":"+")+de(Math.abs(d))+" cm seit "+kzD(kzBI(kzTaille[0]))}
-                     :{arrow:"→",text:"erste Messung"},
-        spark:kzTaille.map(function(p){ return {label:kzD(kzBI(p)),v:bz(p,"waist")}; })};
-    },
-    content:function(){
-      return {short:"KÖRPERMASSE · "+kzTaille.length+" MESSUNG"+(kzTaille.length===1?"":"EN"),
-        info:"<p style='margin:0 0 12px'>Der Bauchumfang ist die Zahl, die neben dem Gewicht steht: sie sagt mehr über das Bauchfett als das Gewicht allein.</p>"+
-             "<p style='margin:0'>Brust, Hüfte und der Taille-Hüfte-Quotient stehen in der Frage «Abdeckung» – im Raster als Zahl, das Verhältnis als zweite Brille. Hier steht nur die Taille, weil vier Zahlen in dieser Reihe genügen.</p>",
-        anchor:"",
-        chart:kzLC(kzTaille.map(function(p){ return {label:kzD(kzBI(p)),v:bz(p,"waist")}; }),"var(--accent)",de,"cm"),
-        table:kzTB(["Messung","Brust","Taille","Hüfte"],bodyPts.slice().reverse().map(function(p){
-          return [kzD(kzBI(p)),bz(p,"chest")==null?"–":Math.round(bz(p,"chest")),
-                  bz(p,"waist")==null?"–":Math.round(bz(p,"waist")),
-                  bz(p,"hip")==null?"–":Math.round(bz(p,"hip"))]; }))};
-    }};
-
-  const KZ_ZIEL1={ key:"gw_ziel1", label:"bis Ziel 1",
-    compute:function(){
-      return {valStr:de(Math.abs(restG1)), unit:"kg", state:restG1<=0?"good":"none",
-        delta:{arrow:restG1<=0?"✓":"→",text:restG1<=0?"Ziel 1 erreicht":"Ziel 2 · noch "+de(restG2)+" kg"},
-        spark:wp.map(function(p){ return {label:kzD(p.date),v:p.value-g1}; })};
-    },
-    content:function(){
-      return {short:"ZIEL 1 · "+de(g1)+" KG · ZIEL 2 · "+de(g2)+" KG",
-        info:"<p style='margin:0 0 12px'>Der Abstand zum ersten Ziel ("+de(g1)+" kg), gerechnet vom letzten Messwert. Ziel 2 liegt bei "+de(g2)+" kg.</p>"+
-             "<p style='margin:0 0 12px'>Wann das Ziel erreicht ist, sagt die Frage «Prognose» – als gestrichelte Fortsetzung der Linie aus langsamstem und schnellstem Tempo, nicht als Datum.</p>"+
-             "<p style='margin:0;color:var(--muted)'>Datenlage: "+wp.length+" Messungen über "+tageSpan+" Tage, "+soTage+" davon sonntags. Von "+ABST.length+" Messabständen "+
-             (zunahmen.length?("gingen "+zunahmen.length+" aufwärts"):"gingen alle abwärts")+".</p>",
-        anchor:"",
-        chart:kzLC(wp.map(function(p){ return {label:kzD(p.date),v:p.value-g1}; }),"var(--accent)",de,"kg"),
-        table:kzTB(["Messung","Gewicht","bis Ziel 1"],wp.slice().reverse().map(function(p){
-          return [kzD(p.date),de(p.value)+(p.approx?"~":""),de(p.value-g1)]; }))};
-    }};
-
+  /* ---------- Etage 2 · die vier Zahlen dieses Reiters ----------
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) ins eine Register gezogen: der Reiter
+     nennt nur noch die Namen. «Heute» und «Seit Start» sind weiterhin weg - sie stehen
+     als Kachel «Gewicht» in der Kartenwand. */
   if(typeof window._kzReihe==="function")
-    window._kzReihe(host,["bmi",KZ_TAILLE,KZ_ZIEL1,"tempo_akt"],{titel:"Gewicht"});
+    window._kzReihe(host,["bmi","gw_taille","gw_ziel1","tempo_akt"],{titel:"Gewicht"});
 
   const raster=el("div","ts-raster"); raster.id="gwraster";
   const links=el("div"); links.id="gwlinks"; links.style.minWidth="0";
@@ -4939,102 +4285,15 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      cap:null, bauen:bauAbdeckung}
   ];
 
-  /* ---------- Etage 2 · die vier Zahlen dieses Reiters (Lieferung 5a) ----------
-     Blutdruck, Ruhepuls, Schritte, Schlaf -- je 17 px, und jede ist ein Knopf.
-     Pulsdruck und Tagesform standen in der alten Zeile als Zahlen ohne Bild; sie stehen
-     jetzt in der Erklaerung der Zahl, zu der sie gehoeren: Pulsdruck beim Blutdruck,
-     Tagesform beim Schlaf. Verloren geht nichts, doppelt steht nichts.
-     Die Wochenreihen behalten ihre Luecken (v:null): line() ueberbrueckt bis zu drei
-     ausgelassene Wochen gestrichelt, ab vier bleibt der Bruch. */
-  const kzLC=function(p,c,f,u){ return typeof window._kzLineChart==="function"?window._kzLineChart(p,c,f,u):""; };
-  const kzTB=function(k,z){ return typeof window._kzTabelle==="function"?window._kzTabelle(k,z):""; };
-  const kzW=function(feld){ return WOCHEN.map(function(w){
-    return {label:kurzD(w.key),v:(w[feld]==null||isNaN(w[feld]))?null:w[feld]}; }); };
-  const kzGz=function(v){ return v==null?"\u2013":String(Math.round(v)); };
-
-  const KZ_BD={ key:"kr_bd", label:"Blutdruck",
-    compute:function(){
-      if(!letztBP) return {valStr:"\u2014",unit:"",state:"none",delta:null,spark:null};
-      return {valStr:letztBP.sys+"/"+letztBP.dia, unit:"mmHg",
-        state:letztBP.sys>=140?"warn":"none",
-        delta:{arrow:"\u2192",text:BPP.length===1?("einzige Messung \u00b7 "+dmy(letztBP.iso)):(BPP.length+" Messungen \u00b7 letzte "+dmy(letztBP.iso))},
-        spark:BPP.map(function(p){ return {label:kurzD(p.iso),v:p.sys}; })};
-    },
-    content:function(){
-      return {short:"SYSTOLISCH \u00b7 "+BPP.length+" MESSUNG"+(BPP.length===1?"":"EN")+" HEUTE",
-        info:"<p style='margin:0 0 12px'>Der letzte erfasste Blutdruck"+(letztBP?(" vom "+dmy(letztBP.iso)):"")+". "+
-             (nHist?("Die Historie tr\u00e4gt daneben "+nHist+" alte Messungen \u2013 sie stehen als Linie mit Bruch in der Frage \u00abBlutdruck\u00bb, die Spanne als helles Band \u2013 und nicht als durchgezogene Kurve \u00fcber die Jahre ohne Messung."):"")+"</p>"+
-             (pp!=null?"<p style='margin:0 0 12px'><b>Pulsdruck "+pp+"</b> (systolisch minus diastolisch). Er hat bewusst kein eigenes Bild: bei einer heutigen Messung w\u00e4re eine Kurve eine Behauptung.</p>":"")+
-             "<p style='margin:0;color:var(--muted)'>Der Blutdruck wird taggenau erfasst. Solange nur eine heutige Messung vorliegt, zeigt der Verlauf einen Punkt und sagt es.</p>",
-        anchor:"",
-        chart:kzLC(BPP.map(function(p){ return {label:kurzD(p.iso),v:p.sys}; }),SERIE(1),function(v){return String(Math.round(v));},"mmHg"),
-        table:kzTB(["Messung","systolisch","diastolisch","Puls"],BPP.slice().reverse().map(function(p){
-          return [dmy(p.iso),kzGz(p.sys),kzGz(p.dia),kzGz(p.pulse)]; }))};
-    }};
-
-  const KZ_RHR={ key:"kr_rhr", label:"Ruhepuls",
-    compute:function(){
-      if(rhrJetzt==null) return {valStr:"\u2014",unit:"",state:"none",delta:null,spark:null};
-      const d=(rhrErst!=null&&wRhr.length>1)?rhrJetzt-rhrErst:null;
-      return {valStr:String(Math.round(rhrJetzt)), unit:"/min",
-        state:rhrJetzt<=80?"good":"none",
-        delta:d!=null?{arrow:d<0?"\u2198":d>0?"\u2197":"\u2192",text:iz(d)+" seit "+kurzD(wRhr[0].key)+" \u00b7 "+wRhr.length+" Wochen"}
-                     :{arrow:"\u2192",text:wRhr.length?"eine Woche":"noch nichts"},
-        spark:kzW("rhr")};
-    },
-    content:function(){
-      return {short:"RUHEPULS \u00b7 "+wRhr.length+" WOCHE"+(wRhr.length===1?"":"N")+" MIT WERT",
-        info:"<p style='margin:0 0 12px'>Der Ruhepuls der Fitbit-Woche. Er reagiert langsam und deutlich \u2013 die Zahl, an der eine Gewichtsabnahme im Kreislauf sichtbar wird.</p>"+
-             "<p style='margin:0'>Wochen ohne Wert bleiben L\u00fccken. Bis zu drei ausgelassene Wochen \u00fcberbr\u00fcckt die Linie d\u00fcnn gestrichelt und ohne Punkt; ab vier bricht sie, und die Bildunterschrift nennt die Dauer.</p>",
-        anchor:"",
-        chart:kzLC(kzW("rhr"),SERIE(2),function(v){return String(Math.round(v));},"/min"),
-        table:kzTB(["Woche","Ruhepuls","Schritte \u00d8","Schlaf h"],WOCHEN.slice().reverse().map(function(w){
-          return [kurzD(w.key),kzGz(w.rhr),w.steps==null?"\u2013":tsd10(w.steps),w.slH==null?"\u2013":de(w.slH)]; }))};
-    }};
-
-  const KZ_STP={ key:"kr_stp", label:"Schritte",
-    compute:function(){
-      if(!wStp.length) return {valStr:"\u2014",unit:"",state:"none",delta:null,spark:null};
-      return {valStr:tsd10(mittel(wStp.map(function(w){return w.steps;}))), unit:"\u00d8/Tag",
-        state:"none",
-        delta:{arrow:"\u2192",text:wStp.length+" Woche"+(wStp.length===1?"":"n")+(rohStp!==wStp.length?(" aus "+rohStp+" Eintr\u00e4gen"):"")},
-        spark:kzW("steps")};
-    },
-    content:function(){
-      return {short:"SCHRITTE \u00b7 \u00d8 JE TAG DER WOCHE",
-        info:"<p style='margin:0 0 12px'>Der Fitbit-Wochenwert, gerechnet als Durchschnitt je Tag. "+
-             (rohStp!==wStp.length?("Von "+rohStp+" Eintr\u00e4gen tragen "+wStp.length+" einen Schrittwert \u2013 die leeren sind Erfassungsversuche, keine Nulltage."):"Jeder Eintrag tr\u00e4gt einen Wert.")+"</p>"+
-             "<p style='margin:0'>In der Frage \u00abWoche\u00bb ist \u00abSchritte\u00bb als Hauptreihe w\u00e4hlbar und zeigt dieselbe Reihe als Wochenlinie; hier steht der Durchschnitt \u00fcber alle Wochen.</p>",
-        anchor:"",
-        chart:kzLC(kzW("steps"),SERIE(3),function(v){return String(Math.round(v));},""),
-        table:kzTB(["Woche","Schritte \u00d8/Tag"],WOCHEN.slice().reverse().map(function(w){
-          return [kurzD(w.key),w.steps==null?"\u2013":tsd10(w.steps)]; }))};
-    }};
-
-  const KZ_SLP={ key:"kr_slp", label:"Schlaf",
-    compute:function(){
-      if(!wSlp.length) return {valStr:"\u2014",unit:"",state:"none",delta:null,spark:null};
-      const m=mittel(wSlp.map(function(w){return w.slH;}));
-      return {valStr:de(m), unit:"h",
-        state:m>=7?"good":m>=6?"none":"warn",
-        delta:{arrow:"\u2192",text:wSlp.length+" Woche"+(wSlp.length===1?"":"n")+
-          ((slpErst&&slpJetzt&&slpErst.slE!=null&&slpJetzt.slE!=null)?(" \u00b7 Effizienz "+Math.round(slpErst.slE)+" \u2192 "+Math.round(slpJetzt.slE)+" %"):"")},
-        spark:kzW("slH")};
-    },
-    content:function(){
-      return {short:"SCHLAF \u00b7 \u00d8 STUNDEN JE NACHT",
-        info:"<p style='margin:0 0 12px'>Die Schlafdauer der Fitbit-Woche. In der Frage \u00abWoche\u00bb ist \u00abSchlaf\u00bb als Hauptreihe w\u00e4hlbar; Effizienz und Tagesform stehen in der Tabelle unten.</p>"+
-             (rdJetzt?("<p style='margin:0 0 12px'><b>Tagesform "+Math.round(rdJetzt.rd)+"</b> in der Woche "+kurzD(rdJetzt.key)+
-               (rdJetzt.prov?" \u2013 vorl\u00e4ufig":"")+". In der Frage \u00abWoche\u00bb ist sie als Hauptreihe w\u00e4hlbar; solange <i>provisional</i> in den Daten steht, tragen die betroffenen Wochen dort ein ~ \u2013 ein Verlauf aus vorl\u00e4ufigen Werten ohne Zeichen w\u00e4re eine Kurve \u00fcber Vermutungen.</p>"):"")+
-             "<p style='margin:0;color:var(--muted)'>Wochen ohne Schlafwert bleiben L\u00fccken \u2013 die Linie \u00fcberbr\u00fcckt sie gestrichelt, ohne Punkt.</p>",
-        anchor:"",
-        chart:kzLC(kzW("slH"),SERIE(5),de,"h"),
-        table:kzTB(["Woche","Schlaf h","Effizienz %","Tagesform"],WOCHEN.slice().reverse().map(function(w){
-          return [kurzD(w.key),w.slH==null?"\u2013":de(w.slH),kzGz(w.slE),kzGz(w.rd)]; }))};
-    }};
-
+  /* ---------- Etage 2 · die vier Zahlen dieses Reiters ----------
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) sind alle vier ins eine Register gezogen:
+     der Reiter nennt nur noch die Namen, gerechnet wird in REG(), gezeichnet von der
+     einen Karte, geoeffnet das eine Modal. 'rhr' ist dort neu und steht mit dash:false
+     nur hier, nicht in der Kartenwand. Schritte und Schlaf zeigen jetzt DIE Reihe, die
+     auch die Kartenwand zeigt - der frueher hier gezeigte Schnitt ueber alle Wochen las
+     nur fitbit.weeks und liess die Tageswerte aus. */
   if(typeof window._kzReihe==="function")
-    window._kzReihe(host,[KZ_BD,KZ_RHR,KZ_STP,KZ_SLP],{titel:"Kreislauf"});
+    window._kzReihe(host,["bd","rhr","schritte","schlaf"],{titel:"Kreislauf"});
 
   const raster=el("div","ts-raster"); raster.id="vwraster";
   const links=el("div"); links.id="vwlinks"; links.style.minWidth="0";
@@ -5844,89 +5103,12 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      bauen:function(z,gross){ mitFilter(z,gross,sterneBild,406,function(w){ return !!w.stars; },434); }}
   ];
 
-  /* ---------- Etage 2 · die vier Zahlen dieses Reiters (Lieferung 5a) ----------
-     Index, beste Skala, schwaechste, Wochen erfasst -- je 17 px, jede ein Knopf.
-     Trinkmenge und Rueckblick standen in der alten Zeile; sie stehen jetzt in der
-     Erklaerung der erfassten Wochen -- und werden in 5c drei Zeilen der Wochentafel. */
-  const kzLC=function(p,c,f,u){ return typeof window._kzLineChart==="function"?window._kzLineChart(p,c,f,u):""; };
-  const kzTB=function(k,z){ return typeof window._kzTabelle==="function"?window._kzTabelle(k,z):""; };
-  // Wochen ohne Erfassung bleiben Luecken: die Linie ueberbrueckt bis zu drei gestrichelt.
-  const kzIdx=WOCHEN.map(function(w){ return {label:kurzD(w.key),v:w.voll?w.idx:null}; });
-  const kzSk=function(key){ return WOCHEN.map(function(w){
-    return {label:kurzD(w.key),v:(w.voll&&w.sk&&w.sk[key]!=null)?w.sk[key]:null}; }); };
-
-  const KZ_IDX={ key:"bf_index", label:"Index",
-    compute:function(){
-      return {valStr:nz(LETZ.idx), unit:"von "+SKMAX,
-        state:LETZ.idx>=SKMAX-1?"good":LETZ.idx<=2?"warn":"none",
-        delta:{arrow:(VOR&&LETZ.idx>VOR.idx)?"\u2197":(VOR&&LETZ.idx<VOR.idx)?"\u2198":"\u2192",
-               text:"\u00d8 "+nz(OE)+(VOR?(" \u00b7 davor "+nz(VOR.idx)):"")},
-        spark:kzIdx};
-    },
-    content:function(){
-      return {short:"WOCHE "+LETZ.lab+" \u00b7 MITTEL AUS "+SK.length+" SKALEN",
-        info:"<p style='margin:0 0 12px'>Das Mittel aller "+SK.length+" Skalen der Woche, auf der Skala von eins bis "+SKMAX+". Der Durchschnitt \u00fcber alle erfassten Wochen liegt bei "+nz(OE)+".</p>"+
-             "<p style='margin:0'>Die Anker stehen in Deinen Daten: eins ist der Problemzustand, drei der Alltag, "+SKMAX+" das Ziel. Es gibt keine erfundenen Zonen \u2013 und keine Woche ohne Erfassung wird als Null gezeichnet, sie bleibt eine L\u00fccke.</p>",
-        anchor:"", chart:kzLC(kzIdx,"var(--accent)",nz,"von "+SKMAX),
-        table:kzTB(["Woche","Index"].concat(SK.map(function(s){ return s.label; })),
-          WOCHEN.slice().reverse().map(function(w){
-            return [kurzD(w.key),w.voll?nz(w.idx):"\u2013"].concat(SK.map(function(s){
-              return (w.voll&&w.sk&&w.sk[s.key]!=null)?String(w.sk[s.key]):"\u2013"; })); }))};
-    }};
-
-  const KZ_BESTE={ key:"bf_beste", label:"beste Skala",
-    compute:function(){
-      return {valStr:beste.label, unit:beste.v+" / "+SKMAX, state:"good",
-        delta:{arrow:"\u2191",text:obenN>1?(zw(obenN)+" teilen sich den H\u00f6chstwert"):(beste.anker||beste.label)},
-        spark:kzSk(beste.key)};
-    },
-    content:function(){
-      return {short:beste.label.toUpperCase()+" \u00b7 "+beste.v+" VON "+SKMAX,
-        info:"<p style='margin:0 0 12px'>Die Skala, die in der Woche "+LETZ.lab+" am h\u00f6chsten steht"+(obenN>1?(" \u2013 "+zw(obenN)+" Skalen teilen sich diesen Wert"):"")+".</p>"+
-             (beste.anker?"<p style='margin:0 0 12px'>Deine Beschreibung f\u00fcr "+beste.v+": \u00ab"+beste.anker+"\u00bb.</p>":"")+
-             "<p style='margin:0;color:var(--muted)'>Alle Skalen nebeneinander zeigt die <b>Wochentafel</b> \u2013 diese Skala als Zeile, die laufende Woche als Card in der Fussleiste.</p>",
-        anchor:"", chart:kzLC(kzSk(beste.key),"var(--good)",function(v){return String(v);},"von "+SKMAX),
-        table:""};
-    }};
-
-  const KZ_SCHWACH={ key:"bf_schwach", label:"schw\u00e4chste",
-    compute:function(){
-      return {valStr:tiefste.label, unit:tiefste.v+" / "+SKMAX,
-        state:tiefste.v<=2?"warn":"none",
-        delta:{arrow:"\u2193",text:tiefste.anker||"tiefster Wert der Woche"},
-        spark:kzSk(tiefste.key)};
-    },
-    content:function(){
-      return {short:tiefste.label.toUpperCase()+" \u00b7 "+tiefste.v+" VON "+SKMAX,
-        info:"<p style='margin:0 0 12px'>Die Skala, die in der Woche "+LETZ.lab+" am tiefsten steht. Sie ist der Ansatzpunkt \u2013 nicht die schlechte Note.</p>"+
-             (tiefste.anker?"<p style='margin:0 0 12px'>Deine Beschreibung f\u00fcr "+tiefste.v+": \u00ab"+tiefste.anker+"\u00bb.</p>":"")+
-             "<p style='margin:0;color:var(--muted)'>In der <b>Wochentafel</b> ist sie die tiefste Zeile; die Hebel, die daneben laufen, stehen in <b>Antrieb</b> und <b>Kraft</b>.</p>",
-        anchor:"", chart:kzLC(kzSk(tiefste.key),"var(--warn)",function(v){return String(v);},"von "+SKMAX),
-        table:""};
-    }};
-
-  const KZ_WOCHEN={ key:"bf_wochen", label:"Wochen erfasst",
-    compute:function(){
-      return {valStr:MITB.length+" von "+WOCHEN.length, unit:"",
-        state:MITB.length===WOCHEN.length?"good":"none",
-        delta:{arrow:"\u2192",text:"seit dem "+kurzD(WOCHEN[0].key)},
-        spark:null};
-    },
-    content:function(){
-      return {short:"BEFINDEN \u00b7 ERFASSTE WOCHEN",
-        info:"<p style='margin:0 0 12px'>"+MITB.length+" von "+WOCHEN.length+" Wochen tragen ein erfasstes Befinden, seit dem "+kurzD(WOCHEN[0].key)+". Eine Woche ohne Erfassung ist keine schlechte Woche \u2013 sie ist eine L\u00fccke, und sie wird als solche gezeichnet.</p>"+
-             "<p style='margin:0 0 12px'><b>Trinkmenge:</b> "+flOk.length+" von "+flDa.length+" erfassten Wochen im Soll. <b>R\u00fcckblick:</b> "+
-             (stDa.length?(stDa.length+" von "+WOCHEN.length+" Wochen bewertet, zuletzt die Woche "+stDa[stDa.length-1].lab):"noch nichts bewertet")+".</p>"+
-             "<p style='margin:0;color:var(--muted)'>Beide stehen als Zeilen in der <b>Wochentafel</b>, unter der Trennlinie. Geschrieben wird in der Erfassung, gelesen wird hier.</p>",
-        anchor:"", chart:"",
-        table:kzTB(["Woche","Befinden","Trinkmenge","Verdauung","Plan"],WOCHEN.slice().reverse().map(function(w){
-          return [kurzD(w.key),w.voll?nz(w.idx):"\u2013",
-                  w.fluid==null?"\u2013":(w.fluid===1?"im Soll":"darunter"),
-                  w.digest==null?"\u2013":String(w.digest), w.plan?"ja":"\u2013"]; }))};
-    }};
-
+  /* ---------- Etage 2 · die vier Zahlen dieses Reiters ----------
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) ins eine Register gezogen: der Reiter
+     nennt nur noch die Namen. Trinkmenge und Rueckblick stehen weiterhin in der
+     Wochentafel, nicht als eigene Zahl. */
   if(typeof window._kzReihe==="function")
-    window._kzReihe(host,[KZ_IDX,KZ_BESTE,KZ_SCHWACH,KZ_WOCHEN],{titel:"Befinden"});
+    window._kzReihe(host,["bf_index","bf_beste","bf_schwach","bf_wochen"],{titel:"Befinden"});
 
   const raster=el("div","ts-raster"); raster.id="bfraster";
   const links=el("div"); links.id="bflinks"; links.style.minWidth="0";
@@ -8318,6 +7500,7 @@ function heute(){ const d = new Date(); return new Date(d.getFullYear(), d.getMo
 function nf(v,d){ if(v===null||v===undefined||isNaN(v)) return '—'; return Number(v).toFixed(d).replace('.',','); }
 function tsd(v){ if(v===null||v===undefined||isNaN(v)) return '—'; return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
 function datK(d){ return d.getDate()+'. '+MO[d.getMonth()]; }
+function datZ(d){ return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'; }
 function num(s){ if(s===null||s===undefined) return null; const t = String(s).trim().replace(',','.').replace(/\s/g,''); if(!t) return null; const v = parseFloat(t); return isFinite(v) ? v : null; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function elId(id){ return document.getElementById(id); }
@@ -8360,6 +7543,24 @@ function schnitt(s, von, bis){
 function zaehl(s, von, bis){ return s.slice(Math.max(0,von), bis).filter(x => x.v!==null).length; }
 function mittelAlle(s){ return schnitt(s, 0, s.length); }
 
+/* ---------- Tabelle aus Reihen ----------
+   Eine Zeile je Tag mit Wert, neueste oben. Die Tabelle liest DIESELBEN Reihen wie
+   Bild und Kachel - keine zweite Quelle und keine zweite Rechnung. Ein Tag, an dem
+   nur eine der Spalten einen Wert hat, traegt in den anderen einen Gedankenstrich. */
+function tabAus(kopf, spalten){
+  if(typeof window._kzTabelle !== 'function') return '';
+  const map = new Map();
+  spalten.forEach((c, ci) => (c.s||[]).forEach(p => {
+    if(p.v===null) return;
+    if(!map.has(p.iso)) map.set(p.iso, {});
+    map.get(p.iso)[ci] = p.v;
+  }));
+  if(!map.size) return '';
+  const zeilen = [...map.keys()].sort().reverse().map(k => [datZ(vonIso(k))].concat(
+    spalten.map((c, ci) => map.get(k)[ci]===undefined ? '–' : c.fmt(map.get(k)[ci]))));
+  return window._kzTabelle(kopf, zeilen);
+}
+
 /* ---------- Datenzugriff: IMMER live aus STATE, nie gemerkte Referenzen ---------- */
 function W(){ return STATE.weight || {}; }
 
@@ -8373,6 +7574,13 @@ function gewichtStart(){
     .sort((a,b) => String(a.date).localeCompare(String(b.date)));
   if(!akt.length) return null;
   return { d:vonIso(akt[0].date), v:akt[0].value };
+}
+/* Koerpermasse: Brust, Taille, Huefte - je eine Reihe, eine Stelle. hist:true bleibt
+   aussen vor, das ist Altbestand vor der Beobachtungsperiode. */
+function serieBody(feld){
+  return reiheAus(((STATE.body&&STATE.body.points)||[])
+    .filter(p => p && !p.hist && p[feld]!=null && !isNaN(+p[feld]))
+    .map(p => ({ iso:String(p.date).slice(0,10), v:+p[feld] })));
 }
 function serieTHQ(){
   return reiheAus(((STATE.body&&STATE.body.points)||[])
@@ -8417,6 +7625,20 @@ function bzRoh(sicht){
   return pts;
 }
 function serieBZ(sicht){ return reiheAus(bzRoh(sicht)); }
+/* Messungen JE TAG - die Reihe hinter «Messtage». Ein Tag ohne Messung traegt null,
+   nicht 0: gezaehlt wird, was gemessen wurde, nicht was fehlt. */
+function serieBZanz(sicht){
+  const m = new Map();
+  bzRoh(sicht).forEach(p => m.set(p.iso, (m.get(p.iso)||0)+1));
+  return reiheAus([...m].map(([k,n]) => ({ iso:k, v:n })));
+}
+/* Sollwerte des Arztes - Stammdaten aus der Monitoring.json (glucose.th), nicht aus dem
+   HTML. Fehlen sie, gibt es keine Ampel, keinen ausgedachten Grenzwert. */
+function bzSoll(){
+  const t = (STATE.glucose && STATE.glucose.th) || {};
+  return { pre: typeof t.preHigh==='number' ? t.preHigh : null,
+           post:typeof t.postHigh==='number' ? t.postHigh : null };
+}
 function serieBD(feld){
   return reiheAus(((STATE.bloodpressure&&STATE.bloodpressure.points)||[])
     .filter(p => typeof p[feld]==='number')
@@ -8426,16 +7648,26 @@ function serieBD(feld){
    Tageswerte (fitbit.days). Beides in EINER Reihe – der Wochenwert sitzt auf seinem
    weekStart. Ein Tageswert am selben Tag ueberschreibt ihn nicht, er mittelt sich ein;
    das kommt bei Albrechts Daten nicht vor (Wochen liegen vor der Tageserfassung). */
+/* Fuenf Felder, eine Stelle: je Feld der Wochenwert und der Tageswert. Wer ein Feld
+   dazunimmt, traegt es HIER ein - nicht in der Kennzahl. */
+const FB_FELD = {
+  schlaf:    [w => w.sleep && w.sleep.avgH,        d => d.sleepH],
+  schritte:  [w => w.steps && w.steps.avg,         d => d.steps],
+  rhr:       [w => w.rhr && w.rhr.avg,             d => d.rhr],
+  effizienz: [w => w.sleep && w.sleep.eff,         d => d.eff],
+  tagesform: [w => w.readiness && w.readiness.avg, d => d.readiness]
+};
 function serieFitbit(feld){
+  const hol = FB_FELD[feld] || FB_FELD.schritte;
   const pts = [];
   const wk = (STATE.fitbit&&STATE.fitbit.weeks)||[];
   Object.values(wk).forEach(w => {
     if(!w || !w.weekStart) return;
-    const v = feld==='schlaf' ? (w.sleep && w.sleep.avgH) : (w.steps && w.steps.avg);
+    const v = hol[0](w);
     if(typeof v==='number') pts.push({ iso:String(w.weekStart).slice(0,10), v });
   });
   ((STATE.fitbit&&STATE.fitbit.days)||[]).forEach(d => {
-    const v = feld==='schlaf' ? d.sleepH : d.steps;
+    const v = hol[1](d);
     if(typeof v==='number') pts.push({ iso:String(d.date).slice(0,10), v });
   });
   return reiheAus(pts);
@@ -8451,6 +7683,41 @@ function serieTrinken(){
     if(typeof d.l==='number') pts.push({ iso:String(d.date).slice(0,10), v:d.l });
   });
   return reiheAus(pts);
+}
+
+/* ---------- Befinden: die Woche, sechs Skalen ----------
+   Erfasst wird je TAG (befinden.entries), gewertet wird die WOCHE - und die Woche endet
+   am Sonntag, derselbe Anker wie im Reiter. Einen Index hat nur eine VOLLSTAENDIGE
+   Woche: ein Mittel aus vier von sechs Antworten waere ein anderer Wert mit demselben
+   Namen. Die Reihe laeuft von der ersten Erfassung bis zur laufenden Woche - die
+   laufende zaehlt mit, auch wenn sie noch leer ist.
+   Ein Eintrag ohne eine einzige Antwort ist kein Anfang: er zaehlt nicht als erste
+   Woche. Gezaehlt wird nur, was eine Antwort traegt. */
+function befSonntag(d){ const w = d.getDay(); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + (w===0?0:7-w)); }
+function befDims(){ return (STATE.befinden && STATE.befinden.dims) || []; }
+function befMax(){ const m = STATE.befinden && STATE.befinden.scaleMax; return typeof m==='number' ? m : 5; }
+function befWochen(){
+  const dims = befDims();
+  if(!dims.length) return [];
+  const map = new Map();
+  ((STATE.befinden && STATE.befinden.entries)||[]).forEach(e => {
+    if(!e || !e.iso) return;
+    const z = {};
+    dims.forEach(dim => { const v = e[dim.key]; if(v!=null && !isNaN(+v)) z[dim.key] = +v; });
+    if(!Object.keys(z).length) return;
+    const k = iso(befSonntag(vonIso(e.iso)));
+    map.set(k, Object.assign(map.get(k) || {}, z));
+  });
+  if(!map.size) return [];
+  const erst = vonIso([...map.keys()].sort()[0]), letzt = befSonntag(heute());
+  const out = [];
+  for(let d = erst; d.getTime() <= letzt.getTime(); d = new Date(d.getFullYear(), d.getMonth(), d.getDate()+7)){
+    const z = map.get(iso(d)) || {};
+    const vs = dims.map(x => z[x.key]).filter(v => v!=null);
+    out.push({ iso:iso(d), d, sk:z, n:vs.length, voll:vs.length===dims.length,
+               idx:(vs.length===dims.length ? vs.reduce((a,b)=>a+b,0)/vs.length : null) });
+  }
+  return out;
 }
 
 function montagVon(d){ const x = new Date(d.getTime()); const wd = (x.getDay()+6)%7; return new Date(x.getTime() - wd*DAY); }
@@ -8677,6 +7944,81 @@ function REG(){
     defs.push({ key:'tempo', label:'Ø Tempo', einheit:'kg/Wo', dez:2, gut:-1, farbe:L1, s, satz });
   })();
 
+  /* --- 2b Ø Tempo aktuell · 2c Taille · 2d bis Ziel 1 ---
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) aus dem Reiter Gewicht und dem alten
+     Register hierher gezogen. Alle drei lesen dieselbe Gewichtsreihe (gs) bzw. die
+     Koerpermasse aus STATE - keine zweite Quelle. dash:false: sie gehoeren zum Reiter. */
+
+  /* Ø Tempo aktuell - das Vier-Wochen-Fenster.
+     Das Fenster sind die Messpunkte der letzten 28 Tage, die Rate ihr TATSAECHLICHER
+     Abstand: liegt der erste Punkt im Fenster 23 Tage zurueck, ist die Rate ueber 23
+     Tage gerechnet. Genau so rechnete die Zahl vorher auch - die Unterzeile «/ 4 Wo»
+     hat das nur nicht gesagt. Jetzt steht es im Satz. */
+  (function(){
+    const FEN = 28;
+    const rateBei = (bis) => {
+      const b = gs[bis];
+      if(!b || b.v===null) return null;
+      const grenze = b.d.getTime() - FEN*DAY;
+      let a = null;
+      for(let i=bis-1;i>=0;i--){ if(gs[i].d.getTime() < grenze) break; if(gs[i].v!==null) a = gs[i]; }
+      if(!a) return null;
+      const tg = (b.d - a.d)/DAY;
+      return tg>0 ? { v:(b.v-a.v)/(tg/7), a, b, tg } : null;
+    };
+    const s = gs.map((p,i) => { const r = (p.v===null) ? null : rateBei(i);
+      return { iso:p.iso, d:p.d, v:r ? r.v : null }; });
+    let li = -1; for(let i=gs.length-1;i>=0;i--) if(gs[i].v!==null){ li = i; break; }
+    const F = li>=0 ? rateBei(li) : null;
+    const kg = F ? F.b.v - F.a.v : null;
+    let satz = 'Noch zu wenig Messpunkte für ein Vier-Wochen-Tempo.';
+    if(F) satz = 'Das Tempo der letzten vier Wochen — die massgebliche Zahl, weil einzelne Wochen zu stark schwanken. '+
+      'Gerechnet aus den Messpunkten der letzten '+FEN+' Tage über ihren tatsächlichen Abstand: '+
+      nf(Math.abs(kg),1)+' kg in '+F.tg+' Tagen ('+datK(F.a.d)+' bis '+datK(F.b.d)+'). '+
+      'Die Kurve zeigt, wie sich dieses Vier-Wochen-Tempo Tag für Tag verschoben hat — nicht das Gewicht. '+
+      'Die Ampel liest das Fenster in Kilogramm: Abnahme oder bis +2 kg grün, ab +3 orange, ab +5 rot.';
+    defs.push({ key:'tempo_akt', label:'Ø Tempo aktuell', einheit:'kg/Wo', dez:2, gut:-1, farbe:L1, s, dash:false,
+      ampel:(kg===null ? 'none' : (kg>5 ? 'high' : kg>3 ? 'warn' : 'good')),
+      kurz:(F ? 'VIER-WOCHEN-FENSTER · '+F.tg+' TAGE' : ''), satz,
+      tabelle:tabAus(['Messung','Tempo kg/Wo','Gewicht kg'],
+        [{ s, fmt:v=>nf(v,2) },{ s:gs, fmt:v=>nf(v,1) }]) });
+  })();
+
+  /* Taille - die Zahl, die neben dem Gewicht steht. */
+  (function(){
+    const s = serieBody('waist'), br = serieBody('chest'), hu = serieBody('hip');
+    const le = letzterE(s), e0 = ersterE(s), n = s.filter(x=>x.v!==null).length;
+    const dif = (le && e0 && e0!==le) ? le.v-e0.v : null;
+    const satz = le
+      ? 'Der Bauchumfang sagt mehr über das Bauchfett als das Gewicht allein. '+n+' Messung'+(n===1?'':'en')+
+        (dif!==null ? ', '+(dif<0?'−':'+')+nf(Math.abs(dif),1)+' cm seit '+datK(e0.d)+'.' : '.')+
+        ' Brust und Hüfte stehen in der Tabelle, das Verhältnis Taille zu Hüfte in der Kachel «THQ».'
+      : 'Noch keine Taillenmessung erfasst.';
+    defs.push({ key:'gw_taille', label:'Taille', einheit:'cm', dez:0, gut:-1, farbe:L0, s, dash:false,
+      kurz:(n ? 'KÖRPERMASSE · '+n+' MESSUNG'+(n===1?'':'EN') : ''), satz,
+      tabelle:tabAus(['Messung','Brust','Taille','Hüfte'],
+        [{ s:br, fmt:v=>String(Math.round(v)) },{ s, fmt:v=>String(Math.round(v)) },{ s:hu, fmt:v=>String(Math.round(v)) }]) });
+  })();
+
+  /* bis Ziel 1 - der Abstand zum ersten Ziel, als Reihe. */
+  (function(){
+    const z1 = +W().goal1, z2 = +W().goal2;
+    const s = (isFinite(z1) ? gs.map(p => ({ iso:p.iso, d:p.d, v:(p.v===null?null:p.v-z1) })) : []);
+    const le = letzterE(s), n = gs.filter(x=>x.v!==null).length;
+    const rest2 = (le && isFinite(z2)) ? le.v + z1 - z2 : null;
+    const satz = le
+      ? 'Der Abstand zum ersten Ziel ('+nf(z1,1)+' kg), gerechnet vom letzten Messwert'+
+        (rest2!==null ? '; bis Ziel 2 ('+nf(z2,1)+' kg) sind es noch '+nf(rest2,1)+' kg' : '')+'. '+
+        'Die Kurve ist die Gewichtsreihe, verschoben auf die Null des Ziels — sie trifft die Achse, wenn das Ziel erreicht ist. '+
+        'Wann das sein wird, sagt die Frage «Prognose» im Reiter, nicht diese Zahl. Datenlage: '+n+' Messtage.'
+      : 'Noch keine Gewichtsmessung erfasst — ohne Gewicht kein Abstand zum Ziel.';
+    defs.push({ key:'gw_ziel1', label:'bis Ziel 1', einheit:'kg', dez:1, gut:-1, farbe:L2, s, dash:false,
+      ampel:(le ? (le.v<=0 ? 'good' : 'none') : 'none'),
+      kurz:(isFinite(z1) ? 'ZIEL 1 · '+nf(z1,1)+' KG'+(isFinite(z2)?' · ZIEL 2 · '+nf(z2,1)+' KG':'') : ''), satz,
+      tabelle:tabAus(['Messung','Gewicht','bis Ziel 1'],
+        [{ s:gs, fmt:v=>nf(v,1) },{ s, fmt:v=>nf(v,1) }]) });
+  })();
+
   /* --- 3 THQ --- */
   (function(){
     const q0 = ersterE(tqs), q1 = letzterE(tqs), n = tqs.filter(x=>x.v!==null).length;
@@ -8694,16 +8036,138 @@ function REG(){
      Die Zone kommt aus refWerte() – die fest verdrahteten 4,0 bis 7,0 sind weg. */
   defs.push(bzDefBauen('alle'));
 
-  /* --- 5 Blutdruck --- */
+  /* --- 4b Nüchtern Ø · 4c nach dem Essen Ø · 4d HbA1c · 4e Messtage ---
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) aus dem Reiter Blutzucker und dem alten
+     Register hierher gezogen. Alle vier lesen dieselbe Quelle wie die Kachel
+     «Blutzucker»: bzRoh() die Messungen, serieBZ() die Tagesachse daraus. Der Schnitt
+     wird aus den ROHEN Messungen gerechnet - aus Tagesmitteln wuerde ein Tag mit einer
+     Messung so viel wiegen wie einer mit fuenf. dash:false: alle vier gehoeren zum
+     Reiter, nicht in die Kartenwand. */
   (function(){
+    const SO = bzSoll();
+    const mitte = a => { const n=a.length; if(!n) return null;
+      return n%2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2; };
+
+    /* Nüchtern */
+    (function(){
+      const s = serieBZ('nue'), anz = serieBZanz('nue');
+      const v = bzRoh('nue').map(p=>p.v).sort((x,y)=>x-y), n = v.length;
+      const m = n ? v.reduce((a,b)=>a+b,0)/n : null;
+      const satz = n
+        ? 'Mittel aller '+n+' Nüchternmessungen, Median '+nf(mitte(v),1)+', Spanne '+nf(v[0],1)+' bis '+nf(v[n-1],1)+' mmol/l. '+
+          (SO.pre!==null ? 'Gerechnet gegen den Sollwert vor dem Essen (≤ '+nf(SO.pre,1)+') — nicht gegen einen Korridor über alle Messpunkte. ' : '')+
+          'Die Linie zeigt den Tagesschnitt; ein Tag ohne Nüchternwert bleibt eine Lücke und wird gestrichelt überbrückt.'
+        : 'Noch kein Nüchternwert erfasst.';
+      defs.push({ key:'bz_nue', label:'Nüchtern Ø', einheit:'mmol/l', dez:1, gut:-1, farbe:L1, s, dash:false,
+        wert:m, ampel:(m===null ? 'none' : (SO.pre!==null && m<=SO.pre ? 'good' : 'warn')),
+        kurz:(SO.pre!==null ? 'NÜCHTERN · SOLL ≤ '+nf(SO.pre,1)+' MMOL/L' : 'NÜCHTERN'), satz,
+        tabelle:tabAus(['Messung','Nüchtern Ø','Messungen'],
+          [{ s, fmt:v2=>nf(v2,1) },{ s:anz, fmt:v2=>String(Math.round(v2)) }]) });
+    })();
+
+    /* Nach dem Essen */
+    (function(){
+      const s = serieBZ('post'), anz = serieBZanz('post');
+      const v = bzRoh('post').map(p=>p.v).sort((x,y)=>x-y), n = v.length;
+      const m = n ? v.reduce((a,b)=>a+b,0)/n : null;
+      const ueb = (SO.post!==null) ? v.filter(x=>x>SO.post).length : 0;
+      const satz = n
+        ? 'Mittel aller '+n+' Messungen nach einer Mahlzeit, Spanne '+nf(v[0],1)+' bis '+nf(v[n-1],1)+' mmol/l. '+
+          (SO.post!==null ? (ueb ? ueb+' davon liegen über '+nf(SO.post,1)+'. ' : 'Keine davon liegt über '+nf(SO.post,1)+'. ') : '')+
+          'Nach dem Essen gilt eine andere Grenze als davor — darum stehen die beiden Zahlen nebeneinander und nicht als eine.'
+        : 'Noch keine Messung nach einer Mahlzeit erfasst.';
+      defs.push({ key:'bz_nach', label:'nach dem Essen Ø', einheit:'mmol/l', dez:1, gut:-1, farbe:L2, s, dash:false,
+        wert:m, ampel:(m===null ? 'none' : (SO.post!==null && m<=SO.post ? 'good' : 'warn')),
+        kurz:(SO.post!==null ? 'NACH DEM ESSEN · SOLL ≤ '+nf(SO.post,1)+' MMOL/L' : 'NACH DEM ESSEN'), satz,
+        tabelle:tabAus(['Messung','nach dem Essen Ø','Messungen'],
+          [{ s, fmt:v2=>nf(v2,1) },{ s:anz, fmt:v2=>String(Math.round(v2)) }]) });
+    })();
+
+    /* HbA1c - Laborwert. Nur Werte ab 2026: aeltere stehen im Reiter Akten und wuerden
+       hier als aktueller Stand missverstanden. */
+    (function(){
+      const pts = [];
+      ((STATE.lab && STATE.lab.panels)||[]).forEach(p => {
+        const v = (p && p.values) ? p.values.hba1c : null;
+        if(v!=null && p.date && String(p.date)>='2026-01-01') pts.push({ iso:String(p.date).slice(0,10), v:+v });
+      });
+      ((STATE.hba1cLab)||[]).forEach(r => {
+        if(r && r.date && String(r.date)>='2026-01-01' && r.value!=null) pts.push({ iso:String(r.date).slice(0,10), v:+r.value });
+      });
+      const s = reiheAus(pts), le = letzterE(s);
+      defs.push({ key:'hba1c', label:'HbA1c', einheit:(le?'%':''), dez:1, gut:-1, farbe:L1, s, dash:false,
+        ampel:(le ? (le.v<7 ? 'good' : le.v<8 ? 'warn' : 'high') : 'none'),
+        kurz:(le ? 'LABOR · '+datZ(le.d)+le.d.getFullYear() : 'LABORWERT – NACH ARZTTERMIN'),
+        satz:(le
+          ? 'Langzeit-Blutzucker über die letzten rund drei Monate, Laborwert vom '+datK(le.d)+' '+le.d.getFullYear()+
+            '. Unter 7 % gut, unter 8 % grenzwertig.'
+          : 'Langzeit-Blutzucker über die letzten rund drei Monate. Er wird nach dem ersten Arzttermin als echter Laborwert eingetragen — bis dahin steht hier ein Gedankenstrich und keine gerechnete Schätzung.') });
+    })();
+
+    /* Messtage - die Reihe ist die Zahl der Messungen JE TAG, die Zahl auf der Karte die
+       Zahl der Tage mit Messung. Der Nenner ist derselbe wie im Satz der Kachel
+       «Blutzucker»: die Achse laeuft bis heute. */
+    (function(){
+      const anz = serieBZanz('alle'), s = serieBZ('alle');
+      const spanne = anz.length, tage = zaehl(anz, 0, spanne), luecken = spanne - tage;
+      const nAll = bzRoh('alle').length;
+      const so = anz.filter(x => x.d.getDay()===0), soVoll = so.filter(x => x.v!==null && x.v>=5).length;
+      const satz = tage
+        ? 'An '+tage+' von '+spanne+' Kalendertagen wurde gemessen, an '+luecken+' nicht. Das Bild zeigt, wie VIELE Messungen ein Tag trägt.'+
+          (so.length ? ' Die vollen Tagesprofile entstehen sonntags: '+soVoll+' von '+so.length+' Sonntagen tragen fünf oder mehr Messungen.' : '')+
+          ' Der Kalender in der Frage «Abdeckung» zeigt dieselben Tage als Raster.'
+        : 'Noch keine Blutzuckermessung erfasst.';
+      defs.push({ key:'bz_tage', label:'Messtage', einheit:(spanne?'von '+spanne+' Tagen':''), dez:0, gut:1, farbe:L0,
+        s:anz, dash:false, wert:tage, unter:(tage?luecken+' Tage ohne Messung':''),
+        ampel:(tage && luecken>tage ? 'warn' : 'none'),
+        kurz:(tage ? 'MESSUNGEN JE TAG · '+nAll+' MESSUNGEN' : ''), satz,
+        tabelle:tabAus(['Messung','Messungen','Ø des Tages'],
+          [{ s:anz, fmt:v2=>String(Math.round(v2)) },{ s, fmt:v2=>nf(v2,1) }]) });
+    })();
+  })();
+
+  /* --- 5 Blutdruck ---
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) ist die Karte des Reiters Kreislauf
+     hierher gezogen - der Reiter nennt nur noch den Namen 'bd'. Was dort in der
+     Unterzeile stand, steht jetzt im Satz (Pulsdruck, Messtage) und in der Tabelle
+     (jede Messung mit Puls). Die Ampelschwelle ist die alte: ab 140 systolisch. */
+  (function(){
+    const pls = serieBD('pulse');
+    const nM = ((STATE.bloodpressure&&STATE.bloodpressure.points)||[]).filter(p=>typeof p.sys==='number').length;
     const n = sys.filter(x=>x.v!==null).length, le = letzterE(sys), ld = letzterE(dia);
+    const pd = (le && ld) ? Math.round(le.v)-Math.round(ld.v) : null;
     const satz = le
-      ? 'Oben systolisch, unten diastolisch. Gemessen an '+n+' von '+sys.length+' Tagen — die gestrichelten '+
+      ? 'Oben systolisch, unten diastolisch. '+nM+' Messungen an '+n+' von '+sys.length+' Tagen — die gestrichelten '+
         'Abschnitte sind Lücken, keine flachen Wochen. Zuletzt '+Math.round(le.v)+'/'+(ld?Math.round(ld.v):'—')+
-        ' mmHg am '+datK(le.d)+'.'
+        ' mmHg am '+datK(le.d)+(pd!==null ? ', Pulsdruck '+pd+' — systolisch minus diastolisch' : '')+'.'
       : 'Noch keine Blutdruckmessung erfasst.';
     defs.push({ key:'bd', label:'Blutdruck', einheit:'mmHg', dez:0, gut:-1, farbe:L2, farbe2:'var(--k-zweit)',
-      s:sys, s2:dia, satz });
+      s:sys, s2:dia, satz, ampel:(le ? (le.v>=140?'warn':'none') : 'none'),
+      kurz:(le ? 'LETZTE MESSUNG · '+nM+' MESSUNGEN AN '+n+' TAGEN' : ''),
+      tabelle:tabAus(['Messung','systolisch','diastolisch','Puls'],
+        [{ s:sys, fmt:v=>String(Math.round(v)) },
+         { s:dia, fmt:v=>String(Math.round(v)) },
+         { s:pls, fmt:v=>String(Math.round(v)) }]) });
+  })();
+
+  /* --- 5b Ruhepuls ---
+     Neu im Register am 14.08.2026: die Kennzahl stand nur auf dem Reiter Kreislauf und
+     rechnete dort. Sie liest jetzt dieselbe Fitbit-Quelle wie Schlaf und Schritte.
+     dash:false - sie gehoert zum Reiter, nicht in die Kartenwand. */
+  (function(){
+    const s = serieFitbit('rhr'), le = letzterE(s), e0 = ersterE(s);
+    const n = s.filter(x=>x.v!==null).length;
+    const dif = (le && e0 && e0!==le) ? Math.round(le.v)-Math.round(e0.v) : null;
+    const satz = le
+      ? 'Aus dem Fitbit. '+n+' erfasste Wert'+(n===1?'':'e')+', zuletzt '+Math.round(le.v)+' je Minute am '+datK(le.d)+
+        (dif!==null ? ' — '+(dif>=0?'+':'−')+Math.abs(dif)+' seit '+datK(e0.d)+' '+e0.d.getFullYear()+'.' : '.')+
+        ' Der Ruhepuls reagiert langsam und deutlich: an ihm wird eine Gewichtsabnahme im Kreislauf sichtbar. '+
+        'Ältere Werte sind Wochenmittel, neu erfasste sind Tageswerte.'
+      : 'Noch kein Ruhepuls erfasst.';
+    defs.push({ key:'rhr', label:'Ruhepuls', einheit:'/min', dez:0, gut:-1, farbe:L2, s, dash:false,
+      ampel:(le ? (le.v<=80?'good':'none') : 'none'),
+      kurz:(le ? 'FITBIT · '+n+' WERT'+(n===1?'':'E') : ''), satz,
+      tabelle:tabAus(['Messung','Ruhepuls'],[{ s, fmt:v=>String(Math.round(v)) }]) });
   })();
 
   /* --- 6 Schlaf --- */
@@ -8715,7 +8179,15 @@ function REG(){
         (vals.length>1 ? ', die kürzeste Nacht bei '+nf(Math.min.apply(null,vals),1)+'.' : '.')+
         ' Ältere Werte sind Wochenmittel, neu erfasste sind Tageswerte.'
       : 'Noch kein Schlafwert erfasst.';
-    defs.push({ key:'schlaf', label:'Schlaf', einheit:'h', dez:1, gut:1, farbe:L0, s:sls, satz });
+    const le = letzterE(sls);
+    defs.push({ key:'schlaf', label:'Schlaf', einheit:'h', dez:1, gut:1, farbe:L0, s:sls,
+      satz: satz + (n ? ' Effizienz und Tagesform stehen in der Tabelle.' : ''),
+      ampel:(le ? (le.v>=7?'good':le.v>=6?'none':'warn') : 'none'),
+      kurz:(n ? 'FITBIT · '+n+' WERT'+(n===1?'':'E') : ''),
+      tabelle:tabAus(['Messung','Schlaf h','Effizienz %','Tagesform'],
+        [{ s:sls, fmt:v=>nf(v,1) },
+         { s:serieFitbit('effizienz'), fmt:v=>String(Math.round(v)) },
+         { s:serieFitbit('tagesform'), fmt:v=>String(Math.round(v)) }]) });
   })();
 
   /* --- 7 Schritte --- */
@@ -8725,7 +8197,9 @@ function REG(){
       ? 'Aus dem Fitbit. '+n+' erfasste Wert'+(n===1?'':'e')+', im Schnitt rund '+tsd(m && Math.round(m/100)*100)+
         ' Schritte am Tag. Ältere Werte sind Wochenmittel, neu erfasste sind Tageswerte.'
       : 'Noch kein Schrittwert erfasst.';
-    defs.push({ key:'schritte', label:'Schritte', einheit:'', dez:0, gut:1, farbe:L1, s:scs, tausend:true, satz });
+    defs.push({ key:'schritte', label:'Schritte', einheit:'', dez:0, gut:1, farbe:L1, s:scs, tausend:true, satz,
+      kurz:(n ? 'FITBIT · '+n+' WERT'+(n===1?'':'E') : ''),
+      tabelle:tabAus(['Messung','Schritte'],[{ s:scs, fmt:v=>tsd(v) }]) });
   })();
 
   /* --- 8 Trinkmenge --- */
@@ -8740,34 +8214,108 @@ function REG(){
   })();
 
 
+  /* --- 9 Befinden: Index · beste Skala · schwaechste · Wochen erfasst ---
+     Am 14.08.2026 (Vorschlag 01, zweiter Teil) aus dem Reiter hierher gezogen. Alle vier
+     lesen befWochen(); der Reiter rechnet seine Wochenkette weiter selbst, weil sie auch
+     Gewicht, Blutzucker und Fitbit auf denselben Sonntag legt - fuer die Kennzahl zaehlt
+     nur das Befinden. Deshalb sagt «Wochen erfasst» jetzt «von 5» und nicht «von 9»: der
+     Nenner ist die Zeit seit der ersten Befinden-Erfassung, nicht die Datenlage der
+     ganzen App. dash:false - alle vier gehoeren zum Reiter. */
+  (function(){
+    const dims = befDims(), BW = befWochen();
+    if(!dims.length || !BW.length) return;
+    const M = befMax();
+    const voll = BW.filter(w => w.voll);
+    const lz = voll.length ? voll[voll.length-1] : null;
+    const vor = voll.length>1 ? voll[voll.length-2] : null;
+    const oe = voll.length ? voll.reduce((a,w)=>a+w.idx,0)/voll.length : null;
+    const sIdx = reiheAus(voll.map(w => ({ iso:w.iso, v:w.idx })));
+    const sSk = k => reiheAus(BW.filter(w => w.sk[k]!=null).map(w => ({ iso:w.iso, v:w.sk[k] })));
+    const sAnz = reiheAus(BW.filter(w => w.n>0).map(w => ({ iso:w.iso, v:w.n })));
+
+    defs.push({ key:'bf_index', label:'Index', einheit:'von '+M, dez:1, gut:1, farbe:L0, s:sIdx, dash:false,
+      ampel:(lz ? (lz.idx>=M-1 ? 'good' : lz.idx<=2 ? 'warn' : 'none') : 'none'),
+      unter:(lz ? 'Ø '+nf(oe,1)+(vor ? ' · davor '+nf(vor.idx,1) : '') : ''),
+      kurz:(lz ? 'WOCHE BIS '+datZ(lz.d)+' · MITTEL AUS '+dims.length+' SKALEN' : ''),
+      satz:(lz
+        ? 'Das Mittel aller '+dims.length+' Skalen der Woche, auf der Skala von eins bis '+M+
+          '. Über alle '+voll.length+' vollständig erfassten Wochen liegt der Durchschnitt bei '+nf(oe,1)+'. '+
+          'Die Anker stehen in Deinen Daten: eins ist der Problemzustand, drei der Alltag, '+M+' das Ziel. '+
+          'Eine Woche ohne vollständige Erfassung wird nicht als Null gezeichnet — sie bleibt eine Lücke.'
+        : 'Noch keine vollständig erfasste Befinden-Woche.'),
+      tabelle:tabAus(['Woche','Index'].concat(dims.map(d2 => d2.label)),
+        [{ s:sIdx, fmt:v=>nf(v,1) }].concat(dims.map(d2 => ({ s:sSk(d2.key), fmt:v=>String(Math.round(v)) })))) });
+
+    if(lz){
+      const SKW = dims.map(d2 => ({ key:d2.key, label:d2.label, v:lz.sk[d2.key],
+        anker:((d2.anchors||[])[lz.sk[d2.key]-1] || '') }));
+      const beste = SKW.slice().sort((a,b)=>b.v-a.v)[0];
+      const tief  = SKW.slice().sort((a,b)=>a.v-b.v)[0];
+      const obenN = SKW.filter(x => x.v===beste.v).length;
+      const untenN = SKW.filter(x => x.v===tief.v).length;
+
+      defs.push({ key:'bf_beste', label:'beste Skala', einheit:beste.v+' / '+M, dez:0, gut:1, farbe:L0,
+        s:sSk(beste.key), dash:false, wertText:beste.label, ampel:'good',
+        unter:(obenN>1 ? obenN+' Skalen teilen sich den Höchstwert' : (beste.anker || beste.label)),
+        kurz:beste.label.toUpperCase()+' · '+beste.v+' VON '+M,
+        satz:'Die Skala, die in der Woche bis '+datK(lz.d)+' am höchsten steht'+
+          (obenN>1 ? ' — '+obenN+' Skalen teilen sich diesen Wert' : '')+'. '+
+          (beste.anker ? 'Deine Beschreibung für '+beste.v+': «'+beste.anker+'». ' : '')+
+          'Die Kurve ist der Verlauf dieser einen Skala; alle Skalen nebeneinander zeigt die Wochentafel im Reiter.' });
+
+      defs.push({ key:'bf_schwach', label:'schwächste', einheit:tief.v+' / '+M, dez:0, gut:1, farbe:L2,
+        s:sSk(tief.key), dash:false, wertText:tief.label,
+        ampel:(tief.v<=2 ? 'warn' : 'none'),
+        unter:(tief.anker || (untenN>1 ? untenN+' Skalen teilen sich den tiefsten Wert' : 'tiefster Wert der Woche')),
+        kurz:tief.label.toUpperCase()+' · '+tief.v+' VON '+M,
+        satz:'Die Skala, die in der Woche bis '+datK(lz.d)+' am tiefsten steht. Sie ist der Ansatzpunkt — nicht die schlechte Note. '+
+          (tief.anker ? 'Deine Beschreibung für '+tief.v+': «'+tief.anker+'». ' : '')+
+          'Die Kurve ist der Verlauf dieser einen Skala; in der Wochentafel ist sie die tiefste Zeile.' });
+    }
+
+    defs.push({ key:'bf_wochen', label:'Wochen erfasst', einheit:'von '+BW.length+' Wochen', dez:0, gut:1, farbe:L1,
+      s:sAnz, dash:false, wert:voll.length,
+      ampel:(voll.length===BW.length ? 'good' : 'none'),
+      unter:'seit dem '+datZ(BW[0].d),
+      kurz:'ERFASSTE SKALEN JE WOCHE · '+dims.length+' MÖGLICH',
+      satz:voll.length+' von '+BW.length+' Wochen tragen ein vollständig erfasstes Befinden, seit dem '+datK(BW[0].d)+' '+BW[0].d.getFullYear()+'. '+
+        'Eine Woche ohne Erfassung ist keine schlechte Woche — sie ist eine Lücke und wird als solche gezeichnet. '+
+        'Das Bild zeigt, wie viele der '+dims.length+' Skalen eine Woche trägt. Trinkmenge, Verdauung und Wochenplan stehen als Zeilen in der Wochentafel des Reiters.',
+      tabelle:tabAus(['Woche','erfasste Skalen','Index'],
+        [{ s:sAnz, fmt:v=>String(Math.round(v)) },{ s:sIdx, fmt:v=>nf(v,1) }]) });
+  })();
+
   return defs;
 }
-function defVon(key){
-  const d = REG().find(x => x.key===key);
-  if(d) return d;
-  /* Noch nicht umgezogen? Dann aus der Quelle am alten Ort - bei JEDEM Aufruf neu,
-     damit kein Wert von der Ladezeit stehen bleibt. */
-  return (typeof FREMD !== 'undefined' && FREMD[key]) ? kzFremd(FREMD[key]) : undefined;
-}
+function defVon(key){ return REG().find(x => x.key===key); }
 
 /* ============================================================================
    Kachel-Daten – die Zahl, die zweite Zeile, die Vorschau. Aus REG, sonst nichts.
    ========================================================================== */
 function kachelDaten(d){
-  /* Eine noch nicht umgezogene Kennzahl bringt ihren Wert fertig mit. Das ist kein
-     zweiter Rechenweg: es ist DERSELBE, nur noch an seinem alten Ort. Sobald er
-     hierher zieht, faellt wertFest weg. */
-  if(d.wertFest !== undefined) return { wert:d.wertFest, delta:d.deltaFest||'', dtext:d.dtextFest||'', dfarbe:d.dfarbeFest||'var(--k-faint)' };
   const s = d.s, H = heute();
   const le = letzterE(s);
+  /* Welche Zahl auf der Karte steht: der letzte Messwert - oder eine Zahl, die die
+     Kennzahl selbst gerechnet hat (d.wert). Das ist KEIN zweiter Rechenweg: sie kommt
+     aus derselben Rechenstelle wie die Reihe, ist aber kein Reihenwert - der
+     Nuechtern-Schnitt ueber alle Messungen etwa laesst sich aus Tagesmitteln nicht
+     bilden, und die Zahl der Messtage ist keine Messung. Formatiert wird auch sie hier. */
+  const basis = (d.wert !== undefined && d.wert !== null) ? d.wert : (le ? le.v : null);
   let wert = '—';
-  if(d.key==='bd'){
+  /* Zwei Kennzahlen antworten mit einem NAMEN, nicht mit einer Zahl: «welche Skala steht
+     am hoechsten» und «welche am tiefsten». Sie tragen ihren Text selbst - die Reihe
+     darunter ist der Verlauf genau dieser Skala, also bleibt das Bild eine Zahlenreihe. */
+  if(d.wertText !== undefined && d.wertText !== null){
+    wert = String(d.wertText);
+  } else if(d.key==='bd'){
     const l2 = letzterE(d.s2);
     wert = le ? (Math.round(le.v)+'/'+(l2?Math.round(l2.v):'—')) : '—';
+  } else if(basis===null){
+    wert = '—';
   } else if(d.tausend){
-    wert = le ? tsd(le.v) : '—';
+    wert = tsd(basis);
   } else {
-    wert = le ? nf(le.v, d.dez) : '—';
+    wert = nf(basis, d.dez);
   }
 
   /* Zweite Zeile: Delta ODER Alter. Nie beides, nie keins.
@@ -8804,6 +8352,10 @@ function kachelDaten(d){
       }
     }
   }
+  /* Eine Kennzahl darf ihre zweite Zeile selbst sagen, wenn die Regel nicht passt: bei
+     «Messtage» ist die Zahl der TAGE gemeint - ein Delta ueber Messungen je Tag stuende
+     dort unter einer Zahl, die es nicht beschreibt. */
+  if(d.unter) return { wert, delta:'', dtext:d.unter, dfarbe:'var(--k-faint)' };
   return { wert, delta, dtext, dfarbe };
 }
 
@@ -8868,11 +8420,9 @@ function kzKarte(d, art){
     const zahl = Math.max(12, S.kontext||25), ein = Math.max(11, Math.round(zahl*0.48));
     const col = d.ampel ? ({good:'var(--good)',warn:'var(--warn)',high:'var(--high)',low:'var(--low)'}[d.ampel] || 'var(--ink)') : 'var(--ink)';
     const satzTxt = (k.delta ? k.delta+' ' : '') + (k.dtext||'');
-    /* Kartenhintergrund: die Tagesreihe des einen Registers - und solange eine Kennzahl
-       noch an ihrem alten Ort rechnet, deren eigene Reihe (d.spark). Ohne diesen zweiten
-       Zugriff stuenden 15 Karten ohne ihren Verlauf da. */
-    const reihe = (d.s && d.s.length) ? d.s : (d.spark || null);
-    const spark = (S.spark && window._sparkArea && reihe) ? window._sparkArea(reihe, col, {h:26,op:.15}) : '';
+    /* Kartenhintergrund: die Tagesreihe aus dem einen Register. Eine Kennzahl ohne Reihe
+       (HbA1c, solange kein Laborwert vorliegt) traegt keine - und behauptet keine. */
+    const spark = (S.spark && window._sparkArea && d.s && d.s.length) ? window._sparkArea(d.s, col, {h:26,op:.15}) : '';
     return '<button type="button" class="kz-z '+(S.karte?'kz-karte':'kz-flach')+'" data-metric="'+d.key+'" data-key="'+d.key+'"'+
       (S.karte ? ' style="padding:13px 14px 13px;min-height:'+Math.round(zahl*2.9)+'px;justify-content:flex-start"' : '')+
       ' aria-label="'+esc(d.label)+': '+esc(k.wert)+(d.einheit?' '+esc(d.einheit):'')+' – Kennzahl öffnen">'+
@@ -8908,39 +8458,11 @@ function kzKarte(d, art){
 
 /* Der Zugang der Fachreiter zum einen Register: _kzReihe fragt hier ZUERST nach
    und faellt nur zurueck, solange eine Kennzahl noch nicht umgezogen ist. */
-/* ----------------------------------------------------------------------------
-   Uebergang. 16 Kennzahlen rechnen noch an ihrem alten Ort (compute/content in der
-   Full-Welt). Sie bekommen hier EINEN Eintrag im einen Register: derselbe Wert,
-   dieselbe Ampel, dieselbe Erklaerung, dasselbe Bild – aber die EINE Karte und das
-   EINE Modal. Mit jedem Umzug faellt ein Eintrag aus dieser Liste heraus.
-   ---------------------------------------------------------------------------- */
-const FREMD = {};
-function kzFremd(e){
-  if(!e || typeof e.compute !== 'function') return null;
-  const m = e.compute() || {};
-  let c = {};
-  try { c = (typeof e.content === 'function') ? (e.content() || {}) : {}; } catch(err){ c = {}; }
-  return {
-    key:e.key, label:e.label || e.key, einheit:m.unit || '', dez:1, gut:1, farbe:'var(--k-l0)',
-    fremd:true, s:[], dash:false,
-    wertFest:m.valStr, ampel:m.state,
-    deltaFest:(m.delta && m.delta.arrow) ? m.delta.arrow : '',
-    dtextFest:(m.delta && m.delta.text) ? m.delta.text : '',
-    dfarbeFest:'var(--k-faint)',
-    spark:m.spark || null, kurz:c.short || '', infoHtml:c.info || '', chartHtml:c.chart || '', tabelle:c.table || '',
-    satz:''
-  };
-}
-
-window._kzEins = function(key, e){
-  let d = defVon(key);
-  if(!d && e && typeof e !== 'string'){ FREMD[key] = e; d = kzFremd(e); }
-  else if(!d && FREMD[key]) d = kzFremd(FREMD[key]);
-  /* Ein Reiter darf eine Kennzahl auch nur beim Namen nennen ("hba1c"). Dann steht ihre
-     Rechenstelle im alten Register - auch die kommt ueber denselben Weg herein. */
-  else if(!d && typeof e === 'string' && window._REGISTRY && window._REGISTRY[key]){
-    FREMD[key] = window._REGISTRY[key]; d = kzFremd(FREMD[key]);
-  }
+/* Der Zugang der Fachreiter zum einen Register: der Reiter nennt den Namen, hier kommt
+   die Karte heraus. Seit dem 14.08.2026 (Vorschlag 01, zweiter Teil) gibt es keinen
+   zweiten Weg mehr - was REG() nicht kennt, gibt es nicht. */
+window._kzEins = function(key){
+  const d = defVon(key);
   if(!d) return null;
   const huelle = document.createElement('div');
   huelle.innerHTML = kzKarte(d, 'zeile');
@@ -9023,41 +8545,10 @@ function oeffneVoll(key){
 }
 function schliesseVoll(){ UI.offen = null; UI.view = null; UI.str = null; elId('vollModal').hidden = true; elId('vollModal').innerHTML = ''; }
 
-/* Das eine Modal, Fassung fuer eine noch nicht umgezogene Kennzahl: derselbe Rahmen,
-   derselbe Kopf, derselbe Schliessknopf – Bild, Erklaerung und Tabelle kommen aus
-   ihrer alten Rechenstelle, statt aus der Tagesreihe gezeichnet zu werden.
-   Kein Ziehen, kein Zoom: dafuer braucht es die Reihe, und die hat sie noch nicht. */
-function renderVollFremd(d, k){
-  const m = elId('vollModal');
-  const frisch = m.hidden ? ' frisch' : '';
-  m.hidden = false;
-  m.innerHTML = '<div class="schirm'+frisch+'" id="vollSchirm"><div class="dialog'+frisch+'" id="vollDialog">'+
-    '<div class="d-kopf"><div>'+
-      '<div class="d-titel">'+esc(d.label)+'</div>'+
-      (d.kurz ? '<div class="d-kurz" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--k-faint);margin-top:2px">'+esc(d.kurz)+'</div>' : '')+
-      '<div class="d-wert"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
-    '</div><div class="d-kopf-rechts">'+
-      '<button type="button" class="rund" id="vollZu">×</button></div></div>'+
-    '<div class="d-koerper"><div class="d-links">'+
-      (d.chartHtml || '')+
-      (d.tabelle ? '<div style="margin-top:14px;max-height:320px;overflow:auto">'+d.tabelle+'</div>' : '')+
-    '</div></div>'+
-    '<div class="d-fuss"><div class="d-satz" id="vollSatz">'+(d.infoHtml || '')+'</div></div>'+
-  '</div></div>';
-  elId('vollZu').addEventListener('click', schliesseVoll);
-  elId('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
-  /* Ein frisch eingesetzter Platzhalter muss eingesammelt werden, sonst bleibt der
-     Kasten leer: sweep() findet ihn, recheck() misst die Breite nach. */
-  /* CHART ist ein const im gemeinsamen Geltungsbereich - es steht NICHT auf window.
-     Seit dem Umbau «eine Welt» ist es von hier direkt erreichbar. */
-  if(typeof CHART !== 'undefined'){ if(CHART.sweep) CHART.sweep(m); if(CHART.recheck) CHART.recheck(); }
-}
-
 function renderVoll(){
   const m = elId('vollModal');
   if(!UI.offen){ m.hidden = true; m.innerHTML = ''; return; }
   const d = defOffen(), k = kachelDaten(d);
-  if(d && d.fremd){ renderVollFremd(d, k); return; }
   if(!UI.view) UI.view = startAusschnitt(d);
   /* Kopfzeile beim Blutzucker: der Titel nennt beide Wahlen, die grosse Zahl ist der
      Durchschnitt im gewaehlten Zeitfenster – nicht der letzte Messtag. Die Kachel zeigt
@@ -9073,12 +8564,14 @@ function renderVoll(){
   m.innerHTML = '<div class="schirm'+frisch+'" id="vollSchirm"><div class="dialog'+frisch+(strOffen(d)?' mit-erf':'')+'" id="vollDialog">'+
     '<div class="d-kopf"><div>'+
       '<div class="d-titel">'+esc(kopfTitel)+'</div>'+
+      (d.kurz ? '<div class="d-kurz" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--k-faint);margin-top:2px">'+esc(d.kurz)+'</div>' : '')+
       '<div class="d-wert"><b>'+esc(kopfWert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
     '</div><div class="d-kopf-rechts">'+
       (STR[d.key] ? '<button type="button" class="knopf'+(strOffen(d)?' still':'')+'" id="vollErf">'+(strOffen(d)?'Erfassen schliessen':'Erfassen')+'</button>' : '')+
       '<button type="button" class="rund" id="vollZu">×</button></div></div>'+
     '<div class="d-koerper'+(strOffen(d)?' mit-erf':'')+'">'+
-      '<div class="d-links">'+(d.key==='bz'?bzSchalter():'')+'<div id="buehne" style="width:100%"></div>'+legendeVoll(d)+'</div>'+
+      '<div class="d-links">'+(d.key==='bz'?bzSchalter():'')+'<div id="buehne" style="width:100%"></div>'+legendeVoll(d)+
+        (d.tabelle ? '<div style="margin-top:14px;max-height:320px;overflow:auto">'+d.tabelle+'</div>' : '')+'</div>'+
       (strOffen(d) ? streifenHTML(d) : '')+
     '</div>'+
     '<div class="d-fuss"><div class="d-satz" id="vollSatz">'+esc(d.satz)+'</div>'+
@@ -9191,10 +8684,17 @@ function zeichneVoll(){
   const uid = 'clip-'+d.key;
   let g = '';
 
+  /* Zweimal dieselbe Zahl ist keine Achse: eine flache Reihe mit ganzen Zahlen rundete
+     fuenf Achsenwerte auf drei und stellte zwei davon doppelt hin. Die Linie bleibt,
+     die doppelte Beschriftung faellt. */
+  let letzterTick = null;
   for(let k=0;k<=4;k++){
-    const val = mn + (mx-mn)*k/4, y = Y(val);
+    const val = mn + (mx-mn)*k/4, y = Y(val), tick = nf(val, d.dez);
     g += '<line x1="'+M.l+'" y1="'+y.toFixed(1)+'" x2="'+(Wd-M.r)+'" y2="'+y.toFixed(1)+'" stroke="var(--k-line2)" stroke-width="1"></line>';
-    g += '<text x="'+(M.l-12)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" fill="var(--k-dim)" font-size="12" font-family="ui-monospace,Menlo,monospace">'+esc(nf(val, d.dez))+'</text>';
+    if(tick !== letzterTick){
+      g += '<text x="'+(M.l-12)+'" y="'+(y+4).toFixed(1)+'" text-anchor="end" fill="var(--k-dim)" font-size="12" font-family="ui-monospace,Menlo,monospace">'+esc(tick)+'</text>';
+      letzterTick = tick;
+    }
   }
   if(d.zone) g += '<rect x="'+M.l+'" y="'+Y(d.zone[1]).toFixed(1)+'" width="'+pw+'" height="'+Math.abs(Y(d.zone[0])-Y(d.zone[1])).toFixed(1)+'" fill="var(--k-l0)" opacity=".1"></rect>';
   if(d.marke) g += '<line x1="'+M.l+'" y1="'+Y(d.marke).toFixed(1)+'" x2="'+(Wd-M.r)+'" y2="'+Y(d.marke).toFixed(1)+'" stroke="var(--k-warn)" stroke-width="1" opacity=".8"></line>';
