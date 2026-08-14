@@ -284,8 +284,6 @@
      Kontextzahlen im Reiter. Die Werte stehen in KZ_STIL und sind ueber die
      Tweaks-Regler der Sonde einstellbar; die Karte selbst ist die Affordanz. */
   .kz{display:grid;gap:12px}
-  .kz-anker{margin-top:18px;padding-bottom:18px;border-bottom:1px solid var(--line)}
-  .kz-anker:empty{display:none;padding:0;border:0;margin:0}
   .kz-wrap{margin-bottom:18px}
   .kz-kopf{display:flex;align-items:center;gap:9px;margin:0 0 11px}
   .kz-kopf b{font-family:var(--mono);font-size:9.5px;font-weight:400;letter-spacing:.14em;
@@ -650,21 +648,6 @@
 .weltLight .legende-d div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--k-muted)}
 /* Arzt-Export: der Auswahl-Dialog im Werkzeug (der Bericht selbst hat eigene Stile). */
 /* Medikation – die einzige Stelle im Werkzeug, an der Text statt Zahlen erfasst wird. */
-.weltLight .med-tab{display:flex;flex-direction:column}
-.weltLight .med-zeile{display:grid;grid-template-columns:1.9fr .8fr 1.4fr 1fr 34px;gap:0 16px;align-items:center}
-.weltLight .med-zeile.kopf{padding-bottom:8px}
-.weltLight .med-th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--k-faint)}
-.weltLight .med-zeile input{font-size:15px;color:var(--k-text);background:none;border:0;border-bottom:1px solid var(--k-line);padding:8px 0;outline:none;width:100%;min-width:0;font-family:inherit}
-.weltLight .med-zeile input:focus{border-bottom-color:var(--k-akzent)}
-.weltLight .med-zeile input.mono{font-family:var(--mono);font-size:13.5px;letter-spacing:.02em}
-.weltLight .med-weg{background:none;border:0;color:var(--k-faint);font-size:19px;cursor:pointer;line-height:1;padding:4px;justify-self:center}
-.weltLight .med-weg:hover{color:var(--k-warn)}
-.weltLight .med-stand{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
-.weltLight .med-stand label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--k-faint)}
-.weltLight .med-stand input{font-size:15px;color:var(--k-text);background:none;border:0;border-bottom:1px solid var(--k-line);padding:6px 0;outline:none;font-family:inherit;color-scheme:dark}
-.weltLight .med-stand input:focus{border-bottom-color:var(--k-akzent)}
-.weltLight .med-stand .weit{flex:1 1 340px;min-width:0}
-.weltLight .med-stand .weit input{width:100%}
 .weltLight .leerhinweis{font-size:14.5px;color:var(--k-faint);padding:40px 0}
 @media (max-width:1100px){
   .weltLight .kacheln{grid-template-columns:repeat(2,1fr)}
@@ -677,8 +660,6 @@
   .weltLight .schirm{padding:14px}
   .weltLight .dialog{padding:22px 18px 18px}
   .weltLight .d-kopf{gap:12px}
-  .weltLight .med-zeile{grid-template-columns:1fr 1fr;gap:0 14px;border-top:1px solid var(--k-line2);padding-top:8px}
-  .weltLight .med-zeile.kopf{display:none}
   .weltLight .streifen{padding:14px 16px 13px}
   .weltLight .d-koerper{gap:20px}
   .weltLight .str-zeile input{font-size:28px}
@@ -687,8 +668,6 @@
   .weltLight .str-tat{margin-left:0;width:100%;justify-content:flex-end}
   .weltLight .legende-d{gap:8px 16px}
 }
-/* Trennstrich in der Reiterleiste: hier hoert Light auf und Full faengt an. */
-.tab-trenn{width:1px;align-self:center;height:18px;background:var(--line);margin:0 10px;flex:0 0 auto}
 .welt-btns{display:flex;align-items:center;gap:8px}
 .welt-btns[hidden]{display:none}
 </style>
@@ -711,30 +690,25 @@
       <button class="btn conn" id="connBtn" aria-label="Datenspeicher verbinden" title="Mit dem Datenspeicher verbinden">
         <span class="conn-dot" id="connDot"></span><span id="connGear">⚙</span>
       </button>
+      <!-- Der Arzt-Export gilt fuer die ganze App und steht darum ausserhalb der
+           Weltknoepfe: auf jedem Reiter erreichbar. -->
+      <button class="btn" id="exportBtn" aria-label="Für Arzt exportieren" title="Für Arzt exportieren" style="font-size:17px;line-height:1;padding:8px 12px">⇪</button>
       <!-- Werkzeuge der Welt Light. Sichtbar nur auf ihren Reitern. -->
       <span class="welt-btns weltLight" id="btnsLight">
         <span id="heuteText" style="font-size:13.5px;color:var(--k-muted)"></span>
         <span id="schreibHinweis" class="schreibhinweis" hidden></span>
-        <button type="button" class="stiller" id="medBtnL" title="Medikationsplan bearbeiten">Medikation</button>
         <button type="button" class="rund" id="hilfeBtnL" title="Kurze Hilfe" aria-label="Hilfe">?</button>
       </span>
       <!-- Werkzeuge der Welt Full. Das Erfassen (✎) bleibt unangetastet. -->
       <span class="welt-btns" id="btnsFull" hidden>
       <button class="btn" id="entryBtn" aria-label="Werte eintragen" title="Werte eintragen" style="font-size:16px;line-height:1;padding:8px 12px">✎</button>
-      <button class="btn" id="exportBtn" aria-label="Für Arzt exportieren" title="Für Arzt exportieren" style="font-size:17px;line-height:1;padding:8px 12px">⇪</button>
       <button class="btn" id="helpBtn" aria-label="Hilfe">? Hilfe</button>
       </span>
     </div>
   </header>
 
-  <!-- Etage 1 der Kennzahlen (Variante 2b): vier Anker ueber den Reitern, auf jedem
-       Reiter identisch. Der Container heisst weiter #kpis – boot(), das Neu-Verbinden
-       und der Arzt-Export leeren ihn ueber diese id. -->
-  <div class="kz-anker" id="kpis"></div>
-
   <div class="tabs no-print">
-    <button class="tab on" data-tab="lightaus">Auswertung</button>
-    <span class="tab-trenn"></span>
+    <button class="tab on" data-tab="lightaus">Dashboard</button>
     <button class="tab" data-tab="glucose">Blutzucker</button>
     <button class="tab" data-tab="weight">Gewicht</button>
     <button class="tab" data-tab="fitbit">Kreislauf</button>
@@ -1648,7 +1622,7 @@ window.addEventListener("afterprint",function(){ DRUCK.forEach(function(m){ try{
 // Idempotenz: alle Ausgabe-Container leeren, bevor gerendert wird. Ohne das
 // verdoppeln appendChild-Renderer (Wochenrückblick, Auswertung u.a.) ihren Inhalt
 // bei jedem erneuten boot() – also bei Neu-Verbinden UND im Export. Ein Fix, überall.
-["kpis"].concat([...document.querySelectorAll("[id^='p-'] .card")].map(c=>c.id).filter(Boolean))
+[].concat([...document.querySelectorAll("[id^='p-'] .card")].map(c=>c.id).filter(Boolean))
   .forEach(id=>{const n=document.getElementById(id);if(n)n.innerHTML="";});
 // Der Tooltip ist ein statisches Element und muss beim Neuzeichnen leer und
 // verborgen sein – sonst haengt der Text der letzten Sitzung im Bild.
@@ -2041,37 +2015,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     }
   });
 
-  // ---- Ø Tempo gesamt ----
-  register("tempo_ges",{
-    key:"tempo_ges", label:"Ø Tempo gesamt",
-    compute(){
-      return {
-        valStr:"−"+de2(rateAll), unit:"kg/Wo", state:"good",
-        delta:null,
-        spark:weightSeries(v=>v)   // dieselbe Gewichtskurve als Tendenz
-      };
-    },
-    content(){
-      const info="<p style='margin:0 0 10px'>Durchschnittliche Abnahme pro Woche über die gesamte Projektdauer ("+Math.round(daysSpan)+" Tage), tagesgenau gerechnet.</p>"+
-                 "<p style='margin:0'>Die Tabelle zeigt die Gewichtspunkte im Vierwochen-Abstand.</p>";
-      // Langfrist-Tabelle: Stützpunkte im ~28-Tage-Abstand
-      const anchorPts=[];
-      let lastT=null;
-      wp.forEach(p=>{const t=D(p.date); if(lastT===null||t-lastT>=28*86400000){anchorPts.push(p);lastT=t;}});
-      if(anchorPts[anchorPts.length-1]!==wp[wp.length-1])anchorPts.push(wp[wp.length-1]);
-      let table='<table class="mt"><thead><tr><th>Datum</th><th>Gewicht (kg)</th><th>Δ</th></tr></thead><tbody>';
-      anchorPts.slice().reverse().forEach((p,i,arr)=>{const prev=arr[i+1];const d=prev?(p.value-prev.value):null;
-        table+='<tr><td>'+dmy(p.date)+'</td><td class="num">'+de(p.value)+'</td><td class="num">'+(d==null?"–":(d>0?"+":"−")+de(Math.abs(d)))+'</td></tr>';});
-      table+='</tbody></table><p class="cap">Stützpunkte im ~4-Wochen-Abstand über die gesamte Projektdauer.</p>';
-      return {
-        short:"SEIT START · "+Math.round(daysSpan)+" TAGE",
-        info, anchor:"",
-        chart:lineChart(weightSeries(v=>v),"var(--accent)",de,"kg"),
-        table
-      };
-    }
-  });
-
   // ---- BMI ----
   register("bmi",{
     key:"bmi", label:"BMI",
@@ -2449,8 +2392,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      Die alte Kachelreihe (KPI_ORDER, elf Karten) ist damit abgeloest. Was in keiner
      Reihe steht, bleibt ueber die verwandte Zahl im Modal erreichbar.
      ============================================================ */
-  const ANKER=[{key:"gewicht"},{key:"tempo_ges",label:"Ø Tempo"}];
-
   /* Die einstellbaren Werte der zwei Etagen an EINER Stelle. Albrechts Korrektur vom
      02.08.: Karten statt flacher Reihe, und beide Etagen groesser. Die Stufe zwischen
      oben und im Reiter bleibt – sie ist es, die zwei Reihen als zwei lesbar macht.
@@ -2535,7 +2476,6 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   };
   // Alle Etagen neu zeichnen, ohne den Reiter neu zu bauen.
   window._kzNeu=function(){
-    if(typeof window._renderMetricCards==="function") window._renderMetricCards();
     // Abgehaengte Reihen aussortieren: renderEval() der Ernaehrung baut seine Zeile bei
     // jedem Wochenwechsel neu, die alte Huelle ist dann nicht mehr im Dokument.
     for(let i=KZ_REIHEN.length-1;i>=0;i--)
@@ -2556,23 +2496,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       }).join("")+'</tbody></table>';
   };
 
-  // Etage 1 in #kpis. Der Container traegt Abstand und Haarlinie, das Raster liegt
-  // darin – so kann der Regler die Spaltenbreite austauschen, ohne die Haarlinie
-  // anzufassen.
-  window._renderMetricCards=function(){
-    const host=document.getElementById("kpis");
-    if(!host) return;
-    host.innerHTML="";
-    const reihe=kzRaster(ANKER,"anker");
-    if(reihe) host.appendChild(reihe);
-  };
-  window._renderMetricCards();
 
   // Rendert eine Kennzahl-Gruppe (Card + Modal) in einen beliebigen Container.
   // Dieselbe Quelle wie die Kopfreihe: ein Register, eine metricCard, ein Modal.
   window._renderMetricGroup=function(containerId,keys){
     const host=document.getElementById(containerId);
     if(!host)return;
+    host.innerHTML="";
     const grid=document.createElement("div");
     grid.style.cssText="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px";
     keys.forEach(key=>{ if(REGISTRY[key]) grid.appendChild(metricCard(REGISTRY[key])); });
@@ -7115,7 +7045,6 @@ function applyState(obj){
   // Geprueft, nicht vorausgesetzt: das globale Kennzahlband (#kpis) ist mit der
   // Titelseite aus dem HTML gefallen, dieser Zugriff blieb stehen. Er warf beim
   // VERBINDEN «Cannot set properties of null» – und riss boot() mit.
-  const _kpiHost=document.getElementById("kpis"); if(_kpiHost) _kpiHost.innerHTML="";
   document.querySelectorAll("[id^='p-'] .card").forEach(c=>{ c.innerHTML=""; });
   if(typeof CHART!=="undefined") CHART.hideTip();
   boot();
@@ -7479,7 +7408,7 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
   // Eingefrorener Export: Daten sofort anzeigen, keine Verbinden-/Export-Steuerung.
   if(window.__FROZEN){
     boot();
-    ["connBtn","exportBtn","entryBtn","medBtnL"].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display="none";});
+    ["connBtn","exportBtn","entryBtn"].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display="none";});
     // Export-Modal hat in der Arzt-Kopie nichts verloren – ganz entfernen.
     const em=document.getElementById("exportModal"); if(em) em.remove();
     const enm=document.getElementById("entryModal"); if(enm) enm.remove();
@@ -7487,7 +7416,7 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
     ["helpModal","infoModal","metricModal"].forEach(id=>{const m=document.getElementById(id);if(m)m.hidden=true;});
     const ff=document.getElementById("footFile"); if(ff) ff.textContent="· Export-Kopie (nur Ansicht)";
     const picked=(STATE.__export&&STATE.__export.areas)||{};
-    const map={glucose:"p-glucose",weight:"p-weight",fitbit:"p-fitbit",befinden:"p-befinden"};
+    const map={lightaus:"p-lightaus",glucose:"p-glucose",weight:"p-weight",fitbit:"p-fitbit",befinden:"p-befinden"};
     Object.keys(map).forEach(key=>{
       if(picked[key]===false){
         const tab=document.querySelector('.tab[data-tab="'+key+'"]'); if(tab) tab.style.display="none";
@@ -7502,6 +7431,14 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
       const tab=document.querySelector('.tab[data-tab="akten"]'); if(tab) tab.style.display="none";
       const pan=document.getElementById("p-akten"); if(pan) pan.style.display="none";
     }
+    // Der Startreiter (Dashboard) ist abwaehlbar. Ohne diese Zeilen oeffnete die Kopie
+    // auf einem versteckten Reiter und der Empfaenger saehe eine leere Seite.
+    (function(){
+      const aktiv=document.querySelector(".tab.on");
+      if(aktiv && aktiv.style.display!=="none") return;
+      const erster=[...document.querySelectorAll(".tab")].find(t=>t.style.display!=="none");
+      if(erster) erster.click();
+    })();
     // Begruessungsschirm fuer die Fachperson (einmalig, wegklickbar).
     (function(){
       const wm=document.getElementById("welcomeModal"); if(!wm) return;
@@ -7547,8 +7484,9 @@ if(_connBtn) _connBtn.addEventListener("click",()=>{ _ghOpen(); });
 // Verbinden-/Export-Mechanik im Schnappschuss deaktiviert.
 if(!window.__FROZEN){
 const EXPORT_AREAS=[
-  {key:"glucose", label:"Blutzucker",         on:true, fixed:true},
-  {key:"weight",  label:"Gewicht",            on:true, fixed:true},
+  {key:"lightaus",label:"Dashboard",          on:true},
+  {key:"glucose", label:"Blutzucker",         on:true},
+  {key:"weight",  label:"Gewicht",            on:true},
   {key:"fitbit",  label:"Kreislauf",          on:false},
   {key:"befinden",label:"Befinden",           on:false},
   {key:"context", label:"Kontext",            on:true},
@@ -7711,7 +7649,6 @@ function _makeExportHTML(exportState){
   // Quelltext der Datei stuende es, samt Dokumentpfaden und Links.
   const klon=document.documentElement.cloneNode(true);
   klon.querySelectorAll('[id^="p-"] .card').forEach(c=>c.innerHTML="");
-  const kk=klon.querySelector("#kpis"); if(kk) kk.innerHTML="";
   ["infoBody","helpBody","metricInfo","metricAnchor","metricChart","metricTable","metricShort","welcomeBody","chartTip"]
     .forEach(id=>{const n=klon.querySelector("#"+id); if(n) n.innerHTML="";});
   // Der Tooltip verlaesst die Vorlage verborgen. Ohne das haette der Export den
@@ -8446,11 +8383,10 @@ window._erfFenster=_erfFenster;
 } // Ende if(!window.__FROZEN) – Export-Setup nur im echten Tool
 
 </script>
-<!-- Die drei Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
+<!-- Die zwei Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
 <div class="weltLight" id="lichtFenster">
   <div id="vollModal" hidden></div>
   <div id="hilfeModal" hidden></div>
-  <div id="medModal" hidden></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
@@ -8799,7 +8735,35 @@ function REG(){
       s:gs, sZ:gz, ziel, prog, marke:Z.schwelle, start0:42+ZW, ziellinie:true, satz });
   })();
 
-  /* --- 2 THQ --- */
+  /* --- 2 Ø Tempo ---
+     Bis 14.08.2026 stand die Zahl als Anker ueber allen Reitern und rechnete im
+     Full-Register. Sie ist hierher gezogen und rechnet nur noch hier: aus derselben
+     Gewichtsreihe wie die Kachel darueber, mit demselben Startpunkt (gewichtStart()
+     laesst den Altbestand vor Projektbeginn aussen vor).
+     Die Reihe ist der LAUFENDE Schnitt: jeder Tag traegt das Tempo von Start bis
+     dorthin. Vor dem 14. Tag bleibt sie leer - zwei Kilo in drei Tagen ergeben
+     rechnerisch sieben Kilo je Woche und behaupten ein Tempo, das keines ist. */
+  (function(){
+    const gA = gewichtStart() || g0;
+    const s = gs.map(function(p){
+      if(p.v===null || !gA) return { iso:p.iso, d:p.d, v:null };
+      const tage = (p.d - gA.d)/DAY;
+      if(tage < 14) return { iso:p.iso, d:p.d, v:null };
+      return { iso:p.iso, d:p.d, v:(p.v - gA.v)/(tage/7) };
+    });
+    const le = letzterE(s);
+    let satz = 'Noch zu wenig Gewichtsmessungen fuer ein Tempo — die Zahl braucht mindestens zwei Wochen Abstand zum Start.';
+    if(le && gA && g1){
+      const wo = Math.max(1, Math.round((g1.d - gA.d)/DAY/7)), diff = gA.v - g1.v;
+      satz = nf(Math.abs(diff),1)+' kg in '+wo+' Wochen seit dem '+datK(gA.d)+' '+gA.d.getFullYear()+
+        ' — tagesgenau gerechnet, nicht über Kalenderwochen. '+
+        'Die Kurve ist der laufende Schnitt: jeder Punkt sagt, wie schnell es vom Start bis zu diesem Tag ging. '+
+        'Fällt sie, war die jüngste Strecke schneller als das bisherige Mittel; steigt sie, langsamer.';
+    }
+    defs.push({ key:'tempo', label:'Ø Tempo', einheit:'kg/Wo', dez:2, gut:-1, farbe:L1, s, satz });
+  })();
+
+  /* --- 3 THQ --- */
   (function(){
     const q0 = ersterE(tqs), q1 = letzterE(tqs), n = tqs.filter(x=>x.v!==null).length;
     const satz = q1
@@ -8811,12 +8775,12 @@ function REG(){
       s:tqs, zone:[0.80,0.90], satz });
   })();
 
-  /* --- 3 Blutzucker Durchschnitt --- */
+  /* --- 4 Blutzucker Durchschnitt --- */
   /* Die Kachel zeigt IMMER alle Messpunkte; die Sicht im Modal aendert sie nicht.
      Die Zone kommt aus refWerte() – die fest verdrahteten 4,0 bis 7,0 sind weg. */
   defs.push(bzDefBauen('alle'));
 
-  /* --- 4 Blutdruck --- */
+  /* --- 5 Blutdruck --- */
   (function(){
     const n = sys.filter(x=>x.v!==null).length, le = letzterE(sys), ld = letzterE(dia);
     const satz = le
@@ -8828,7 +8792,7 @@ function REG(){
       s:sys, s2:dia, satz });
   })();
 
-  /* --- 5 Schlaf --- */
+  /* --- 6 Schlaf --- */
   (function(){
     const n = sls.filter(x=>x.v!==null).length, m = mittelAlle(sls);
     const vals = sls.filter(x=>x.v!==null).map(x=>x.v);
@@ -8840,7 +8804,7 @@ function REG(){
     defs.push({ key:'schlaf', label:'Schlaf', einheit:'h', dez:1, gut:1, farbe:L0, s:sls, satz });
   })();
 
-  /* --- 6 Schritte --- */
+  /* --- 7 Schritte --- */
   (function(){
     const n = scs.filter(x=>x.v!==null).length, m = mittelAlle(scs);
     const satz = n
@@ -8850,7 +8814,7 @@ function REG(){
     defs.push({ key:'schritte', label:'Schritte', einheit:'', dez:0, gut:1, farbe:L1, s:scs, tausend:true, satz });
   })();
 
-  /* --- 7 Trinkmenge --- */
+  /* --- 8 Trinkmenge --- */
   (function(){
     const n = tks.filter(x=>x.v!==null).length, m = mittelAlle(tks);
     const satz = n
@@ -9668,91 +9632,6 @@ function legendeVoll(d){
   return '<div class="legende-d">'+p.map(x => '<div>'+x[0]+'<span>'+esc(x[1])+'</span></div>').join('')+'</div>';
 }
 
-/* ============================================================================
-   Medikation – Präparate hinzufügen, ändern, absetzen. Bewusst kein Teil des
-   Erfassen-Dialogs: der sammelt Messwerte des Tages, das hier ist ein Plan, der
-   sich zweimal im Jahr ändert. Geschrieben wird nach STATE.meds und in die Datei.
-   ========================================================================== */
-function medsAusState(){
-  const M = STATE.meds || {};
-  return {
-    stand: M.stand || '',
-    quelle: M.quelle || '',
-    liste: (M.liste || []).map(x => ({ name:x.name||'', dosis:x.dosis||'', wirkstoff:x.wirkstoff||'', verordner:x.verordner||'' }))
-  };
-}
-function oeffneMeds(){ UI.meds = medsAusState(); UI.medMeldung = ''; renderMeds(); }
-function schliesseMeds(){ UI.meds = null; el('medModal').hidden = true; el('medModal').innerHTML = ''; }
-function renderMeds(){
-  const m = el('medModal');
-  if(!UI.meds){ m.hidden = true; m.innerHTML = ''; return; }
-  const D = UI.meds;
-  const feld = (i, k, kl, ph) => '<input type="text" data-m="'+k+'" data-i="'+i+'" class="'+(kl||'')+'" value="'+esc(D.liste[i][k])+'" placeholder="'+esc(ph)+'">';
-  const zeilen = D.liste.map((x,i) => '<div class="med-zeile">'+
-      feld(i,'name','','Präparat und Stärke')+
-      feld(i,'dosis','mono','M–Mi–A–N')+
-      feld(i,'wirkstoff','','Wirkstoff')+
-      feld(i,'verordner','','verordnet durch')+
-      '<button type="button" class="med-weg" data-weg="'+i+'" title="Präparat entfernen" aria-label="Präparat entfernen">×</button>'+
-    '</div>').join('');
-  m.hidden = false;
-  m.innerHTML = '<div class="vollschirm"><div class="erf-wrap">'+
-    '<header class="erf-kopf"><div>'+
-      '<div class="d-titel">Medikation</div>'+
-      '<div class="erf-datum" style="font-size:24px">'+D.liste.length+' Präparat'+(D.liste.length===1?'':'e')+'</div>'+
-    '</div><div style="display:flex;align-items:center;gap:14px">'+
-      '<span style="font-size:13.5px;color:var(--k-dim);max-width:46ch">So steht es im Arzt-Export. Eine leere Zeile beim Namen wird nicht gespeichert.</span>'+
-      '<button type="button" class="rund" id="medZu">×</button></div></header>'+
-    '<div class="med-stand">'+
-      '<label>Stand des Plans<input type="date" id="medStand" value="'+esc(D.stand)+'" max="'+iso(heute())+'"></label>'+
-      '<div class="weit"><label>Quelle<input type="text" id="medQuelle" value="'+esc(D.quelle)+'" placeholder="eMediplan, Praxis, Datum"></label></div>'+
-    '</div>'+
-    '<div class="med-tab">'+
-      '<div class="med-zeile kopf"><div class="med-th">PRÄPARAT</div><div class="med-th">M–MI–A–N</div>'+
-      '<div class="med-th">WIRKSTOFF</div><div class="med-th">VERORDNET DURCH</div><div></div></div>'+
-      zeilen +
-    '</div>'+
-    '<div><button type="button" class="knopf still" id="medPlus">Präparat hinzufügen</button></div>'+
-    '<div class="erf-fuss"><div class="erf-meldung" id="medMeldung">'+esc(UI.medMeldung||'')+'</div>'+
-      '<button type="button" class="knopf still" id="medAbbruch">Abbrechen</button>'+
-      '<button type="button" class="knopf" id="medSpeichern">Speichern</button></div>'+
-  '</div></div>';
-  el('medZu').addEventListener('click', schliesseMeds);
-  el('medAbbruch').addEventListener('click', schliesseMeds);
-  el('medSpeichern').addEventListener('click', medsSpeichern);
-  el('medPlus').addEventListener('click', () => {
-    UI.meds.liste.push({ name:'', dosis:'', wirkstoff:'', verordner:'' });
-    renderMeds();
-    const f = m.querySelectorAll('input[data-m="name"]');
-    if(f.length) f[f.length-1].focus();
-  });
-  el('medStand').addEventListener('change', e => { UI.meds.stand = e.target.value; });
-  el('medQuelle').addEventListener('input', e => { UI.meds.quelle = e.target.value; });
-  /* Beim Tippen nicht neu rendern – sonst waere der Fokus nach jedem Zeichen weg. */
-  m.querySelectorAll('input[data-m]').forEach(inp =>
-    inp.addEventListener('input', () => { UI.meds.liste[+inp.dataset.i][inp.dataset.m] = inp.value; }));
-  m.querySelectorAll('[data-weg]').forEach(b =>
-    b.addEventListener('click', () => { UI.meds.liste.splice(+b.dataset.weg, 1); renderMeds(); }));
-}
-function medsSpeichern(){
-  const D = UI.meds;
-  const liste = D.liste.filter(x => String(x.name).trim())
-    .map(x => ({ name:x.name.trim(), dosis:String(x.dosis||'').trim(),
-                 wirkstoff:String(x.wirkstoff||'').trim(), verordner:String(x.verordner||'').trim() }));
-  if(!liste.length && !String(D.quelle||'').trim() && !D.stand){
-    UI.medMeldung = 'Nichts eingetragen — es wurde nichts gespeichert.';
-    el('medMeldung').textContent = UI.medMeldung;
-    return;
-  }
-  STATE.meds = { stand:D.stand||'', quelle:String(D.quelle||'').trim(), liste };
-  writeFile().then(ok => {
-    if(ok){ schliesseMeds(); renderAlles(); }
-    else {
-      UI.medMeldung = 'Nicht gespeichert. Der Plan steht nur im Fenster — bitte Datei neu verbinden.';
-      el('medMeldung').textContent = UI.medMeldung;
-    }
-  });
-}
 
 /* Wochenwerte: Schlaf und Schritte in fitbit.weeks, Trinkmenge in fluid.weeks –
    beide sitzen auf ihrem Montag und laufen in derselben Reihe wie die Tageswerte. */
@@ -9837,11 +9716,9 @@ function renderHilfe(){
 }
 
 el('hilfeBtnL').addEventListener('click', oeffneHilfe);
-el('medBtnL').addEventListener('click', oeffneMeds);
 document.addEventListener('keydown', e => {
   if(e.key!=='Escape') return;
-  if(UI.meds) schliesseMeds();
-  else if(UI.hilfe) schliesseHilfe();
+  if(UI.hilfe) schliesseHilfe();
   else if(UI.str) { UI.str = null; renderVoll(); }
   else if(UI.offen) schliesseVoll();
 });
