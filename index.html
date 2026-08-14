@@ -914,6 +914,14 @@
 </script>
 
 <script>
+/* Ein Tag ist eine Kalendereinheit, keine Dauer. Diese zwei Helfer sind die EINE
+   Stelle, an der aus einem Datum ein Tagesschluessel wird (isoLokal) und an der ein
+   Tag weitergezaehlt wird (plusTage). Millisekunden zu addieren ist zweimal im Jahr
+   falsch: in der Nacht der Zeitumstellung hat der Tag 23 oder 25 Stunden.
+   Sie stehen hier oben und nicht bei den anderen Helfern, weil boot() im Arzt-Export
+   schon waehrend dieses Blocks laeuft - weiter unten waeren sie dort noch nicht da. */
+function isoLokal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function plusTage(d,n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()+n); }
 const STATE={
   updated:"—",
   patient:{name:""},
@@ -1717,7 +1725,7 @@ const daysSpan=(wFirst&&wLast)?(D(wLast.date)-D(wFirst.date))/86400000:0;
 const rateAll=daysSpan>0?(wFirst.value-wLast.value)/(daysSpan/7):0;
 // Tempo aktuell = 4-Wochen-Trend, tagesunabhängig: alle Punkte der letzten 28 Tage,
 // Rate über die tatsächliche Zeitspanne vom ersten zum letzten Punkt im Fenster.
-const cut4w=wLast?D(wLast.date)-28*86400000:0;
+const cut4w=wLast?plusTage(new Date(D(wLast.date)),-28).getTime():0;
 const win4=wLast?wp.filter(p=>D(p.date)>=cut4w):[];
 let rate28, win4weeks;
 if(win4.length>=2){const wf=win4[0],wl=win4[win4.length-1];
@@ -1987,8 +1995,9 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   const sonntageImZeitraum=(function(){
     if(!tage.length) return 0;
     let n=0;
-    for(let ms=D(tage[0].iso); ms<=D(tage[tage.length-1].iso); ms+=86400000)
-      if(new Date(ms).getDay()===0) n++;
+    const letztMs=D(tage[tage.length-1].iso);
+    for(let d=new Date(D(tage[0].iso)); d.getTime()<=letztMs; d=plusTage(d,1))
+      if(d.getDay()===0) n++;
     return n;
   })();
 
@@ -2025,7 +2034,8 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     function sichtbareTage(){
       if(st.range===9999) return perDay;
       const letzte=perDay.length?D(perDay[perDay.length-1].iso):0;
-      return perDay.filter(function(d){return D(d.iso)>=letzte-st.range*86400000;});
+      const grenze=plusTage(new Date(letzte),-st.range).getTime();
+      return perDay.filter(function(d){return D(d.iso)>=grenze;});
     }
 
     function draw(){
@@ -2305,10 +2315,11 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   function bauAbdeckung(ziel,gross){
     const holder=el("div"); ziel.appendChild(holder);
     const nJe={}; tage.forEach(function(t){ nJe[t.iso]=t.n; });
-    const moIdx=function(ms){ return (new Date(ms).getDay()+6)%7; };
-    const start=D(tage[0].iso)-moIdx(D(tage[0].iso))*86400000;
-    const ende=D(tage[tage.length-1].iso)+(6-moIdx(D(tage[tage.length-1].iso)))*86400000;
-    const wochen=Math.round((ende-start)/(7*86400000))+1;
+    const moIdx=function(d){ return (d.getDay()+6)%7; };
+    const ersteZ=new Date(D(tage[0].iso)), letzteZ=new Date(D(tage[tage.length-1].iso));
+    const start=plusTage(ersteZ,-moIdx(ersteZ));
+    const ende=plusTage(letzteZ,6-moIdx(letzteZ));
+    let wochen=0; for(let d=start; d.getTime()<=ende.getTime(); d=plusTage(d,7)) wochen++;
     const ch=gross?42:30, gap=6;
     holder.innerHTML=CHART.box(function(W,H){
       const x0=46, cw=(W-x0-4-6*gap)/7, T=52;
@@ -2320,11 +2331,11 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       for(let w=0;w<wochen;w++){
         const Y=T+w*(ch+gap);
         s+='<text class="ax" x="'+(x0-10)+'" y="'+(Y+ch/2+4).toFixed(1)+'" text-anchor="end">KW'+
-           (function(){ const d=new Date(start+w*7*86400000+3*86400000);
+           (function(){ const d=plusTage(start, w*7+3);
              const j=new Date(d.getFullYear(),0,4);
              return 1+Math.round(((d-j)/86400000-3+((j.getDay()+6)%7))/7); })()+'</text>';
         for(let d=0;d<7;d++){
-          const ms=start+((w*7+d)*86400000), iso=new Date(ms).toISOString().slice(0,10);
+          const zelle=plusTage(start, w*7+d), iso=isoLokal(zelle);
           const n=nJe[iso]||0, X=x0+d*(cw+gap), voll=n>=5;
           s+='<rect x="'+X.toFixed(1)+'" y="'+Y+'" width="'+cw.toFixed(1)+'" height="'+ch+'" rx="6" fill="'+
              (n?(voll?"var(--good-bg)":"var(--surface2)"):"rgba(255,255,255,.02)")+'" stroke="'+
@@ -2335,7 +2346,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
             s+='<text class="ax" x="'+(X+cw-9).toFixed(1)+'" y="'+(Y+ch/2+4).toFixed(1)+'" text-anchor="end" style="font-size:12.5px;font-weight:600;fill:'+
                (voll?"var(--good)":"var(--muted)")+'">'+n+'</text>';
             s+='<rect x="'+X.toFixed(1)+'" y="'+Y+'" width="'+cw.toFixed(1)+'" height="'+ch+'" fill="transparent" data-tip="'+
-               WT[new Date(ms).getDay()]+" "+kurzD(iso)+": "+n+" Messung"+(n===1?"":"en")+'"/>';
+               WT[zelle.getDay()]+" "+kurzD(iso)+": "+n+" Messung"+(n===1?"":"en")+'"/>';
           }
         }
       }
@@ -2857,9 +2868,9 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     });
     // Sonntagsmarken nur dort, wo sie noch einzelne Marken sind.
     if(soAn&&!eng){
-      for(let ms=t0; ms<=t1; ms+=TAG){
-        if(new Date(ms).getDay()!==0) continue;
-        const x=xt(ms);
+      for(let d=plusTage(new Date(t0),0); d.getTime()<=t1; d=plusTage(d,1)){
+        if(d.getDay()!==0||d.getTime()<t0) continue;
+        const x=xt(d.getTime());
         s+='<line x1="'+x.toFixed(1)+'" y1="'+(grund+1).toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+(grund+6).toFixed(1)+'" stroke="var(--accent)" stroke-width="1.4" opacity=".6"/>';
       }
     }
@@ -2891,7 +2902,8 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       if(st.hist) return wpAll;
       if(st.range===9999) return wp;
       const tE=D(letzt.date);
-      const a=wp.filter(function(p){ return D(p.date)>=tE-st.range*TAG; });
+      const grenze=plusTage(new Date(tE),-st.range).getTime();
+      const a=wp.filter(function(p){ return D(p.date)>=grenze; });
       return a.length>=2?a:wp;
     }
     function draw(){
@@ -3731,7 +3743,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   function fbAm(iso,hol){
     const t=D(iso); let b=null,bd=1e18;
     WOCHEN.forEach(function(w){ const v=hol(w); if(v==null) return;
-      const d=w.t-t; if(d<0||d>=7*TAG) return; if(d<bd){bd=d;b=v;} });
+      const d=Math.round((w.t-t)/TAG); if(d<0||d>=7) return; if(d<bd){bd=d;b=v;} });
     return b;
   }
   const FAK=[
@@ -4491,7 +4503,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
       '</div>'+
       '<div style="margin-bottom:16px">'+
         '<label style="display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">Wochendatum \u00b7 der Sonntag dieser Woche</label>'+
-        '<input id="rbWeek" type="date" value="'+(_revWoche(r)||_soIso(new Date().toISOString().slice(0,10))||"")+'" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:inherit;font-size:13px;padding:9px 10px">'+
+        '<input id="rbWeek" type="date" value="'+(_revWoche(r)||_soIso(isoLokal(new Date()))||"")+'" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:inherit;font-size:13px;padding:9px 10px">'+
         '<div style="font-size:11px;color:var(--faint);margin-top:6px">Kommt automatisch aus dem Datum oben. Liegen mehrere R\u00fcckblicke in derselben Woche, ordnet dieses Feld sie zu \u2013 die Wochentafel im Befinden liest es.</div>'+
       '</div>'+
       '<div style="margin-bottom:16px">'+
@@ -4651,7 +4663,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   const iz=(v,e)=>(v<0?"\u2212":"+")+Math.round(Math.abs(v))+(e||"");
   const zw=n=>["keine","eine","zwei","drei","vier","f\u00fcnf","sechs","sieben","acht","neun","zehn","elf","zw\u00f6lf"][n]||String(n);
   const SANS="var(--sans)";
-  const HEUTE_ISO=new Date().toISOString().slice(0,10);
+  const HEUTE_ISO=isoLokal(new Date());
   // Gekuerzt wird gemessen, nicht geraten. Ein Anker, der aus seiner Card laeuft,
   // ist derselbe Fehler wie ein Etikett, das aus der viewBox laeuft.
   function kurzT(s,maxW){ s=String(s==null?"":s);
@@ -4710,7 +4722,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     if(r.headline&&r.headline.trim()&&!z.headline) z.headline=r.headline.trim(); });
 
   const alleK=Object.keys(roh).sort();
-  const heuteSo=sonntag(new Date().toISOString().slice(0,10));
+  const heuteSo=sonntag(isoLokal(new Date()));
   if(!roh[heuteSo]) roh[heuteSo]={key:heuteSo,sk:{},kg:[],fbz:[],steps:[],sleep:[],rhr:[],rev:0};
   const kette=Object.keys(roh).sort();
   let reihe=[];
@@ -6701,8 +6713,7 @@ function _openExport(){
   _expRange.value="3m"; _expCustom.style.display="none";
   // Datepicker-Defaults: Projektstart bis heute
   const from=document.getElementById("expFrom"), to=document.getElementById("expTo");
-  const iso=d=>d.toISOString().slice(0,10);
-  to.value=iso(new Date());
+  to.value=isoLokal(new Date());
   from.value=(STATE.domain&&STATE.domain.from)||"2026-06-01";
   _expModal.hidden=false;
 }
@@ -6715,7 +6726,7 @@ _expRange.onchange=()=>{ _expCustom.style.display = _expRange.value==="custom" ?
 
 // Zeitfenster [fromISO,toISO] aus der Auswahl bestimmen.
 function _rangeBounds(){
-  const today=new Date(); const toISO=today.toISOString().slice(0,10);
+  const today=new Date(); const toISO=isoLokal(today);
   const v=_expRange.value;
   if(v==="all")  return [null,null];
   if(v==="custom"){
@@ -6724,7 +6735,7 @@ function _rangeBounds(){
   }
   const months=v==="6m"?6:3;
   const d=new Date(today); d.setMonth(d.getMonth()-months);
-  return [d.toISOString().slice(0,10), toISO];
+  return [isoLokal(d), toISO];
 }
 // Datum eines Eintrags herausziehen (verschiedene Felder je Bereich): iso|date|weekStart|from.
 function _entryISO(o){ return o.iso||o.date||o.weekStart||o.from||null; }
@@ -6859,7 +6870,7 @@ function _buildExportState(){
     if(S.lab) putzen(S.lab.panels);
   }
 
-  S.__export={areas:picked,docPaths:!!opts.docPaths,range:_expRange.value,from:lo,to:hi,made:new Date().toISOString().slice(0,10),
+  S.__export={areas:picked,docPaths:!!opts.docPaths,range:_expRange.value,from:lo,to:hi,made:isoLokal(new Date()),
     // Der Befinden-Reiter geht 1:1 in den Export – also auch mit der Frage, die beim
     // Export gewaehlt war. Ohne diese Zeile faengt die Kopie wieder bei Frage eins an.
     // JEDER Reiter geht 1:1 in den Export – also auch mit der Frage, die beim Export
@@ -6911,7 +6922,7 @@ document.getElementById("expGo").onclick=()=>{
   const blob=new Blob([html],{type:"text/html"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  const stamp=new Date().toISOString().slice(0,10);
+  const stamp=isoLokal(new Date());
   a.href=url; a.download="Monitoring_Arzt_"+stamp+".html";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -7225,7 +7236,7 @@ function _renderEntry(){
 // geklickt wurde. Ohne Argument bleibt es beim heutigen Tag.
 function _openEntry(iso){
   if(!connected){ alert("Bitte zuerst den Datenspeicher verbinden (Zahnrad oben)."); return; }
-  _enDate.value=iso||new Date().toISOString().slice(0,10);
+  _enDate.value=iso||isoLokal(new Date());
   _enOpenKey=null;
   _fillDraft(_enDate.value);
   _renderEntry(); _enModal.hidden=false;
@@ -7344,7 +7355,7 @@ function _efZu(){
   _ef=null;
 }
 window._erfZu=_efZu;
-const _efHeute=()=>new Date().toISOString().slice(0,10);
+const _efHeute=()=>isoLokal(new Date());
 const _efMon=["Jan.","Feb.","März","Apr.","Mai","Juni","Juli","Aug.","Sep.","Okt.","Nov.","Dez."];
 function _efTagText(iso){ const d=new Date(iso+"T12:00:00");
   return _fmtDate(iso).slice(0,2)+" "+d.getDate()+". "+_efMon[d.getMonth()]+" "+d.getFullYear(); }
@@ -7428,7 +7439,7 @@ function _efZeichne(){
   dt.style.cssText="flex:1;text-align:center;font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;color:var(--ink)";
   dt.textContent=_ef.woche?_efWoText(_ef.iso):_efTagText(_ef.iso);
   dat.appendChild(dt);
-  dat.appendChild(knopf("›",schritt,naechst.toISOString().slice(0,10)>_efHeute()));
+  dat.appendChild(knopf("›",schritt,isoLokal(naechst)>_efHeute()));
   box.appendChild(dat);
   if(sec.key==="bp"){
     const g=document.createElement("div");
@@ -7654,7 +7665,7 @@ let UI = { tab:'aus', offen:null, view:null, str:null, meds:null, medMeldung:'',
            bzSicht:'alle', bzFenster:30 };
 
 /* ---------- kleine Helfer ---------- */
-function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function iso(d){ return isoLokal(d); }
 function vonIso(s){ const p = String(s).slice(0,10).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
 function heute(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function nf(v,d){ if(v===null||v===undefined||isNaN(v)) return '—'; return Number(v).toFixed(d).replace('.',','); }
@@ -7688,8 +7699,8 @@ function reiheAus(punkte, bisDatum){
   const letzterMess = vonIso(keys[keys.length-1]);
   const ende = b.getTime() >= letzterMess.getTime() ? b : letzterMess;
   const out = [];
-  for(let t=a.getTime(); t<=ende.getTime(); t+=DAY){
-    const d = new Date(t), k = iso(d), arr = map.get(k);
+  for(let d=a; d.getTime()<=ende.getTime(); d=plusTage(d,1)){
+    const k = iso(d), arr = map.get(k);
     out.push({ iso:k, d, v: arr ? arr.reduce((x,y)=>x+y,0)/arr.length : null });
   }
   return out;
@@ -7880,7 +7891,7 @@ function befWochen(){
   return out;
 }
 
-function montagVon(d){ const x = new Date(d.getTime()); const wd = (x.getDay()+6)%7; return new Date(x.getTime() - wd*DAY); }
+function montagVon(d){ const wd = (d.getDay()+6)%7; return plusTage(d, -wd); }
 
 /* ---------- Ziellinie Gewicht: vier Werte, in der JSON unter weight.ziel ---------- */
 function zielWerte(){
@@ -7918,7 +7929,7 @@ function refWerte(){
 function bzFensterDaten(){
   const roh = bzRoh(UI.bzSicht);
   let ab = null;
-  if(UI.bzFenster > 0) ab = iso(new Date(heute().getTime() - (UI.bzFenster-1)*DAY));
+  if(UI.bzFenster > 0) ab = iso(plusTage(heute(), -(UI.bzFenster-1)));
   const drin = ab ? roh.filter(p => p.iso >= ab) : roh;
   const n = drin.length, vs = drin.map(p => p.v);
   return { n, tage:new Set(drin.map(p => p.iso)).size,
@@ -7946,7 +7957,7 @@ function bzTrend(s){
   if(!s || !s.length) return null;
   let von = 0;
   if(UI.bzFenster > 0){
-    const ab = iso(new Date(heute().getTime() - (UI.bzFenster-1)*DAY));
+    const ab = iso(plusTage(heute(), -(UI.bzFenster-1)));
     von = s.findIndex(x => x.iso >= ab);
     if(von < 0) return null;
   }
@@ -8015,7 +8026,7 @@ function REG(){
   let gz = gs.slice();
   if(gs.length){
     const last = gs[gs.length-1].d;
-    for(let i=1;i<=ZW;i++){ const d = new Date(last.getTime()+i*DAY); gz.push({ iso:iso(d), d, v:null }); }
+    for(let i=1;i<=ZW;i++){ const d = plusTage(last, i); gz.push({ iso:iso(d), d, v:null }); }
   }
   let gi = -1; for(let i=gs.length-1;i>=0;i--) if(gs[i].v!==null){ gi = i; break; }
   const Z = zielWerte();
@@ -8119,7 +8130,7 @@ function REG(){
     const rateBei = (bis) => {
       const b = gs[bis];
       if(!b || b.v===null) return null;
-      const grenze = b.d.getTime() - FEN*DAY;
+      const grenze = plusTage(b.d, -FEN).getTime();
       let a = null;
       for(let i=bis-1;i>=0;i--){ if(gs[i].d.getTime() < grenze) break; if(gs[i].v!==null) a = gs[i]; }
       if(!a) return null;
@@ -9161,7 +9172,7 @@ function streifenHTML(d, frisch){
   const hIso = iso(heute()), dt = vonIso(UI.str.datum);
   const inWoche = UI.str.modus==='woche';
   const moHeute = iso(montagVon(heute()));
-  const so = new Date(dt.getTime()+6*DAY);
+  const so = plusTage(dt, 6);
   const gesperrt = inWoche ? (UI.str.datum >= moHeute) : (UI.str.datum >= hIso);
   const eingabe = (f) => '<input type="text" inputmode="'+(f.zeit?'numeric':'decimal')+'" data-s="'+f.k+
     '" value="'+esc(UI.str.werte[f.k]||'')+'" placeholder="'+(f.zeit?'hh:mm':'—')+'">';
@@ -9277,7 +9288,7 @@ function bindeStreifen(d){
   const inWoche = () => UI.str.modus==='woche';
   const schieb = t => {
     const schritt = inWoche() ? 7 : 1;
-    const n = new Date(vonIso(UI.str.datum).getTime() + t*schritt*DAY);
+    const n = plusTage(vonIso(UI.str.datum), t*schritt);
     if(iso(n) > (inWoche() ? moHeute : hIso)) return;
     UI.str.datum = iso(n); UI.str.meldung = ''; neuStreifen(d);
   };
@@ -9368,7 +9379,7 @@ function legendeVoll(d){
    beide sitzen auf ihrem Montag und laufen in derselben Reihe wie die Tageswerte. */
 function schreibeWoche(moIso, d){
   const g = k => num(d[k]);
-  const mo = vonIso(moIso), so = new Date(mo.getTime()+6*DAY);
+  const mo = vonIso(moIso), so = plusTage(mo, 6);
   const label = datK(mo)+' – '+datK(so);
   let n = 0;
   if(g('schlaf')!==null || g('schritte')!==null){
