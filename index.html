@@ -4802,6 +4802,9 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     for(let i=0;i<s.length;i++){ if(i&&(s.length-i)%3===0) o+=" "; o+=s.charAt(i);} return o; }
   const dz=(v,e)=>(v<0?"\u2212":"+")+String(Math.round(Math.abs(v)*10)/10).replace(".",",")+(e||"");
   const iz=(v,e)=>(v<0?"\u2212":"+")+Math.round(Math.abs(v))+(e||"");
+  // Am Satzanfang wird das Zahlwort grossgeschrieben; zw() bleibt klein, weil es auch
+  // mitten im Satz steht ("... von zwoelf Wochen").
+  const gross=t=>t.charAt(0).toUpperCase()+t.slice(1);
   const zw=n=>["keine","eine","zwei","drei","vier","f\u00fcnf","sechs","sieben","acht","neun","zehn","elf","zw\u00f6lf"][n]||String(n);
   const SANS="var(--sans)";
   const HEUTE_ISO=isoLokal(new Date());
@@ -5225,7 +5228,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      titel:"Befinden \u00b7 Wochentafel",
      leit:{label:"Wie geht es mir? \u00b7 Woche "+LETZ.lab, wert:nz(LETZ.idx),
            einheit:"von "+SKMAX+" \u00b7 "+(bewegt.length?zw(bewegt.length)+" von "+zw(SK.length)+" hat sich bewegt":"keine hat sich bewegt"), farbe:"var(--ink)",
-           satz:zw(obenN)+" Skalen stehen auf "+beste.v+", die "+tiefste.label+" auf "+tiefste.v+" \u2013 der Index ist das Mittel daraus. In der Tafel ist "+tiefste.label+" die tiefste Zeile: dort hakt es."},
+           satz:(obenN===1?"Eine Skala steht auf ":gross(zw(obenN))+" Skalen stehen auf ")+beste.v+", die "+tiefste.label+" auf "+tiefste.v+" \u2013 der Index ist das Mittel daraus. In der Tafel ist "+tiefste.label+" die tiefste Zeile: dort hakt es."},
      info:["Die Tafel",
            "<p style='margin:0 0 12px'>Eine Zeile je Skala, eine Spalte je Woche, die Zahl im Feld ist der Wert. Die Fl\u00e4che wird mit ihm st\u00e4rker \u2013 f\u00fcnf Stufen, keine erfundenen Zonen: die Anker stehen in Deinen Daten (<b>1</b> Problemzustand, <b>3</b> Alltag, <b>"+SKMAX+"</b> Ziel).</p>"+
            "<p style='margin:0 0 12px'>Unter der Trennlinie stehen die drei Gewohnheiten: Trinkmenge, Verdauung, Wochenplan. Sie waren bis 5b eine eigene Frage \u2013 als Zeilen in derselben Tafel liest man sie in einem Zug mit den Skalen.</p>"+
@@ -5273,7 +5276,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
                {name:calm.label,farbe:SERIE(2),dx:12,ganz:true,hol:function(w){ return w.sk.calm; }}], zeilen:["sleep","fbz","rhr"]}),320,hatBef,434); }},   // gemessen: 432 stossen die Schlafstunden zusammen, 434 sauber
 
     {key:"rueckblick", label:"R\u00fcckblick", wert:stDa.length+" von "+WOCHEN.length, farbe:"var(--ink)",
-     kurz:zw(WOCHEN.length)+" Wochen, "+zw(stDa.length)+" bewertet.",
+     kurz:gross(zw(WOCHEN.length))+" Wochen, "+zw(stDa.length)+" bewertet.",
      titel:"Befinden \u00b7 R\u00fcckblick",
      leit:{label:"Was habe ich mir geschrieben?", wert:stDa.length?sterne(stDa[stDa.length-1].stars,true):"\u2014",
            einheit:"Sterne \u00b7 Woche "+(stDa.length?stDa[stDa.length-1].lab:WOCHEN[WOCHEN.length-1].lab), farbe:"var(--ink)",
