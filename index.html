@@ -161,7 +161,20 @@
   text.ax{font-size:14px;fill:var(--faint)} text.mk{font-size:14px;fill:var(--warn);font-weight:600}
   text.mk2{font-size:11px;fill:var(--accent)} text.lab{font-size:14px;fill:var(--muted)}
   text.wv{font-size:14px;fill:var(--accent);font-weight:600}
-  .cap{font-size:12.5px;color:var(--faint);margin:9px 0 0;line-height:1.55}
+  .cap,.cap-frei{font-size:12.5px;color:var(--faint);margin:9px 0 0;line-height:1.55}
+  /* Das Fragezeichen an der Kicker-Zeile. Die Groesse steht hier und nicht inline,
+     weil der Fingertipp auf schmalen Fenstern eine groessere Flaeche braucht -
+     eine Media Query kaeme an einen inline gesetzten Stil nicht heran. */
+  .fz{width:19px;height:19px;font-size:11.5px}
+  @media (max-width:560px){ .fz{width:26px;height:26px;font-size:13px} }
+  /* Der Text steht nicht mehr um das Bild, sondern hinter dem ? in der Kicker-Zeile.
+     Nur auf PAPIER steht er ausgeschrieben - dort kann niemand hovern.
+     Der Arzt-Export ist ausdruecklich KEIN Papier: er ist 1:1 der Bildschirm, nur ohne
+     Eingabe (Entscheid 01.08.2026). Die Fachperson klickt dieselben Fragen an und
+     bedient dasselbe ? - eine Kopie, die anders aussieht als das Werkzeug, waere kein
+     1:1 mehr. .cap-frei ist die Ausnahme: eine Notiz ohne eigene Frage. */
+  .cap{display:none}
+  @media print{ .cap{display:block} }
   /* Vorschau: ein Diagramm, das man anklicken kann, muss danach aussehen. Beim Chevron
      hatten wir denselben Fehler – ein Ziel, das man suchen muss, ist kein Ziel. */
   .vorschau{position:relative;cursor:pointer;border-radius:10px;margin:0 -6px;padding:6px;
@@ -488,6 +501,10 @@
   --k-akzent:#C3CBCF; --k-akzent-h:#DDE4E7; --k-akzent-fg:#24282B; --k-warn:#C9A87C;
   --k-schirm:rgba(13,15,17,.86);
   --k-l0:#DDE3E6; --k-l1:#AAB2B7; --k-l2:#828B90; --k-zweit:#6E777C;
+  /* Light unterscheidet auffaellig / unauffaellig, nicht die Richtung der Abweichung
+     (Entscheid 14.08.2026). Ein Token, nicht vier: wer wissen will, ob zu hoch oder
+     zu tief, oeffnet Full. Die Ampel darunter ist Verbindungs-, nicht Datenzustand. */
+  --k-abw:#C9A87C; --k-ampel-aus:#8A5A52; --k-ampel-an:#6BA184;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;}
 .weltLight *{box-sizing:border-box}
 /* Ein Klassenselektor mit display: schlaegt sonst das hidden-Attribut – so stand der
@@ -517,8 +534,8 @@
 .weltLight .knopf:hover{background:var(--k-akzent-h)}
 .weltLight .rund{background:none;border:1px solid var(--k-line);border-radius:9px;color:var(--k-muted);font-size:17px;width:38px;height:38px;cursor:pointer;line-height:1;flex:0 0 auto}
 .weltLight .rund:hover{border-color:var(--k-akzent);color:var(--k-text)}
-.weltLight .ampel{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8A5A52;margin-right:8px;vertical-align:1px}
-.weltLight .ampel.on{background:#6BA184}
+.weltLight .ampel{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--k-ampel-aus);margin-right:8px;vertical-align:1px}
+.weltLight .ampel.on{background:var(--k-ampel-an)}
 .weltLight .ampel.busy{background:var(--k-warn)}
 .weltLight .schreibhinweis{font-size:13px;color:var(--k-warn)}
 .weltLight nav.reiter{display:flex;gap:30px;border-bottom:1px solid var(--k-line2)}
@@ -529,6 +546,10 @@
 .weltLight .kachel{padding:24px 26px;cursor:pointer;display:flex;flex-direction:column;min-width:0;transition:border-color .14s ease;text-align:left;color:inherit;background:var(--k-surface);border:1px solid var(--k-line);border-radius:16px;font:inherit}
 .weltLight .kachel:hover,
 .weltLight .kachel:focus-visible{border-color:var(--k-akzent);outline:none}
+/* Zwei Signale, nicht eines: Farbe UND Balken. Farbe allein geht bei Rot-Gruen-
+   Schwaeche und im Ausdruck verloren. */
+.weltLight .kachel.abw{box-shadow:inset 3px 0 0 var(--k-abw)}
+.weltLight .kachel.abw .k-zahl b{color:var(--k-abw)}
 .weltLight .k-name{font-size:13px;font-weight:500;letter-spacing:.005em;color:var(--k-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .weltLight .k-zahl{display:flex;align-items:baseline;gap:8px;margin-top:14px}
 .weltLight .k-zahl b{font-size:38px;font-weight:600;letter-spacing:-.03em;line-height:1.15;color:var(--k-text)}
@@ -1222,15 +1243,24 @@ const CHART=(function(){
     return xLabelsAt(g,entries);
   }
 
-  // Sollbereich als Flaeche mit Etikett im Bild – Farbe und Text sagen dasselbe.
-  // Das Etikett steht INNEN unter der Kante (oberhalb laeuft die Kurve durch) und auf
-  // der Seite, die frei ist – opt.side "left"/"right". Eine feste Seite kollidiert je
-  // nach Datenlage: heute links, naechste Woche rechts.
+  // Sollbereich als ZWEI KANTEN, nicht als Flaeche (Entscheid 14.08.2026).
+  // Gemessen: Soll 3,9-7,8 auf einer Achse von 3,5-11,0 sind 52 % der Bildhoehe - und
+  // fast alle Werte liegen darin. Eine Flaeche, die den Normalfall einfaerbt, faerbt
+  // hier fast alles ein. Das Etikett steht INNEN unter der oberen Kante, das der
+  // unteren auf der GEGENSEITE - sonst kleben beide uebereinander. Passt keines mehr
+  // ins Bild, faellt es weg statt sich zu ueberlagern (Regel aus stackLabels).
+  // col bleibt in der Signatur: die Aufrufer geben ihn weiter.
   function zone(g,lo,hi,label,col,opt){
     const yh=g.y(hi), yl=g.y(lo);
-    let s='<rect x="'+g.m.l+'" y="'+yh.toFixed(1)+'" width="'+g.iw+'" height="'+Math.max(0,yl-yh).toFixed(1)+'" fill="'+(col||"var(--zone)")+'"/>';
-    s+='<line x1="'+g.m.l+'" y1="'+yh.toFixed(1)+'" x2="'+(g.W-g.m.r)+'" y2="'+yh.toFixed(1)+'" stroke="var(--zone-line)" stroke-width="1" stroke-dasharray="5 4"/>';
-    if(label) s+=edgeLabel(g,yh+15,label,"var(--zone-line)",opt&&opt.side);
+    const seite=((opt&&opt.side)==="right")?"right":"left", gegen=(seite==="right")?"left":"right";
+    const kante=function(y){ return '<line x1="'+g.m.l+'" y1="'+y.toFixed(1)+'" x2="'+(g.W-g.m.r)+
+      '" y2="'+y.toFixed(1)+'" stroke="var(--zone-line)" stroke-width="1" stroke-dasharray="5 4"/>'; };
+    let s=kante(yh)+kante(yl);
+    if(label) s+=edgeLabel(g,yh+15,label,"var(--zone-line)",seite);
+    // Das untere Etikett steht 7 px UEBER seiner Kante, also innerhalb des Bandes -
+    // es kann die Achse nicht treffen. Einzige Bedingung ist Platz zum oberen.
+    if(label&&(yl-yh)>34)
+      s+=edgeLabel(g,yl-7,"ab "+String(lo).replace(".",","),"var(--zone-line)",gegen);
     return s;
   }
   // Etikett an der oberen/unteren Kante des Zeichenbereichs, linksbuendig innen oder
@@ -1545,13 +1575,30 @@ function boot(){
 // Vorschau -> Detail. EIN Weg fuer alle Diagramme: die Karte zeigt das Bild ohne
 // Bedienung, der Klick oeffnet es gross mit seinen Filtern. Das ist der Grund, warum
 // die Filter heute aus den Karten verschwunden sind – sie standen am falschen Ort.
-var _cvModal=null,_cvTitle=null,_cvBody=null;
+var _cvModal=null,_cvTitle=null,_cvTitleTxt=null,_cvBody=null,_cvFz=null;
 function _chartModalInit(){
   if(_cvModal) return;
   _cvModal=document.getElementById("chartModal");
   _cvTitle=document.getElementById("chartTitle");
   _cvBody=document.getElementById("chartBody");
   if(!_cvModal) return;
+  // Der Koerper des Modals ist eine eigene Frage: das ? im Kopf liest die
+  // Bildunterschrift, die hier drin steht. Es gehoert IN die Ueberschrift, nicht
+  // daneben - .modal-head ist eine Flex-Zeile mit Abstand, ein eigenes Kind waere
+  // dort in die Mitte gerutscht. Der Titeltext bekommt darum ein eigenes span,
+  // damit ihn das naechste chartGross() setzen kann, ohne das ? mitzuloeschen.
+  // Der Anker sitzt am ganzen Dialog, nicht am Koerper: das ? steht im KOPF und
+  // muesste sonst aus seinem eigenen Anker herausgreifen.
+  (_cvModal.querySelector(".modal")||_cvModal).setAttribute("data-fragebox","");
+  if(_cvTitle && !_cvTitleTxt){
+    _cvTitle.textContent="";
+    _cvTitle.style.display="inline-flex";
+    _cvTitle.style.alignItems="center";
+    _cvTitleTxt=document.createElement("span");
+    _cvTitle.appendChild(_cvTitleTxt);
+    _cvFz=fragezeichen(_cvTitle,null,null,null);
+    _cvTitle.appendChild(_cvFz);
+  }
   const zu=function(){ if(typeof window._erfZu==="function") window._erfZu();
     _cvModal.hidden=true; _cvBody.innerHTML=""; if(typeof CHART!=="undefined") CHART.hideTip(); };
   document.getElementById("chartClose").onclick=zu;
@@ -1570,9 +1617,13 @@ function chartGross(titel,bauen,erf){
   _cvErf=erf||null;
   const kErf=document.getElementById("chartErf");
   if(kErf) kErf.style.display=(_cvErf&&typeof window._erfFenster==="function")?"":"none";
-  _cvTitle.textContent=titel;
+  _cvTitleTxt.textContent=titel;
   _cvBody.innerHTML="";
   bauen(_cvBody);
+  if(_cvFz){
+    const hatText=[..._cvBody.querySelectorAll(".cap")].some(function(c){ return (c.textContent||"").trim(); });
+    _cvFz.style.display=hatText?"inline-flex":"none";
+  }
   _cvModal.hidden=false;
   // Erst jetzt steht die Breite fest – dieselbe Regel wie im Kennzahl-Modal.
   if(typeof CHART!=="undefined") CHART.sweep(_cvBody);
@@ -1677,6 +1728,73 @@ function openInfo(title,html,notes){
     _infoBody.innerHTML=html;
   }
   _infoModal.hidden=false;
+}
+/* Ein Zeichen, zwei Tiefen (Entscheid 14.08.2026). Der kurze Text steht nicht mehr um
+   das Bild, sondern hinter dem ? in der Kicker-Zeile: Hover zeigt ihn, Tipp haelt ihn
+   fest, der Knopf in der Blase oeffnet das grosse Erklaerfenster.
+   Der Text wird beim Oeffnen LIVE aus den versteckten .cap-Bloecken der Frage gelesen -
+   die Bildunterschriften aendern sich mit Brillen und Schaltern, ein einmal kopierter
+   String waere ab dem ersten Klick falsch. Anker ist [data-fragebox]. */
+function _blaseText(btn){
+  const box=btn.closest("[data-fragebox]"); if(!box) return "";
+  const t=[];
+  box.querySelectorAll(".cap").forEach(function(e){
+    const s=(e.textContent||"").trim();
+    if(s&&t.indexOf(s)<0) t.push(s);
+  });
+  return t.join(" ");
+}
+var _blaseOffen=null;
+function _blaseZu(){ if(_blaseOffen){ _blaseOffen(); _blaseOffen=null; } }
+document.addEventListener("click",function(){ _blaseZu(); });
+document.addEventListener("keydown",function(e){ if(e.key==="Escape") _blaseZu(); });
+function fragezeichen(zeile,title,html,notes){
+  zeile.style.position="relative";
+  const b=el("button",null,"?");
+  b.type="button";
+  b.setAttribute("aria-label","Was zeigt dieses Bild?");
+  b.className="fz";
+  b.style.cssText="margin-left:8px;flex-shrink:0;display:inline-flex;"+
+    "align-items:center;justify-content:center;background:none;border:1px solid var(--line);"+
+    "border-radius:50%;color:var(--faint);font-family:var(--mono);line-height:1;"+
+    "cursor:pointer;padding:0;transition:color .15s,border-color .15s";
+  const blase=el("div");
+  blase.style.cssText="position:absolute;top:27px;left:0;z-index:8;width:460px;"+
+    "background:#31363A;border:1px solid #454B50;border-radius:11px;padding:15px 17px;"+
+    "box-shadow:0 14px 38px rgba(0,0,0,.55);font-family:var(--sans);font-size:13.5px;line-height:1.6;"+
+    "letter-spacing:0;text-transform:none;color:var(--muted);text-wrap:pretty;display:none";
+  const txt=el("div");
+  blase.appendChild(txt);
+  if(title&&html){
+    const mehr=el("button",null,"Mehr dazu \u2192");
+    mehr.type="button";
+    mehr.style.cssText="margin-top:11px;background:none;border:0;padding:0;cursor:pointer;"+
+      "font-family:var(--sans);font-size:13px;color:var(--accent)";
+    mehr.onclick=function(ev){ ev.stopPropagation(); _blaseZu(); openInfo(title,html,notes); };
+    blase.appendChild(mehr);
+  }
+  zeile.appendChild(blase);
+  let fest=false;
+  function schliesse(){ fest=false; blase.style.display="none"; }
+  function zeig(){
+    const s=_blaseText(b);
+    if(!s&&!(title&&html)) return;
+    txt.textContent=s;
+    const box=b.closest("[data-fragebox]");
+    const platz=box?box.clientWidth:460;
+    blase.style.width=Math.max(220,Math.min(460,platz))+"px";
+    blase.style.display="block";
+  }
+  b.onmouseenter=function(){ b.style.color="var(--accent)"; b.style.borderColor="var(--accent)"; zeig(); };
+  b.onmouseleave=function(){ b.style.color="var(--faint)"; b.style.borderColor="var(--line)"; if(!fest) blase.style.display="none"; };
+  b.onclick=function(ev){
+    ev.stopPropagation();
+    if(fest){ schliesse(); return; }
+    if(_blaseOffen&&_blaseOffen!==schliesse) _blaseZu();
+    fest=true; zeig(); _blaseOffen=schliesse;
+  };
+  blase.onclick=function(ev){ ev.stopPropagation(); };
+  return b;
 }
 function infoIcon(title,html,notes){
   const hasNotes=notes&&notes.trim().length>0;
@@ -2082,8 +2200,8 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
           return hoch(mitWert.slice(0,k))<=hoch(mitWert.slice(-k))?"left":"right";
         }
         let out="";
-        if(zeigtVor) out+=CHART.zone(g,zoneLo,preHi,"Soll vor dem Essen "+de(zoneLo)+"–"+de(preHi),null,{side:freieSeite(["nu","vor"])});
-        else if(zeigtNach&&nachImBild) out+=CHART.zone(g,zoneLo,postHi,"Soll nach dem Essen "+de(zoneLo)+"–"+de(postHi),null,{side:freieSeite(["nach"])});
+        if(zeigtVor) out+=CHART.zone(g,zoneLo,preHi,"Soll vor dem Essen bis "+de(preHi),null,{side:freieSeite(["nu","vor"])});
+        else if(zeigtNach&&nachImBild) out+=CHART.zone(g,zoneLo,postHi,"Soll nach dem Essen bis "+de(postHi),null,{side:freieSeite(["nach"])});
         if(zeigtNach&&postHi<=ymax){
           out+='<line x1="'+g.m.l+'" y1="'+g.y(postHi).toFixed(1)+'" x2="'+(W-g.m.r)+'" y2="'+g.y(postHi).toFixed(1)+
                '" stroke="'+SERIE(4)+'" stroke-width="1" stroke-dasharray="5 4" opacity=".6"/>';
@@ -2566,7 +2684,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     window._kzReihe(host,["bz_nue","bz_nach","hba1c","bz_tage"],{titel:"Blutzucker"});
 
   const raster=el("div","ts-raster"); raster.id="bzraster";
-  const links=el("div"); links.id="bzlinks"; links.style.minWidth="0";
+  const links=el("div"); links.id="bzlinks"; links.style.minWidth="0"; links.setAttribute("data-fragebox","");
   const rechts=el("div"); rechts.id="bzliste";
   rechts.style.cssText="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:stretch";
   raster.appendChild(links); raster.appendChild(rechts);
@@ -2581,14 +2699,14 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     const zeile=el("div");
     zeile.style.cssText="display:flex;align-items:center;gap:2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)";
     zeile.appendChild(el("span",null,u.leit.label));
-    if(u.info) zeile.appendChild(infoIcon(u.info[0],u.info[1]));
+    zeile.appendChild(fragezeichen(zeile,u.info?u.info[0]:null,u.info?u.info[1]:null,null));
     kopf.appendChild(zeile);
     const zahl=el("div");
-    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 5px;flex-wrap:wrap";
+    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 16px;flex-wrap:wrap";
     zahl.innerHTML='<span style="font-size:46px;font-weight:680;letter-spacing:-.03em;line-height:.9;color:'+u.leit.farbe+'">'+u.leit.wert+'</span>'+
       (u.leit.einheit?'<span style="font-size:15px;color:var(--muted)">'+u.leit.einheit+'</span>':'');
     kopf.appendChild(zahl);
-    const satz=el("div",null,u.leit.satz);
+    const satz=el("div","cap",u.leit.satz);
     satz.style.cssText="font-size:14.5px;color:var(--muted);margin-bottom:14px;line-height:1.5";
     kopf.appendChild(satz);
     return kopf;
@@ -2635,7 +2753,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     raster.style.gridTemplateColumns="minmax(0,1fr)";
     links.innerHTML="";
     UNTER.forEach(function(u,i){
-      const block=el("div");
+      const block=el("div"); block.setAttribute("data-fragebox","");
       if(i) block.style.cssText="margin-top:26px;padding-top:22px;border-top:1px solid var(--line)";
       block.appendChild(kopfVon(u));
       links.appendChild(block);
@@ -3524,7 +3642,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     window._kzReihe(host,["bmi","gw_taille","gw_ziel1","tempo_akt"],{titel:"Gewicht"});
 
   const raster=el("div","ts-raster"); raster.id="gwraster";
-  const links=el("div"); links.id="gwlinks"; links.style.minWidth="0";
+  const links=el("div"); links.id="gwlinks"; links.style.minWidth="0"; links.setAttribute("data-fragebox","");
   const rechts=el("div"); rechts.id="gwliste";
   rechts.style.cssText="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:stretch";
   raster.appendChild(links); raster.appendChild(rechts);
@@ -3538,14 +3656,14 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     const zeile=el("div");
     zeile.style.cssText="display:flex;align-items:center;gap:2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)";
     zeile.appendChild(el("span",null,u.leit.label));
-    if(u.info) zeile.appendChild(infoIcon(u.info[0],u.info[1]));
+    zeile.appendChild(fragezeichen(zeile,u.info?u.info[0]:null,u.info?u.info[1]:null,null));
     kopf.appendChild(zeile);
     const zahl=el("div");
-    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 5px;flex-wrap:wrap";
+    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 16px;flex-wrap:wrap";
     zahl.innerHTML='<span style="font-size:'+(String(u.leit.wert).length>12?34:46)+'px;font-weight:680;letter-spacing:-.03em;line-height:.9;color:'+u.leit.farbe+'">'+u.leit.wert+'</span>'+
       (u.leit.einheit?'<span style="font-size:15px;color:var(--muted)">'+u.leit.einheit+'</span>':'');
     kopf.appendChild(zahl);
-    const satz=el("div",null,u.leit.satz);
+    const satz=el("div","cap",u.leit.satz);
     satz.style.cssText="font-size:14.5px;color:var(--muted);margin-bottom:14px;line-height:1.5";
     kopf.appendChild(satz);
     return kopf;
@@ -3585,7 +3703,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     raster.style.gridTemplateColumns="minmax(0,1fr)";
     links.innerHTML="";
     UNTER.forEach(function(u,i){
-      const block=el("div");
+      const block=el("div"); block.setAttribute("data-fragebox","");
       if(i) block.style.cssText="margin-top:26px;padding-top:22px;border-top:1px solid var(--line)";
       block.appendChild(kopfVon(u));
       links.appendChild(block);
@@ -4285,8 +4403,11 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
      titel:"Kreislauf \u00b7 Blutdruck",
      leit:{label:"Blutdruck \u00b7 damals und heute", wert:letztBP?(letztBP.sys+"/"+letztBP.dia):"\u2014",
            einheit:"mmHg"+(nHist?" \u00b7 "+tsd(nHist)+" alte Messungen":""), farbe:"var(--ink)",
-           satz:(nHist?"Die Zeitraum-Schnitte und die heutigen Messungen auf einer Achse, die Spanne von damals als helles Band. ":"")+
-                (LUECKE?"Dazwischen "+LUECKE.txt+" ohne Messung \u2013 dort bricht die Linie, und die Achse bricht mit ihr.":"")},
+           /* Vorspann und Bildunterschrift standen beide um dasselbe Bild und sagten
+              zweimal dasselbe - Achsenbruch und Luecke. Seit beide in derselben Blase
+              landen, traegt die Bildunterschrift den Text: sie nennt zusaetzlich die
+              Zahlen. */
+           satz:""},
      info:["Warum die Achse bricht",
            "<p style='margin:0 0 12px'>Ohne den Achsenbruch l\u00e4gen die heutigen Messungen auf einem Pixel: "+(LUECKE?LUECKE.txt:"die L\u00fccke")+" ohne Messung n\u00e4hme sonst die ganze Breite. Der Bruch tr\u00e4gt darum Marke und Dauer \u2013 er versteckt die L\u00fccke nicht, er benennt sie.</p>"+
            "<p style='margin:0'>Keine ESC-Zonen: eine Zone ist eine Bewertung, und die tr\u00e4gt ein einzelner Punkt nicht. Die Balkengruppen sind weg \u2013 die alten Aggregate und die heutigen Punkte sind dieselbe Reihe, nicht zwei Bilder. Alle Zahlen stehen in der Tabelle des Kennzahl-Modals \u00abBlutdruck\u00bb.</p>"],
@@ -4334,7 +4455,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     window._kzReihe(host,["bd","rhr","schritte","schlaf"],{titel:"Kreislauf"});
 
   const raster=el("div","ts-raster"); raster.id="vwraster";
-  const links=el("div"); links.id="vwlinks"; links.style.minWidth="0";
+  const links=el("div"); links.id="vwlinks"; links.style.minWidth="0"; links.setAttribute("data-fragebox","");
   const rechts=el("div"); rechts.id="vwliste";
   rechts.style.cssText="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:stretch";
   raster.appendChild(links); raster.appendChild(rechts);
@@ -4348,14 +4469,14 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     const zeile=el("div");
     zeile.style.cssText="display:flex;align-items:center;gap:2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)";
     zeile.appendChild(el("span",null,u.leit.label));
-    if(u.info) zeile.appendChild(infoIcon(u.info[0],u.info[1]));
+    zeile.appendChild(fragezeichen(zeile,u.info?u.info[0]:null,u.info?u.info[1]:null,null));
     kopf.appendChild(zeile);
     const zahl=el("div");
-    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 5px;flex-wrap:wrap";
+    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 16px;flex-wrap:wrap";
     zahl.innerHTML='<span style="font-size:'+(String(u.leit.wert).length>12?34:46)+'px;font-weight:680;letter-spacing:-.03em;line-height:.9;color:'+u.leit.farbe+'">'+u.leit.wert+'</span>'+
       (u.leit.einheit?'<span style="font-size:15px;color:var(--muted)">'+u.leit.einheit+'</span>':'');
     kopf.appendChild(zahl);
-    const satz=el("div",null,u.leit.satz);
+    const satz=el("div","cap",u.leit.satz);
     satz.style.cssText="font-size:14.5px;color:var(--muted);margin-bottom:14px;line-height:1.5";
     kopf.appendChild(satz);
     return kopf;
@@ -4395,7 +4516,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     raster.style.gridTemplateColumns="minmax(0,1fr)";
     links.innerHTML="";
     UNTER.forEach(function(u,i){
-      const block=el("div");
+      const block=el("div"); block.setAttribute("data-fragebox","");
       if(i) block.style.cssText="margin-top:26px;padding-top:22px;border-top:1px solid var(--line)";
       block.appendChild(kopfVon(u));
       links.appendChild(block);
@@ -5172,7 +5293,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     window._kzReihe(host,["bf_index","bf_beste","bf_schwach","bf_wochen"],{titel:"Befinden"});
 
   const raster=el("div","ts-raster"); raster.id="bfraster";
-  const links=el("div"); links.id="bflinks"; links.style.minWidth="0";
+  const links=el("div"); links.id="bflinks"; links.style.minWidth="0"; links.setAttribute("data-fragebox","");
   const rechts=el("div"); rechts.id="bfliste";
   rechts.style.cssText="display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;align-self:stretch";
   raster.appendChild(links); raster.appendChild(rechts);
@@ -5189,14 +5310,14 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     const zeile=el("div");
     zeile.style.cssText="display:flex;align-items:center;gap:2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)";
     zeile.appendChild(el("span",null,u.leit.label));
-    if(u.info) zeile.appendChild(infoIcon(u.info[0],u.info[1]));
+    zeile.appendChild(fragezeichen(zeile,u.info?u.info[0]:null,u.info?u.info[1]:null,null));
     kopf.appendChild(zeile);
     const zahl=el("div");
-    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 5px;flex-wrap:wrap";
+    zahl.style.cssText="display:flex;align-items:baseline;gap:11px;margin:9px 0 16px;flex-wrap:wrap";
     zahl.innerHTML='<span style="font-size:'+(String(u.leit.wert).length>12?34:46)+'px;font-weight:680;letter-spacing:-.03em;line-height:.9;color:'+u.leit.farbe+'">'+u.leit.wert+'</span>'+
       (u.leit.einheit?'<span style="font-size:15px;color:var(--muted)">'+u.leit.einheit+'</span>':"");
     kopf.appendChild(zahl);
-    const satz=el("div",null,u.leit.satz);
+    const satz=el("div","cap",u.leit.satz);
     satz.style.cssText="font-size:14.5px;color:var(--muted);margin-bottom:14px;line-height:1.5";
     kopf.appendChild(satz);
     return kopf;
@@ -5241,7 +5362,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     raster.style.gridTemplateColumns="minmax(0,1fr)";
     links.innerHTML="";
     UNTER.forEach(function(u,i){
-      const block=el("div");
+      const block=el("div"); block.setAttribute("data-fragebox","");
       if(i) block.style.cssText="margin-top:26px;padding-top:22px;border-top:1px solid var(--line)";
       block.appendChild(kopfVon(u));
       links.appendChild(block);
@@ -5259,7 +5380,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   bildschirm();
   if(EXP&&typeof CHART!=="undefined") CHART.sweep(links);
   if(!STATE.__export) DRUCK.push({flach:flach,zurueck:bildschirm});
-  if(abgehaengt) host.appendChild(el("div","cap",
+  if(abgehaengt) host.appendChild(el("div","cap-frei",
     "Vor dem "+kurzD(WOCHEN[0].key)+" liegen "+zw(abgehaengt)+" einzelne Wochen ohne Anschluss \u2013 sie stehen in den Daten, aber nicht in der Reihe."));
 })();
 
@@ -8673,7 +8794,10 @@ function kzKarte(d, art){
     ? v.punkte.map(P => '<circle cx="'+P[0].toFixed(1)+'" cy="'+P[1].toFixed(1)+'" r="2.4" fill="'+d.farbe+'"></circle>').join('')
     : (v.punkt ? '<circle cx="'+v.punkt[0].toFixed(1)+'" cy="'+v.punkt[1].toFixed(1)+'" r="2.6" fill="'+d.farbe+'"></circle>' : '');
   const zone = v.zh > 0 ? '<rect x="0" y="'+v.zy.toFixed(1)+'" width="260" height="'+v.zh.toFixed(1)+'" fill="var(--k-l0)" opacity=".13"></rect>' : '';
-  return '<button type="button" class="kachel" data-key="'+d.key+'">'+
+  /* 'none' ist der neutrale Zustand, nicht 'good' - ein Blutdruck von 116/78 traegt
+     'none' und ist keine Abweichung. Nur warn/high/low sind auffaellig. */
+  const auff = d.ampel==='warn' || d.ampel==='high' || d.ampel==='low';
+  return '<button type="button" class="kachel'+(auff?' abw':'')+'" data-key="'+d.key+'">'+
     '<div class="k-name">'+esc(d.label)+'</div>'+
     '<div class="k-zahl"><b>'+esc(k.wert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
     '<div class="k-ein"><span style="color:'+k.dfarbe+'">'+esc(k.delta)+'</span> '+esc(k.dtext)+'</div>'+
