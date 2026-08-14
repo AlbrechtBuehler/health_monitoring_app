@@ -537,11 +537,7 @@
 .weltLight .k-luft{flex:1 1 auto;min-height:16px}
 .weltLight .k-vor{width:100%;height:44px;display:block;overflow:visible}
 .weltLight .k-spanne{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--k-dim);margin-top:9px}
-.weltLight .woche-karte{padding:24px 28px 26px;display:flex;flex-direction:column;gap:16px;animation:L-fadeIn .18s ease}
-.weltLight .woche-kopf{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.weltLight .woche-titel{font-size:19px;font-weight:600;letter-spacing:-.02em}
-.weltLight .woche-saetze{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 48px}
-.weltLight .woche-saetze div{font-size:14.5px;color:var(--k-muted)}
+/* Die Karte «Deine Woche» ist am 14.08.2026 entfallen - mit ihr diese fuenf Regeln. */
 .weltLight .schirm{position:fixed;inset:0;background:var(--k-schirm);backdrop-filter:blur(3px);z-index:40;display:flex;align-items:flex-start;justify-content:center;padding:40px;overflow:auto}
 .weltLight .schirm>.dialog{margin:auto}
 .weltLight .schirm.frisch{animation:L-fadeIn .16s ease}
@@ -646,7 +642,6 @@
 .weltLight .leerhinweis{font-size:14.5px;color:var(--k-faint);padding:40px 0}
 @media (max-width:1100px){
   .weltLight .kacheln{grid-template-columns:repeat(2,1fr)}
-  .weltLight .woche-saetze{grid-template-columns:1fr}
 }
 @media (max-width:660px){
   .weltLight,
@@ -679,6 +674,11 @@
       <div class="eyebrow" id="kopfOrt">Monitoring</div>
       <h1>MOPP+ | <span id="updated">—</span></h1>
       <p class="sub" id="kopfName">Monitoring APP</p>
+      <!-- Das Tagesdatum stand bis 14.08.2026 rechts zwischen den Knoepfen und las sich
+           dort wie eine Beschriftung. Es gehoert in den Kopf: die Zahl neben «MOPP+» ist
+           der Stand der DATEN, nicht der heutige Tag - zwei verschiedene Dinge, die
+           nebeneinander stehen muessen, damit man sie auseinanderhaelt. -->
+      <p class="sub" id="heuteText" style="margin-top:2px;opacity:.8"></p>
     </div>
     <div class="topbar-btns no-print">
       <!-- Der Verbinden-Knopf ist geteilt: eine Datei, ein STATE, beide Welten. -->
@@ -694,7 +694,6 @@
            jedem Reiter dasselbe, und die Hilfe ist ein Fenster. #btnsLight bleibt als
            Huelle - Datum und Schreibhinweis schreibt die Welt Light hinein. -->
       <span class="welt-btns weltLight" id="btnsLight">
-        <span id="heuteText" style="font-size:13.5px;color:var(--k-muted)"></span>
         <span id="schreibHinweis" class="schreibhinweis" hidden></span>
       </span>
       <button class="btn" id="entryBtn" aria-label="Werte eintragen" title="Werte eintragen" style="font-size:16px;line-height:1;padding:8px 12px">✎</button>
@@ -716,7 +715,6 @@
        sind entfallen – beides leistet jetzt das Grundgeruest oben. -->
   <div class="panel weltLight welt-flaeche" id="p-lightaus">
     <section id="pAus">
-      <div id="wocheKarte"></div>
       <div class="kacheln" id="kacheln"></div>
       <!-- Der leere Zustand beschrieb den Weg nur ("oben rechts den Datenspeicher
            verbinden") und zeigte auf ein Zahnrad in der Ecke. Seit 14.08.2026 traegt er
@@ -764,6 +762,9 @@
         <section class="card" id="lab" style="display:none"></section>
         <section class="card" id="history" style="display:none"></section>
         <section class="card" id="meds" style="display:none"></section>
+        <!-- Die Stammdaten fuhren in jeder Arztkopie mit und standen doch nie auf dem
+             Schirm. Seit 14.08.2026 haben sie hier ihren Abschnitt. -->
+        <section class="card" id="stamm" style="display:none"></section>
       </div>
       <div id="aktenliste"></div>
     </div>
@@ -1699,28 +1700,36 @@ const cnt=counts(ALL);
 const pct=(c,k,n)=>Math.round(c[k]/n*100);
 const slotSum=G.slots.map(s=>{const it=ALL.filter(r=>r.slot===s);const ty=typeOf(s);const m=it.length?avg(it.map(i=>i.v)):0;
   return {slot:s,type:ty,avg:m,n:it.length,inR:it.filter(i=>stateOf(i.v,ty)==="good").length,st:it.length?stateOf(m,ty):"none"};});
-const vals=ALL.map(r=>r.v),mean=avg(vals),sd=Math.sqrt(avg(vals.map(x=>(x-mean)*(x-mean)))),vmn=Math.min(...vals),vmx=Math.max(...vals);
-const wpAll=STATE.weight.points||[];
+// Leere Reihe heisst null, nicht Infinity: Math.min() ohne Werte gibt Infinity zurueck,
+// und das rechnete sich still durch pct() bis ins Bild. (Vorschlag 03, 14.08.2026)
+const vals=ALL.map(r=>r.v),mean=vals.length?avg(vals):null,
+      sd=vals.length?Math.sqrt(avg(vals.map(x=>(x-mean)*(x-mean)))):null,
+      vmn=vals.length?Math.min(...vals):null,vmx=vals.length?Math.max(...vals):null;
+const wpAll=(STATE.weight&&STATE.weight.points)||[];
 // Historische Punkte (hist:true) liegen ausserhalb der Beobachtungsperiode ab 2026.
 // Sie erscheinen in Tabellen und in der Krankengeschichte, nie in Diagrammen oder Kennzahlen.
 const wp=wpAll.filter(p=>!p.hist);
-const now=wp[wp.length-1].value,startW=wp[0].value;
+// LEERFESTIGKEIT (Vorschlag 03, 14.08.2026): der Arzt-Export kann den Bereich Gewicht
+// abwaehlen - dann ist wp leer. Bis hierher las diese Zeile blind wp[0].value und warf,
+// bevor ein einziger Reiter gezeichnet war: die ganze Kopie blieb weiss. Kein Wert
+// heisst jetzt null. Alles darunter rechnet mit null weiter, nicht mit einem Absturz.
+const wFirst=wp.length?wp[0]:null, wLast=wp.length?wp[wp.length-1]:null;
+const now=wLast?wLast.value:null, startW=wFirst?wFirst.value:null;
 // Abnahme-Tempo (kg/Woche)
-const wFirst=wp[0],wLast=wp[wp.length-1];
-const daysSpan=(D(wLast.date)-D(wFirst.date))/86400000;
+const daysSpan=(wFirst&&wLast)?(D(wLast.date)-D(wFirst.date))/86400000:0;
 const rateAll=daysSpan>0?(wFirst.value-wLast.value)/(daysSpan/7):0;
 // Tempo aktuell = 4-Wochen-Trend, tagesunabhängig: alle Punkte der letzten 28 Tage,
 // Rate über die tatsächliche Zeitspanne vom ersten zum letzten Punkt im Fenster.
-const cut4w=D(wLast.date)-28*86400000;
-const win4=wp.filter(p=>D(p.date)>=cut4w);
+const cut4w=wLast?D(wLast.date)-28*86400000:0;
+const win4=wLast?wp.filter(p=>D(p.date)>=cut4w):[];
 let rate28, win4weeks;
 if(win4.length>=2){const wf=win4[0],wl=win4[win4.length-1];
   const sp=(D(wl.date)-D(wf.date))/86400000;
   rate28=sp>0?(wf.value-wl.value)/(sp/7):0;
   win4weeks=(sp/7);
 }else{rate28=rateAll;win4weeks=daysSpan/7;}
-const hM=STATE.weight.heightCm/100;
-const bmi=kg=>kg/(hM*hM);
+const hM=(STATE.weight&&STATE.weight.heightCm)?STATE.weight.heightCm/100:null;
+const bmi=kg=>(hM&&kg!=null)?kg/(hM*hM):null;
 const bmiNow=bmi(now);
 const bmiCat=b=>b<18.5?["Untergewicht","low"]:b<25?["Normalgewicht","good"]:b<30?["Übergewicht","warn"]:["Adipositas","high"];
 // Körpermasse / THQ
@@ -4424,7 +4433,13 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
   addBtn.onmouseenter=()=>{addBtn.style.borderColor="var(--accent)";addBtn.style.color="var(--accent)";};
   addBtn.onmouseleave=()=>{addBtn.style.borderColor="var(--line)";addBtn.style.color="var(--ink)";};
   addBtn.onclick=()=>openEdit(null);
-  head.appendChild(h);head.appendChild(addBtn);root.appendChild(head);
+  head.appendChild(h);
+  /* Die Arztkopie ist reine Ansicht. Der Krankengeschichte-Block haelt das seit je so
+     (if(!__FROZEN) head.appendChild(addBtn)) - hier fehlte die Zeile, und die Kopie
+     trug ein «+», das ein Eingabefenster oeffnete, dessen Speichern ins Leere lief.
+     (Vorschlag 03, 14.08.2026) */
+  if(!window.__FROZEN) head.appendChild(addBtn);
+  root.appendChild(head);
 
   const box=el("div","chron3");
   function renderCards(){
@@ -4451,7 +4466,7 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     const title=(r.headline&&r.headline.trim()?r.headline:"Woche "+r.kw);
     const html='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">'+
         '<div style="font-size:12px;color:var(--faint)">'+r.kw+' &nbsp;·&nbsp; <span style="font-size:14px">'+starsRow(r.stars||0)+'</span></div>'+
-        '<button id="rbEditBtn" style="background:var(--surface2);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;font-family:inherit;flex-shrink:0">✎ Bearbeiten</button>'+
+        (window.__FROZEN?'':'<button id="rbEditBtn" style="background:var(--surface2);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;font-family:inherit;flex-shrink:0">✎ Bearbeiten</button>')+
       '</div>'+
       '<h4 style="font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 6px">Beschreibung</h4>'+
       '<div style="font-size:13px;color:var(--ink)">'+md(r.desc)+'</div>'+
@@ -4543,24 +4558,41 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
 (function(){
   const root=document.getElementById("chron");
   if(!root)return;
+  /* LEERFESTIGKEIT (Vorschlag 03, 14.08.2026): dieser Block las Gewicht und Blutzucker,
+     ohne zu fragen, ob sie da sind. Waehlt der Arzt-Export «Kontext» an und «Gewicht»
+     ab, rechnete er aus null - und schrieb «Naechster Halt: -2,0 kg» und «NaN %» in die
+     Kopie. Jede Zeile steht jetzt nur, wenn ihre Reihe traegt; traegt keine, faellt der
+     ganze Block. */
+  const W=STATE.weight||{};
+  const hatGew = now!=null && startW!=null && W.startRef!=null && W.goal1!=null
+                 && (W.startRef-W.goal1)!==0;
+  const hatBz  = ALL.length>0;
+  if(!hatGew && !hatBz) return;
   const box0=el("div");
   box0.style.cssText="margin-top:22px;padding-top:20px;border-top:1px solid var(--line)";
   root.appendChild(box0);
   box0.appendChild(el("h2",null,"Meilensteine & Serien"));
-  const next=Math.floor((now-0.01)/2)*2; // nächster 2-kg-Halt
-  const togo=now-next;
-  const postStreak=G.days.filter(d=>{const r=d.rows.find(x=>x.slot==="nach Abend");return r&&r.values.every(v=>stateOf(v.v,"post")==="good");}).length;
-  const noLow=ALL.every(r=>r.v>=th.low);
-  const prog=Math.min(100,Math.round((startW-now)/(STATE.weight.startRef-STATE.weight.goal1)*100));
   const box=el("div","ms");
   function row(ic,icCls,t1,t2){const r=el("div","row");r.appendChild(el("div","ic "+(icCls||""),ic));const b=el("div");b.appendChild(el("div","t1",t1));b.appendChild(el("div","t2",t2));r.appendChild(b);return r;}
-  box.appendChild(row("▾","","Nächster Halt: "+de(next)+" kg","noch "+de(togo)+" kg"));
-  box.appendChild(row("✓","good","Nach-Essen "+postStreak+"/"+G.days.length+" Tage im Ziel","aktuelle Serie"));
-  box.appendChild(row("✓",noLow?"good":"","Keine Tiefwerte","bisher "+ALL.length+" Messungen sicher"));
+  if(hatGew){
+    const next=Math.floor((now-0.01)/2)*2;   // naechster 2-kg-Halt
+    box.appendChild(row("▾","","Nächster Halt: "+de(next)+" kg","noch "+de(now-next)+" kg"));
+  }
+  if(hatBz){
+    const postStreak=G.days.filter(d=>{const r=d.rows.find(x=>x.slot==="nach Abend");return r&&r.values.every(v=>stateOf(v.v,"post")==="good");}).length;
+    const noLow=ALL.every(r=>r.v>=th.low);
+    box.appendChild(row("✓","good","Nach-Essen "+postStreak+"/"+G.days.length+" Tage im Ziel","aktuelle Serie"));
+    box.appendChild(row("✓",noLow?"good":"","Keine Tiefwerte","bisher "+ALL.length+" Messungen sicher"));
+  }
   box0.appendChild(box);
-  box0.appendChild(el("div","ref-t",'Fortschritt zum Jahresziel 100 kg'));
-  const p=el("div","prog");const f=el("div");f.style.width=prog+"%";p.appendChild(f);box0.appendChild(p);
-  box0.appendChild(el("div","ref-t",prog+" % – "+de(startW-now)+" von "+de(STATE.weight.startRef-STATE.weight.goal1)+" kg"));
+  if(hatGew){
+    // Das Ziel stand hier als feste 100 im Text, waehrend der Balken daneben mit
+    // goal1 rechnete. Jetzt liest beides dieselbe Zahl.
+    const prog=Math.min(100,Math.round((startW-now)/(W.startRef-W.goal1)*100));
+    box0.appendChild(el("div","ref-t",'Fortschritt zum Jahresziel '+Math.round(W.goal1)+' kg'));
+    const p=el("div","prog");const f=el("div");f.style.width=prog+"%";p.appendChild(f);box0.appendChild(p);
+    box0.appendChild(el("div","ref-t",prog+" % – "+de(startW-now)+" von "+de(W.startRef-W.goal1)+" kg"));
+  }
 })();
 
 
@@ -5866,6 +5898,65 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
    #history gezeichnet, als das noch vier Panels waren. Diese Liste schaltet nur um,
    welcher der vier sichtbar ist. Darum ist der Umbau nicht riskant: kein Laborblatt,
    keine Tabellenzeile und kein Chronikeintrag wird angefasst. */
+/* ---------- Akten · Diagnosen: die Person, ueber die diese Datei spricht ----------
+   Name, Geburtsdatum, Wohnort und die gestellten Diagnosen standen bis zum 14.08.2026
+   ausschliesslich im Quelltext: sie fuhren in jeder Arztkopie mit und wurden nirgends
+   angezeigt. Jetzt haben sie einen Abschnitt - Daten ohne Anzeige mitzuschicken war der
+   schlechteste der drei moeglichen Wege. */
+(function(){
+  const root=document.getElementById("stamm");
+  if(!root) return;
+  root.innerHTML="";
+  const P=(STATE&&STATE.patient)||{};
+  const DG=Array.isArray(P.diagnosen)?P.diagnosen:[];
+  root.appendChild(el("h2",null,"Diagnosen"));
+
+  const zeile=function(k,v){
+    const r=el("div");
+    r.style.cssText="display:flex;gap:14px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)";
+    const a=el("div",null,k);
+    a.style.cssText="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);flex:0 0 128px";
+    const b=el("div",null,v);
+    b.style.cssText="font-size:14.5px;color:var(--ink);min-width:0";
+    r.appendChild(a); r.appendChild(b); return r;
+  };
+  const kopf=el("div");
+  kopf.style.cssText="margin:10px 0 20px";
+  if(P.name) kopf.appendChild(zeile("Name",P.name));
+  if(P.geboren){
+    // Das Alter steht dabei, weil es die Zahl ist, die eine Fachperson im Kopf bildet.
+    const d=new Date(P.geboren+"T12:00:00"), h=new Date();
+    let alt=h.getFullYear()-d.getFullYear();
+    const vor=(h.getMonth()<d.getMonth())||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate());
+    if(vor) alt--;
+    kopf.appendChild(zeile("Geboren",
+      P.geboren.slice(8)+"."+P.geboren.slice(5,7)+"."+P.geboren.slice(0,4)+
+      (isFinite(alt)?"  ·  "+alt+" Jahre":"")));
+  }
+  if(P.adresse) kopf.appendChild(zeile("Wohnort",P.adresse));
+  if(kopf.children.length) root.appendChild(kopf);
+
+  if(!DG.length){
+    root.appendChild(el("div","ref-t","Keine Diagnose vermerkt."));
+    return;
+  }
+  const box=el("div");
+  box.style.cssText="display:flex;flex-direction:column;gap:9px";
+  DG.forEach(function(t){
+    const r=el("div");
+    r.style.cssText="background:var(--surface2);border:1px solid var(--line);border-radius:10px;"+
+      "padding:13px 15px;font-size:14.5px;color:var(--ink);line-height:1.45";
+    r.textContent=String(t);
+    box.appendChild(r);
+  });
+  root.appendChild(box);
+  const fuss=el("div","ref-t",
+    "Die Liste ist als Stammdatum hinterlegt und wird nicht aus den Messwerten abgeleitet. "+
+    "Verlauf, Eingriffe und Befunde stehen im Abschnitt «Krankengeschichte».");
+  fuss.style.marginTop="14px";
+  root.appendChild(fuss);
+})();
+
 (function(){
   const liste=document.getElementById("aktenliste");
   const links=document.getElementById("aktenlinks");
@@ -5886,7 +5977,12 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     {key:"history", id:"history", label:"Krankengeschichte", kurz:"Diagnosen, Eingriffe, Befunde.",
      wert:String((((STATE.history)||{}).events||[]).length), einheit:"Ereignisse"},
     {key:"meds", id:"meds", label:"Medikation", kurz:"Der Plan, sein Stand und die Quelle.",
-     wert:String((((STATE.meds)||{}).liste||[]).length), einheit:"Präparate"}
+     wert:String((((STATE.meds)||{}).liste||[]).length), einheit:"Präparate"},
+    /* Die Person selbst. Kein eigener Auswahlschalter im Arzt-Export: 'stamm' steht in
+       keiner EXPORT_AREAS-Zeile, also laesst picked['stamm']!==false den Eintrag immer
+       stehen. Wer eine Kopie verschickt, verschickt sie ueber jemanden. */
+    {key:"stamm", id:"stamm", label:"Diagnosen", kurz:"Wer, seit wann – und die gestellten Diagnosen.",
+     wert:String((((STATE.patient)||{}).diagnosen||[]).length), einheit:"Diagnosen"}
   ];
   let gewaehlt=AKTEN[0].key;
   function zeigen(){
@@ -6559,13 +6655,18 @@ const EXPORT_AREAS=[
   {key:"lightaus",label:"Dashboard",          on:true},
   {key:"glucose", label:"Blutzucker",         on:true},
   {key:"weight",  label:"Gewicht",            on:true},
-  {key:"fitbit",  label:"Kreislauf",          on:false},
-  {key:"befinden",label:"Befinden",           on:false},
+  {key:"fitbit",  label:"Kreislauf",          on:true},
+  {key:"befinden",label:"Befinden",           on:true},
   {key:"context", label:"Kontext",            on:true},
-  {key:"table",   label:"Messwerte (Tabelle)",on:false},
-  {key:"lab",     label:"Labor",              on:true},
-  {key:"history", label:"Krankengeschichte",  on:false},
-  {key:"meds",    label:"Medikation",         on:true},
+  /* Der Akten-Reiter geht immer mit (14.08.2026, auf Albrechts Ansage): Messwerte,
+     Labor, Krankengeschichte und Medikation sind das, was eine Fachperson lesen will -
+     sie zur Auswahl zu stellen hiess, sie versehentlich weglassen zu koennen.
+     Abwaehlbar bleibt allein der KONTEXT (Wochen-Rueckblick): der ist Tagebuch und
+     gehoert nicht in jede Hand. */
+  {key:"table",   label:"Messwerte (Tabelle)",on:true, fixed:true},
+  {key:"lab",     label:"Labor",              on:true, fixed:true},
+  {key:"history", label:"Krankengeschichte",  on:true, fixed:true},
+  {key:"meds",    label:"Medikation",         on:true, fixed:true},
 ];
 // Zusatzschalter, kein Bereich: steuert, ob Dokumentpfade und -links mitgehen.
 // Standard aus – die Pfade zeigen auf den eigenen Rechner und die Links auf das
@@ -6687,10 +6788,63 @@ function _buildExportState(){
   if(!picked.history) delete S.history;
   else if(S.history&&S.history.events) S.history.events=_filterArr(S.history.events,lo,hi);
 
+  /* ------------------------------------------------------------------------
+     ABGEWAEHLT HEISST GELOESCHT (Vorschlag 03, 14.08.2026)
+
+     Bis heute wurden nur meds, lab und history wirklich entfernt. Die fuenf
+     Fachbereiche wurden im eingefrorenen Klon lediglich mit display:none
+     versteckt - ihre Messwerte standen weiter im Quelltext der Datei, die aus
+     dem Haus geht. Ausblenden ist kein Weglassen.
+
+     Geleert wird die REIHE, stehen bleibt die HUELLE, wo boot() sie braucht:
+     glucose.th und glucose.slots werden zur Ladezeit gelesen (const th=G.th),
+     ein geloeschtes glucose-Objekt wirft dort. Was die Huelle traegt, sind
+     Schwellen und Slotnamen - Regeln der App, keine Messwerte.
+
+     Die Stammdaten des Bereichs gehen mit: Koerpergroesse, Zielgewichte und die
+     Tempovorgaben sagen ueber eine Person etwas aus, auch ohne einen einzigen
+     Messpunkt. Ebenso die Quellenvermerke - sie nennen die App, aus der die Werte
+     stammen, und das geht niemanden ausser dem Verfasser etwas an.
+     ------------------------------------------------------------------------ */
+  if(!picked.glucose){
+    if(S.glucose){ S.glucose.days=[]; S.glucose.histDays=[]; delete S.glucose.baseline; }
+    S.hba1cLab=[];   // traegt die Kennzahl «hba1c» des Reiters Blutzucker
+  }
+  if(!picked.weight){
+    if(S.weight){ S.weight.points=[]; S.weight.heightCm=null;
+                  S.weight.goal1=null; S.weight.goal2=null; S.weight.startRef=null;
+                  delete S.weight.ziel; }
+    // Taille, Huefte und die Bioimpedanz gehoeren zum Reiter Gewicht.
+    if(S.body){ S.body.points=[]; S.body.composition=[]; delete S.body.compositionNote; }
+  }
+  if(!picked.fitbit){
+    if(S.fitbit){ S.fitbit.weeks=[]; S.fitbit.days=[]; S.fitbit.firstData=""; }
+    // Der Blutdruck steht im Reiter Kreislauf und faellt mit ihm.
+    if(S.bloodpressure){ S.bloodpressure.points=[];
+      delete S.bloodpressure.history; delete S.bloodpressure.baseline; }
+  }
+  if(!picked.befinden){
+    if(S.befinden) S.befinden.entries=[];   // dims bleiben: die Skala ist Regel, kein Wert
+    if(S.fluid){ S.fluid.weeks=[]; S.fluid.days=[]; }
+    if(S.digestion){ S.digestion.weeks=[]; S.digestion.entries=[]; delete S.digestion.entriesNote; }
+    S.wellbeing=[];
+  }
+  if(!picked.context){ S.review=[]; S.markers=[]; }
+
   // Ernaehrung ist am 13.08.2026 in eine eigene lokale App gezogen. In der Arztkopie
   // hat sie nichts verloren – und eine Auswahlzeile dafuer gibt es nicht mehr.
   delete S.nutrition;
+  // Zwei Felder, die die Datei mitschleppte, ohne dass sie irgendwo gezeigt werden:
+  // notes und termine liest keine Zeile dieses Werkzeugs. Was nichts anzeigt, hat in
+  // einer Datei, die aus dem Haus geht, erst recht nichts verloren.
+  delete S.notes; delete S.termine;
 
+  /* Die Stammdaten der Person gehen VOLLSTAENDIG mit - Name, Geburtsdatum, Adresse und
+     die Diagnoseliste (14.08.2026, auf Albrechts Ansage). Sie standen kurzzeitig auf
+     der Streichliste, weil das Werkzeug sie nirgends anzeigt; in einer Datei fuer die
+     Fachperson sind sie aber genau das, was oben hingehoert. Der offene Punkt ist damit
+     kein Loeschthema mehr, sondern ein Anzeigethema: sie fahren mit und werden noch
+     nicht gezeigt. */
   // Ohne den Zusatzschalter werden Pfad und Link nicht nur ausgeblendet, sondern aus
   // den Daten entfernt. Sonst staenden sie im Quelltext der Datei, unsichtbar, aber da.
   if(!opts.docPaths){
@@ -8289,6 +8443,35 @@ function REG(){
 }
 function defVon(key){ return REG().find(x => x.key===key); }
 
+/* ==========================================================================
+   WELCHE KENNZAHL GEHOERT ZU WELCHEM AUSWAHL-BEREICH DES ARZT-EXPORTS
+   (Vorschlag 03, 14.08.2026 - «abgewaehlt heisst geloescht»)
+
+   Der Export leert die Reihen eines abgewaehlten Bereichs. Ohne diese Liste
+   blieben seine Kacheln stehen und saegten «— noch nicht gemessen» - gemessen
+   wurde sehr wohl, es ging nur nicht mit. Eine Kachel, die das behauptet, ist
+   in einem Arztbrief schlimmer als gar keine Kachel.
+
+   Nur hier steht die Zuordnung. Eine Kennzahl ohne Eintrag gehoert zu keinem
+   abwaehlbaren Bereich und bleibt immer stehen.
+   ========================================================================== */
+const KZ_BEREICH = {
+  gewicht:"weight", bmi:"weight", tempo:"weight", tempo_akt:"weight",
+  gw_taille:"weight", gw_ziel1:"weight", thq:"weight",
+  bz:"glucose", bz_nue:"glucose", bz_nach:"glucose", hba1c:"glucose", bz_tage:"glucose",
+  bd:"fitbit", rhr:"fitbit", schlaf:"fitbit", schritte:"fitbit",
+  trinken:"befinden", bf_index:"befinden", bf_beste:"befinden",
+  bf_schwach:"befinden", bf_wochen:"befinden"
+};
+/* Gilt NUR in der eingefrorenen Kopie. Im Werkzeug selbst ist nichts abgewaehlt -
+   dort zeigt eine leere Reihe zu Recht «noch nicht gemessen». */
+function imExport(key){
+  const a = window.__FROZEN && STATE.__export && STATE.__export.areas;
+  if(!a) return true;
+  const b = KZ_BEREICH[key];
+  return !b || a[b] !== false;
+}
+
 /* ============================================================================
    Kachel-Daten – die Zahl, die zweite Zeile, die Vorschau. Aus REG, sonst nichts.
    ========================================================================== */
@@ -8463,7 +8646,7 @@ function kzKarte(d, art){
    zweiten Weg mehr - was REG() nicht kennt, gibt es nicht. */
 window._kzEins = function(key){
   const d = defVon(key);
-  if(!d) return null;
+  if(!d || !imExport(key)) return null;
   const huelle = document.createElement('div');
   huelle.innerHTML = kzKarte(d, 'zeile');
   const karte = huelle.firstElementChild;
@@ -8475,8 +8658,22 @@ function renderKacheln(){
   /* Die Kartenwand zeigt, was fuer sie bestimmt ist. Eine Kennzahl, die nur ueber der
      Buehne eines Fachreiters steht (dash:false), steht im selben Register – aber nicht
      hier. Das Register sagt WAS es gibt, das Feld sagt WO es steht. */
-  const box = elId('kacheln'), defs = REG().filter(d => d.dash !== false);
+  const box = elId('kacheln'), defs = REG().filter(d => d.dash !== false && imExport(d.key));
   const leer = defs.every(d => !d.s.length);
+  /* Die Startkarte lädt zum Verbinden ein. Im Werkzeug ist das richtig - in der
+     Arztkopie ist es falsch: dort gibt es nichts zu verbinden, und die Leere ist
+     keine leere Datenlage, sondern eine Auswahl, die beim Export getroffen wurde.
+     Der Empfänger sah bisher «Erster Start · Willkommen bei MOPP+» und einen Knopf,
+     der ins Nichts führt. (Vorschlag 03, 14.08.2026) */
+  const start = elId('leerAus');
+  if(leer && window.__FROZEN && !start.dataset.kopie){
+    start.dataset.kopie = '1';
+    start.innerHTML =
+      '<div class="karte" style="max-width:520px;padding:30px 32px;display:flex;flex-direction:column;gap:12px">'+
+      '<div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--k-faint);text-transform:uppercase">Diese Kopie</div>'+
+      '<div style="font-size:20px;font-weight:600;letter-spacing:-.02em">Keine Kennzahlen in dieser Auswahl</div>'+
+      '<p style="margin:0;font-size:14.5px;color:var(--k-muted);line-height:1.55">Beim Erstellen dieser Kopie wurde kein Bereich mitgegeben, der eine Kennzahl trägt. Die Werte fehlen nicht – sie wurden bewusst nicht mitgeschickt.</p></div>';
+  }
   elId('leerAus').hidden = !leer;
   box.hidden = leer;
   if(leer){ box.innerHTML = ''; return; }
@@ -8485,40 +8682,10 @@ function renderKacheln(){
   box.querySelectorAll('.kachel').forEach(b => b.addEventListener('click', () => oeffneVoll(b.dataset.key)));
 }
 
-/* ---------- Karte «Deine Woche» – nur Sonntag und Montag ---------- */
-function renderWoche(){
-  const box = elId('wocheKarte'), H = heute(), wd = H.getDay();
-  if(!REG().some(d => d.s.length)){ box.innerHTML = ''; return; }
-  /* Die zuletzt ABGESCHLOSSENE Woche, Montag bis Sonntag. Bis 14.08.2026 stand die
-     Karte nur sonntags und montags - an fuenf von sieben Tagen war oben Leere und das
-     Blatt sah jeden Tag anders aus. Jetzt steht sie immer, und das Datum im Kopf sagt,
-     welche Woche gemeint ist. wd=0 (So) ist die heute zu Ende gegangene Woche, sonst
-     der davorliegende Sonntag. */
-  const ende = wd===0 ? H : new Date(H.getTime()-wd*DAY);
-  const start = new Date(ende.getTime()-6*DAY);
-  const inWoche = s => {
-    const a = s.findIndex(x => x.iso===iso(start));
-    const b = s.findIndex(x => x.iso===iso(ende));
-    if(a<0 && b<0) return { a:null, vor:null, n:0 };
-    const von = a<0 ? 0 : a, bis = (b<0 ? s.length-1 : b)+1;
-    return { a:schnitt(s,von,bis), vor:schnitt(s,von-7,von), n:zaehl(s,von,bis) };
-  };
-  const g = inWoche(serieGewicht()), bz = inWoche(serieBZ('nue')),
-        sc = inWoche(serieFitbit('schritte')), sl = inWoche(serieFitbit('schlaf')),
-        tk = inWoche(serieTrinken());
-  const saetze = [
-    'Gewicht: '+nf(g.a,1)+' kg im Schnitt'+(g.a!==null && g.vor!==null
-      ? ', '+nf(Math.abs(g.a-g.vor),1)+' kg '+(g.a<g.vor?'leichter':'schwerer')+' als in der Vorwoche.' : '.'),
-    'Nüchternwert: '+nf(bz.a,1)+' mmol/l im Schnitt, an '+bz.n+' von sieben Tagen gemessen.',
-    'Bewegung und Schlaf: '+tsd(sc.a===null?null:Math.round(sc.a/100)*100)+' Schritte und '+nf(sl.a,1)+' Stunden im Tagesschnitt.',
-    'Trinken: '+nf(tk.a,1)+' Liter am Tag — die Marke liegt bei 2,0.'
-  ];
-  box.innerHTML = '<div class="karte woche-karte">'+
-    '<div class="woche-kopf"><div class="woche-titel">Deine Woche</div>'+
-    '<div style="font-size:13px;color:var(--k-faint)">'+datK(start)+' – '+datK(ende)+'</div></div>'+
-    '<div class="woche-saetze">'+saetze.map(s => '<div>'+esc(s)+'</div>').join('')+'</div></div>';
-  box.style.marginBottom = '26px';
-}
+/* Die Karte «Deine Woche» stand hier bis zum 14.08.2026 über den Kacheln und fasste
+   fünf Reihen in vier Sätzen zusammen. Auf Albrechts Ansage entfallen - die Kacheln
+   darunter sagen dasselbe, nur genauer und anklickbar. Mit ihr sind renderWoche(),
+   der Behälter #wocheKarte und fünf CSS-Regeln (.woche-*) gefallen. */
 
 /* ============================================================================
    Vollbild – ein Diagramm, ein Satz. Ziehen, Scrollen, Doppelklick.
@@ -8567,7 +8734,7 @@ function renderVoll(){
       (d.kurz ? '<div class="d-kurz" style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--k-faint);margin-top:2px">'+esc(d.kurz)+'</div>' : '')+
       '<div class="d-wert"><b>'+esc(kopfWert)+'</b><span>'+esc(d.einheit)+'</span></div>'+
     '</div><div class="d-kopf-rechts">'+
-      (STR[d.key] ? '<button type="button" class="knopf'+(strOffen(d)?' still':'')+'" id="vollErf">'+(strOffen(d)?'Erfassen schliessen':'Erfassen')+'</button>' : '')+
+      (STR[d.key] && !window.__FROZEN ? '<button type="button" class="knopf'+(strOffen(d)?' still':'')+'" id="vollErf">'+(strOffen(d)?'Erfassen schliessen':'Erfassen')+'</button>' : '')+
       '<button type="button" class="rund" id="vollZu">×</button></div></div>'+
     '<div class="d-koerper'+(strOffen(d)?' mit-erf':'')+'">'+
       '<div class="d-links">'+(d.key==='bz'?bzSchalter():'')+'<div id="buehne" style="width:100%"></div>'+legendeVoll(d)+
@@ -8576,16 +8743,21 @@ function renderVoll(){
     '</div>'+
     '<div class="d-fuss"><div class="d-satz" id="vollSatz">'+esc(d.satz)+'</div>'+
     '<div class="d-hint">Ziehen · Scrollen zum Zoomen · Doppelklick zurück</div></div>'+
-    (d.ziellinie ? zielFormular() : '')+
-    (d.key==='bz' ? refFormular() : '')+
+    /* Zielformular und Referenzformular sind Schreibstellen - beide sagen es selbst
+       («Wird in der Monitoring.json gespeichert») und beide standen bisher auch in der
+       Arztkopie. Dort haben sie nichts verloren. Die Zahlen gehen nicht verloren: die
+       Ziellinie steht im Bild und ihr Satz nennt Tempo und Schwelle im Klartext.
+       (Vorschlag 03, 14.08.2026) */
+    (d.ziellinie && !window.__FROZEN ? zielFormular() : '')+
+    (d.key==='bz' && !window.__FROZEN ? refFormular() : '')+
   '</div></div>';
   elId('vollZu').addEventListener('click', schliesseVoll);
   elId('vollSchirm').addEventListener('click', e => { if(e.target.id==='vollSchirm') schliesseVoll(); });
   const eb = elId('vollErf');
   if(eb) eb.addEventListener('click', () => erfSchalten(d));
   if(strOffen(d)) bindeStreifen(d);
-  if(d.ziellinie) bindeZielFormular();
-  if(d.key==='bz'){ bindeBzSchalter(); bindeRefFormular(); }
+  if(d.ziellinie && !window.__FROZEN) bindeZielFormular();
+  if(d.key==='bz'){ bindeBzSchalter(); if(!window.__FROZEN) bindeRefFormular(); }
   zeichneVoll();
 }
 /* Umschalter im Blutzucker-Modal: Messpunkt und Zeitraum. Beide setzen den Ausschnitt
@@ -8908,8 +9080,17 @@ function zeigeTab(t){
 }
 function renderAlles(){
   const H = heute();
-  elId('heuteText').textContent = WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear();
-  renderWoche();
+  /* Der Kopf trug bis 14.08.2026 nur den Stand der DATEN («MOPP+ | 13.08.2026»). Der ist
+     nicht der heutige Tag - wer beides verwechselt, liest eine drei Tage alte Zahl als
+     heutige. Das Tagesdatum steht darum jetzt als eigene Zeile im Kopf, auf jedem
+     Reiter. In der eingefrorenen Kopie steht dort nicht «heute» - das waere der Tag,
+     an dem die Fachperson die Datei oeffnet, und der sagt ueber die Werte nichts -
+     sondern der Tag, an dem die Kopie entstand. */
+  const mk = STATE.__export && STATE.__export.made;
+  const dEl = elId('heuteText');
+  if(dEl) dEl.textContent = (window.__FROZEN && mk)
+    ? ('Kopie vom '+mk.slice(8)+'.'+mk.slice(5,7)+'.'+mk.slice(0,4))
+    : (WT[H.getDay()]+', '+H.getDate()+'. '+MO[H.getMonth()]+' '+H.getFullYear());
   renderKacheln();
   if(UI.offen) renderVoll();
 }
@@ -8937,7 +9118,14 @@ const STR = {
   schritte: { felder:[{ k:'schritte', e:'', u:'gestern' }], woche:true, wocheU:'Schnitt der Woche' },
   trinken:  { felder:[{ k:'trinken', e:'l', u:'über den Tag' }], woche:true, wocheU:'Schnitt der Woche' }
 };
-function strOffen(d){ return !!(UI.str && d && UI.str.key===d.key); }
+/* Die dritte Schreibstelle. Der Kopfknopf «Erfassen» ist in der Arztkopie ausgeblendet,
+   dieser Weg daneben war es nicht: das Kachel-Modal trug den Knopf weiter, weil seine
+   Sichtbarkeit nur am Formular hing (STR[d.key]) und nicht am Zustand der Datei. In
+   sieben der Modale liess sich damit ein Eingabestreifen aufziehen, dessen Speichern
+   ins Leere lief. Jetzt haengt beides an derselben Bedingung - und strOffen() sagt in
+   der eingefrorenen Kopie IMMER nein, damit auch ein mitgekommener offener Streifen
+   dort nicht aufgeht. (Vorschlag 03, 14.08.2026) */
+function strOffen(d){ return !!(UI.str && d && UI.str.key===d.key && !window.__FROZEN); }
 function strQuotText(){
   const w = (UI.str && UI.str.werte) || {}, t = num(w.taille), h = num(w.huefte);
   return (t>0 && h>0) ? nf(t/h,2) : '—';
@@ -9051,6 +9239,7 @@ function streifenEntwurf(d, S){
    umschalten, die Spalte einsetzen oder entfernen, das Bild neu rechnen. */
 function erfSchalten(d){
   const dlg = elId('vollDialog'), kp = dlg ? dlg.querySelector('.d-koerper') : null;
+  if(window.__FROZEN) return;   // reine Ansicht: kein Streifen, kein Entwurf
   if(!dlg || !kp){ renderVoll(); return; }
   const auf = !strOffen(d);
   UI.str = auf ? { key:d.key, datum:iso(heute()), werte:{}, slot:'nüchtern', modus:'tag', meldung:'' } : null;
