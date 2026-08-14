@@ -639,11 +639,6 @@
 @media (max-width:760px){
   .weltLight .d-koerper.mit-erf{grid-template-columns:minmax(0,1fr)}
 }
-.weltLight .hilfe-dialog{max-width:760px;max-height:calc(100vh - 80px);overflow:auto}
-.weltLight .hilfe-abs{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--k-line2);padding-top:18px}
-.weltLight .hilfe-t{font-size:15px;font-weight:600;letter-spacing:-.015em;margin-bottom:2px}
-.weltLight .hilfe-abs p{margin:0;font-size:14px;color:var(--k-muted);max-width:70ch}
-.weltLight .hilfe-abs b{color:var(--k-text);font-weight:600}
 .weltLight .legende-d{display:flex;flex-wrap:wrap;gap:9px 26px;align-items:center}
 .weltLight .legende-d div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--k-muted)}
 /* Arzt-Export: der Auswahl-Dialog im Werkzeug (der Bericht selbst hat eigene Stile). */
@@ -693,17 +688,17 @@
       <!-- Der Arzt-Export gilt fuer die ganze App und steht darum ausserhalb der
            Weltknoepfe: auf jedem Reiter erreichbar. -->
       <button class="btn" id="exportBtn" aria-label="Für Arzt exportieren" title="Für Arzt exportieren" style="font-size:17px;line-height:1;padding:8px 12px">⇪</button>
-      <!-- Werkzeuge der Welt Light. Sichtbar nur auf ihren Reitern. -->
+      <!-- EINE Leiste fuer die ganze App (14.08.2026). Vorher wechselten die Werkzeuge
+           mit dem Reiter: Erfassen und Hilfe gab es nur auf den Fachreitern, das
+           Dashboard hatte ein eigenes Hilfe-Fenster mit eigenem Text. Jetzt steht auf
+           jedem Reiter dasselbe, und die Hilfe ist ein Fenster. #btnsLight bleibt als
+           Huelle - Datum und Schreibhinweis schreibt die Welt Light hinein. -->
       <span class="welt-btns weltLight" id="btnsLight">
         <span id="heuteText" style="font-size:13.5px;color:var(--k-muted)"></span>
         <span id="schreibHinweis" class="schreibhinweis" hidden></span>
-        <button type="button" class="rund" id="hilfeBtnL" title="Kurze Hilfe" aria-label="Hilfe">?</button>
       </span>
-      <!-- Werkzeuge der Welt Full. Das Erfassen (✎) bleibt unangetastet. -->
-      <span class="welt-btns" id="btnsFull" hidden>
       <button class="btn" id="entryBtn" aria-label="Werte eintragen" title="Werte eintragen" style="font-size:16px;line-height:1;padding:8px 12px">✎</button>
       <button class="btn" id="helpBtn" aria-label="Hilfe">? Hilfe</button>
-      </span>
     </div>
   </header>
 
@@ -723,7 +718,18 @@
     <section id="pAus">
       <div id="wocheKarte"></div>
       <div class="kacheln" id="kacheln"></div>
-      <div class="leerhinweis" id="leerAus" hidden>Noch keine Daten. Oben rechts den <b>Datenspeicher</b> verbinden.</div>
+      <!-- Der leere Zustand beschrieb den Weg nur ("oben rechts den Datenspeicher
+           verbinden") und zeigte auf ein Zahnrad in der Ecke. Seit 14.08.2026 traegt er
+           den Knopf selbst - derselbe Weg wie das Zahnrad, nur sichtbar. -->
+      <div id="leerAus" hidden style="display:flex;justify-content:center;padding:52px 0">
+        <div class="karte" style="max-width:520px;padding:30px 32px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--k-faint);text-transform:uppercase">Erster Start</div>
+          <div style="font-size:20px;font-weight:600;letter-spacing:-.02em">Willkommen bei MOPP+</div>
+          <p style="margin:0;font-size:14.5px;color:var(--k-muted);line-height:1.55">Deine Messwerte liegen in Deinem privaten Datenspeicher. MOPP+ holt sie von dort und schreibt sie dorthin zurück — auf diesem Gerät bleibt nichts ausser dem Zugang.</p>
+          <button type="button" class="knopf" id="startVerbinden" style="align-self:flex-start;margin-top:6px">Datenspeicher verbinden</button>
+          <div style="font-size:12.5px;color:var(--k-faint)">Der Zugang lässt sich jederzeit über das Zahnrad oben wieder trennen.</div>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -915,12 +921,8 @@
     window.__reiter=id;
     panels.forEach(function(p){ p.style.display=(p.id==="p-"+id)?"":"none"; });
     tabs.forEach(function(t){ t.classList.toggle("on",t.dataset.tab===id); });
-    // Zwei Welten unter einer Leiste: die Werkzeuge im Kopf wechseln mit.
-    var istLight=id.indexOf("light")===0;
-    var bL=document.getElementById("btnsLight"), bF=document.getElementById("btnsFull");
-    if(bL) bL.hidden=!istLight;
-    if(bF) bF.hidden=istLight;
-    if(istLight&&window.LIGHT) window.LIGHT.tab("aus");
+    // Eine Leiste fuer alle Reiter - die Werkzeuge wechseln nicht mehr mit.
+    if(id.indexOf("light")===0&&window.LIGHT) window.LIGHT.tab("aus");
     if(typeof CHART!=="undefined") CHART.recheck();
   }
   tabs.forEach(function(t){ t.onclick=function(){ show(t.dataset.tab); }; });
@@ -6883,12 +6885,8 @@ const hot=slotSum.filter(s=>s.st==="warn"||s.st==="high").sort((a,b)=>b.avg-a.av
     window.__reiter=id;
     panels.forEach(p=>p.style.display=(p.id==="p-"+id)?"":"none");
     tabs.forEach(t=>t.classList.toggle("on",t.dataset.tab===id));
-    // Zwei Welten unter einer Leiste: die Werkzeuge im Kopf wechseln mit.
-    var istLight=id.indexOf("light")===0;
-    var bL=document.getElementById("btnsLight"), bF=document.getElementById("btnsFull");
-    if(bL) bL.hidden=!istLight;
-    if(bF) bF.hidden=istLight;
-    if(istLight&&window.LIGHT) window.LIGHT.tab("aus");
+    // Eine Leiste fuer alle Reiter - die Werkzeuge wechseln nicht mehr mit.
+    if(id.indexOf("light")===0&&window.LIGHT) window.LIGHT.tab("aus");
     // Diagramme in einem Reiter werden gezeichnet, WAEHREND der Reiter display:none
     // traegt – widthOf() klettert dann bis .wrap und nimmt 1560 statt 1518 px.
     // recheck() uebersprang sie (offsetParent===null). Jetzt messen wir nach, sobald
@@ -6931,6 +6929,12 @@ document.getElementById("updated").textContent=STATE.updated;
     {h:"Blutzucker · fünf Fragen",t:"Oben die Kennzahlen, darunter ein Bild je Frage – rechts wählen, Klick auf das Bild öffnet es gross mit seinen Bedienelementen. <b>Verlauf</b>: alle Einzelmessungen über die Zeit, mit Zielkorridor. <b>Tagesprofil</b>: nach Tageszeit zusammengefasst – wann kippt es. <b>Verteilung &amp; Messpunkte</b>: Anteile in den vier Bereichen der Arztvorgabe, und an welchen Messpunkten die Werte entstehen. <b>Abdeckung</b>: Messtage und Lücken im Kalender. <b>Uhrzeit</b>: zu welcher Tageszeit gemessen wird. <b>Vorperiode</b>: Vergleich mit der alten Mess-App."},
     {h:"BMI- & Körpermasse-Karten (Tab Gewicht)",t:"Der BMI-Balken zeigt, wo du auf der Skala stehst und wohin die Zielgewichte (100/80 kg) führen. Die Körpermasse-Karte zeigt Brust, Taille, Hüfte und den daraus berechneten THQ."},
     {h:"Akten",t:"Fünf Archive in einem Reiter, links der Inhalt, rechts die Auswahl: <b>Medikation</b> (der Plan, hier bearbeitbar), <b>Kontext</b> (Wochen-Rückblick, Meilensteine), <b>Messwerte</b> (alle Rohdaten als Tabelle), <b>Labor</b> (die Laborblätter) und <b>Krankengeschichte</b> (Diagnosen, Eingriffe, Befunde). Gedruckt stehen alle vier untereinander."},
+    {grp:"Dashboard bedienen"},
+    {h:"Werte eintragen",t:"Auf eine <b>Kachel</b> tippen — das Bild wird gross. Oben rechts steht <b>Erfassen</b>; der Klick stellt eine schmale Spalte rechts neben das Bild. Es gibt keinen zweiten Ort dafür. Das <b>Datum</b> steht auf heute; mit ‹ und › gehst du tageweise zurück, die Zukunft ist gesperrt."},
+    {h:"Tageswert oder Wochenwert",t:"<b>Gewicht, THQ, Blutzucker und Blutdruck sind immer Tageswerte.</b> Bei <b>Schlaf, Schritten und Trinkmenge</b> wählst du oben im Streifen zwischen <b>Tag</b> und <b>Woche</b> — ein Wochenwert ist der Schnitt und sitzt auf dem Montag seiner Woche. Ältere Fitbit-Werte sind solche Wochenschnitte; sie liegen mit den Tageswerten in einer Linie."},
+    {h:"Was beim Speichern passiert",t:"Der getippte Wert erscheint <b>sofort als hohler Kreis</b> im Bild. Abbrechen löscht ihn spurlos, Speichern macht ihn zur gefüllten Raute — und erst dann rechnet der Satz unter dem Bild neu. Beim <b>Blutdruck</b> gehören systolisch und diastolisch zusammen; Puls und Uhrzeit sind freiwillig, mehrere Messungen am selben Tag sind erlaubt. Gespeichert wird direkt in die <b>monitoring.json</b> im verbundenen Repo; ohne Verbindung sagt es der Streifen und bleibt offen, damit nichts verloren geht."},
+    {h:"Diagramme im Vollbild",t:"<b>Ziehen</b> verschiebt den Ausschnitt, <b>Scrollen</b> zoomt, <b>Doppelklick</b> setzt zurück. Es gibt keine Zeitraumknöpfe — der Ausschnitt ist die Bedienung. Unter jedem Bild steht eine <b>Legende</b>; sie nennt nur, was in diesem Bild wirklich vorkommt."},
+    {h:"Die Linien lesen",t:"<b>Gestrichelt heisst: noch nicht passiert.</b> Durchgezogen mit Rauten ist gemessen, lang gestrichelt im Sandton ist das Ziel, fein gepunktet die Vorschau. Davon zu unterscheiden: eine <b>dünn gestrichelte Linie in der Farbe der Reihe</b> ist eine Lücke zwischen zwei Messungen — dort wurde nicht gemessen, die Linie behauptet keinen Wert. Das blasse Band im Hintergrund ist der <b>Zielbereich</b>, die feine waagrechte Linie eine Schwelle."},
     {grp:"Grundprinzip"},
     {h:"Trend statt Einzelwert",t:"Einzelne Tage schwanken immer (Wasser, Salz, Hitze). Entscheidend ist die Richtung über Wochen, nicht der einzelne Punkt. Gewicht wird nur sonntags erfasst, damit das Tagesrauschen gar nicht erst ablenkt."},
   ];
@@ -8383,10 +8387,9 @@ window._erfFenster=_erfFenster;
 } // Ende if(!window.__FROZEN) – Export-Setup nur im echten Tool
 
 </script>
-<!-- Die zwei Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
+<!-- Das Fenster der Welt Light. Am Body-Ende, damit sie ueber allem liegen. -->
 <div class="weltLight" id="lichtFenster">
   <div id="vollModal" hidden></div>
-  <div id="hilfeModal" hidden></div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
@@ -8965,9 +8968,13 @@ function renderKacheln(){
 /* ---------- Karte «Deine Woche» – nur Sonntag und Montag ---------- */
 function renderWoche(){
   const box = el('wocheKarte'), H = heute(), wd = H.getDay();
-  if(!(wd===0 || wd===1) || !REG().some(d => d.s.length)){ box.innerHTML = ''; return; }
-  /* Abgeschlossene Woche Montag bis Sonntag */
-  const ende = wd===0 ? H : new Date(H.getTime()-DAY);
+  if(!REG().some(d => d.s.length)){ box.innerHTML = ''; return; }
+  /* Die zuletzt ABGESCHLOSSENE Woche, Montag bis Sonntag. Bis 14.08.2026 stand die
+     Karte nur sonntags und montags - an fuenf von sieben Tagen war oben Leere und das
+     Blatt sah jeden Tag anders aus. Jetzt steht sie immer, und das Datum im Kopf sagt,
+     welche Woche gemeint ist. wd=0 (So) ist die heute zu Ende gegangene Woche, sonst
+     der davorliegende Sonntag. */
+  const ende = wd===0 ? H : new Date(H.getTime()-wd*DAY);
   const start = new Date(ende.getTime()-6*DAY);
   const inWoche = s => {
     const a = s.findIndex(x => x.iso===iso(start));
@@ -9666,60 +9673,15 @@ function schreibeWoche(moIso, d){
 /* ============================================================================
    Hilfe – zwei Punkte, damit die Frage nicht jedes Mal neu gestellt werden muss.
    ========================================================================== */
-function oeffneHilfe(){ UI.hilfe = true; renderHilfe(); }
-function schliesseHilfe(){ UI.hilfe = false; el('hilfeModal').hidden = true; el('hilfeModal').innerHTML = ''; }
-function renderHilfe(){
-  const m = el('hilfeModal');
-  if(!UI.hilfe){ m.hidden = true; m.innerHTML = ''; return; }
-  m.hidden = false;
-  m.innerHTML = '<div class="schirm" id="hilfeSchirm"><div class="dialog hilfe-dialog">'+
-    '<div class="d-kopf"><div><div class="d-titel">Kurze Hilfe</div>'+
-      '<div style="font-size:22px;font-weight:600;letter-spacing:-.025em;margin-top:4px">Wie das Werkzeug bedient wird</div></div>'+
-      '<button type="button" class="rund" id="hilfeZu">×</button></div>'+
 
-    '<div class="hilfe-abs">'+
-      '<div class="hilfe-t">1 · Werte eintragen</div>'+
-      '<p>Auf eine <b>Kachel</b> tippen — das Bild wird gross. Oben rechts steht <b>Erfassen</b>; '+
-        'der Klick stellt eine schmale Spalte rechts neben das Bild. Es gibt keinen zweiten Ort dafür.</p>'+
-      '<p>Das <b>Datum</b> steht auf heute; mit ‹ und › gehst du tageweise zurück. Die Zukunft ist gesperrt.</p>'+
-      '<p><b>Gewicht, THQ, Blutzucker und Blutdruck sind immer Tageswerte.</b> Bei <b>Schlaf, Schritten '+
-        'und Trinkmenge</b> wählst du oben im Streifen zwischen <b>Tag</b> und <b>Woche</b> — ein Wochenwert '+
-        'ist der Schnitt und sitzt auf dem Montag seiner Woche. Ältere Fitbit-Werte sind solche Wochenschnitte; '+
-        'sie liegen mit den Tageswerten in einer Linie.</p>'+
-      '<p>Der getippte Wert erscheint <b>sofort als hohler Kreis</b> im Bild. Abbrechen löscht ihn spurlos, '+
-        'Speichern macht ihn zur gefüllten Raute — und erst dann rechnet der Satz unter dem Bild neu.</p>'+
-      '<p>Beim <b>Blutdruck</b> gehören systolisch und diastolisch zusammen; Puls und Uhrzeit sind freiwillig. '+
-        'Mehrere Messungen am selben Tag sind erlaubt, jede mit ihrer Uhrzeit.</p>'+
-      '<p>Gespeichert wird direkt in die <b>monitoring.json</b> im verbundenen Repo. Ohne Verbindung sagt es der Streifen '+
-        'und bleibt offen, damit nichts verloren geht.</p>'+
-    '</div>'+
+/* Der Knopf in der Startkarte ist derselbe Weg wie das Zahnrad - eine Bedienstelle,
+   zwei Orte, kein zweiter Ablauf. */
+(function(){ const b = el('startVerbinden'); if(!b) return;
+  b.addEventListener('click', function(){ const c = document.getElementById('connBtn'); if(c) c.click(); }); })();
 
-    '<div class="hilfe-abs">'+
-      '<div class="hilfe-t">2 · Diagramme bedienen</div>'+
-      '<p><b>Ziehen</b> verschiebt den Ausschnitt, <b>Scrollen</b> zoomt, <b>Doppelklick</b> setzt zurück. '+
-        'Es gibt keine Zeitraumknöpfe — der Ausschnitt ist die Bedienung.</p>'+
-      '<p>Unter jedem Bild steht eine <b>Legende</b>. Sie nennt nur, was in diesem Bild wirklich vorkommt.</p>'+
-      '<p><b>Gestrichelt heisst: noch nicht passiert.</b> Durchgezogen mit Rauten ist gemessen. '+
-        'Lang gestrichelt im Sandton ist das Ziel, fein gepunktet die Vorschau.</p>'+
-      '<p>Davon zu unterscheiden: eine <b>dünn gestrichelte Linie in der Farbe der Reihe</b> ist eine Lücke '+
-        'zwischen zwei Messungen — dort wurde nicht gemessen, die Linie behauptet keinen Wert.</p>'+
-      '<p>Das blasse Band im Hintergrund ist der <b>Zielbereich</b>, die feine waagrechte Linie eine Schwelle.</p>'+
-    '</div>'+
-
-    '<div class="d-fuss" style="border-top:1px solid var(--k-line2);padding-top:16px">'+
-      '<div class="d-satz">Oben rechts ausserdem: <b>Medikation</b> für den Medikationsplan und '+
-        '<b>Arzt-Export</b> für den Bericht zur Sprechstunde.</div>'+
-      '<div class="d-hint">Escape schliesst</div></div>'+
-  '</div></div>';
-  el('hilfeZu').addEventListener('click', schliesseHilfe);
-  el('hilfeSchirm').addEventListener('click', e => { if(e.target.id==='hilfeSchirm') schliesseHilfe(); });
-}
-
-el('hilfeBtnL').addEventListener('click', oeffneHilfe);
 document.addEventListener('keydown', e => {
   if(e.key!=='Escape') return;
-  if(UI.hilfe) schliesseHilfe();
-  else if(UI.str) { UI.str = null; renderVoll(); }
+  if(UI.str) { UI.str = null; renderVoll(); }
   else if(UI.offen) schliesseVoll();
 });
 let _rz = null;
