@@ -137,7 +137,7 @@
   .akten-tabelle tr.grp td{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
     color:var(--faint);background:var(--surface2);padding-top:11px;padding-bottom:11px}
   .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:13px;margin-top:16px}
-  .scroll .akten-tabelle{margin:0;min-width:640px}
+  .scroll .akten-tabelle{margin:0;min-width:820px}
   .hoch{color:var(--high)} .tief{color:var(--zweit)} .imsoll{color:var(--good)}
   .ev{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}
   .ev .d{font-family:var(--mono);font-size:12px;color:var(--faint)}
@@ -174,6 +174,40 @@
   .bz-row .w{font-size:16px;font-weight:620}
   .bz-row .r{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
   .docs{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:15px 18px;background:var(--surface2)}
+  /* Merkzettel: EIN schwebendes Element fuer alle Bilder. Der Zustand haengt nicht am
+     UI-Objekt - sonst zeichnete jede Mausbewegung die ganze Seite neu. */
+  .hit{fill:transparent;cursor:crosshair}
+  #tip{position:fixed;z-index:60;pointer-events:none;background:var(--bg);border:1px solid var(--akzent);
+    border-radius:10px;padding:9px 13px;box-shadow:0 8px 24px rgba(0,0,0,.5);white-space:nowrap;display:none}
+  #tip .t-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  #tip .t-wert{font-size:20px;font-weight:640;letter-spacing:-.02em;margin-top:2px}
+  #tip .t-einheit{font-size:12.5px;color:var(--muted);font-weight:400;margin-left:5px}
+  #tip .t-sub{font-size:12px;color:var(--faint);margin-top:1px}
+  #tip .t-notiz{font-size:12.5px;color:var(--warn);margin-top:6px;padding-top:6px;border-top:1px solid var(--line);
+    white-space:normal;max-width:230px;line-height:1.4}
+  .notizpunkt{fill:var(--warn)}
+  /* Erfassen als Kachelwand */
+  .ek{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:18px 20px;cursor:pointer;display:block;width:100%;min-width:0}
+  .ek:hover{border-color:var(--akzent)}
+  .ek.fertig{border-color:var(--zone-kante)}
+  .ek.offen{border-color:var(--akzent);cursor:default}
+  .ek-wert{font-size:30px;font-weight:640;letter-spacing:-.03em;line-height:1}
+  .ek-plus{font-size:30px;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--faint)}
+  .ek-sub{font-size:12.5px;color:var(--faint);margin-top:7px}
+  .kuerzel{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .kz-knopf{border:1px solid var(--line);background:var(--surface2);color:var(--muted);border-radius:9px;
+    padding:0 13px;height:38px;display:flex;align-items:center;font-size:14px;cursor:pointer}
+  .kz-knopf.an{border-color:var(--akzent);background:var(--akzent);color:var(--akzent-fg);font-weight:600}
+  textarea.notiz{width:100%;min-height:58px;font-family:inherit;font-size:15px;background:var(--bg);
+    border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 12px;line-height:1.5;resize:vertical}
+  textarea.notiz:focus{outline:none;border-color:var(--akzent)}
+  .med-z{display:grid;grid-template-columns:1fr 1fr 96px 34px;gap:8px;align-items:center;padding:7px 0;
+    border-bottom:1px solid var(--line2)}
+  .med-z input[type=text]{height:40px;font-size:14.5px}
+  .med-weg{width:34px;height:34px;padding:0;font-size:15px;border:1px solid var(--line);background:var(--surface2);
+    border-radius:9px;color:var(--faint);cursor:pointer}
+  .med-weg:hover{border-color:var(--high);color:var(--high)}
   /* Modale */
   .modal-bg{position:fixed;inset:0;background:rgba(8,10,13,.72);display:flex;align-items:center;
     justify-content:center;padding:24px;z-index:40}
@@ -227,6 +261,7 @@
 </div>
 
 <div id="modale"></div>
+<div id="tip"></div>
 
 <script>
 /* ══ Daten ══════════════════════════════════════════════════════════════════════
@@ -244,7 +279,18 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
 /*STATE-ENDE*/
 
 var UI = { seite:"wand", kz:null, bzView:"verlauf", reihe:"sleep", akte:null, blatt:0, sicht:null, wahl:null,
-  erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:""}], erfMeldung:null };
+  erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:"",note:""}], erfKuerzel:{}, erfMeldung:null,
+  medEdit:false, medListe:null, medKopf:null };
+
+/* Kuerzel: der wiederkehrende Teil einer Notiz als Knopf, der Rest als Freitext. Deine
+   Blutdruck-Notizen zeigen, warum - «Linker Arm | Sitzt» steht vier Mal woertlich gleich
+   da, dahinter jedes Mal etwas anderes. Ein reines Textfeld schlaeft nach zwei Wochen ein. */
+var KUERZEL = {
+  gw:["kein Stuhlgang","salzig gegessen","nach Sport","später als sonst"],
+  bz:["viel Kohlenhydrate","spät gegessen","auswärts","nach Sport","krank"],
+  bd:["Linker Arm, sitzend","nach Kaffee","auf Arbeit","nach dem Heimweg"],
+  bf:["schlecht geschlafen","stressiger Tag","Kopfschmerzen"]
+};
 
 var FROZEN = false;   // wird in der Arztkopie auf true gesetzt
 
@@ -347,19 +393,56 @@ function tage(iso){ return Math.round((heuteMs()-ms(iso))/86400000); }
 function zahl(n,e,m){ return n+" "+(n===1?e:m); }
 function mittel(a){ return a.length ? a.reduce(function(s,x){return s+x;},0)/a.length : null; }
 
+/* ══ Merkzettel-Register ════════════════════════════════════════════════════════
+   Der Inhalt der Merkzettel liegt in einem Register, nicht in HTML-Attributen: eine
+   Notiz kann Anfuehrungszeichen, Zeilenumbrueche und Emoji enthalten, und was in ein
+   Attribut geschrieben und wieder gelesen wird, ist irgendwann kaputt. Das Register
+   wird bei jedem zeichne() geleert - sonst waechst es mit jeder Mausbewegung. */
+var TIPS = {}, TIPN = 0;
+function tipReg(o){ var id = "t"+(++TIPN); TIPS[id] = o; return id; }
+
+/* ══ Blutzucker: drei Messpunkte und zwei Massstaebe ════════════════════════════
+   NORM sind die Werte eines Nicht-Diabetikers - sie stehen als gestrichelte Linie im
+   Bild und sind das ZIEL. STATE.glucose.th sind Deine Therapiegrenzen und entscheiden
+   ueber «im Soll». Beides gleichzeitig, beides beschriftet; wer sie vermischt, macht
+   aus einem erreichten Therapieziel ein Versagen oder umgekehrt.
+   Die drei Messpunkte ersetzen sechs: mit 17/35/42 Werten je Gruppe tragen Quartile
+   etwas, mit 6 und 8 nicht - und die Referenztabelle kennt genau diese Einteilung. */
+var NORM = { pre:5.6, post:7.8 };
+var SLOT3 = [ {k:"nüchtern", t:"pre", lang:"nüchtern", hint:"vor 10 Uhr, nichts gegessen"},
+  {k:"vor Essen", t:"pre", lang:"vor dem Essen", hint:"vor Mittag oder vor Abend"},
+  {k:"nach Essen", t:"post", lang:"nach dem Essen", hint:"ein bis zwei Stunden danach"} ];
+/* Alte Messpunkte auf die drei abbilden. Die Datei bleibt wie sie ist - was einmal als
+   «nach Frühstück» erfasst wurde, heisst dort weiter so; nur die Anzeige fasst zusammen. */
+function slot3(s){
+  s = String(s||"");
+  if(/^nüchtern/i.test(s)) return "nüchtern";
+  if(/^vor/i.test(s)) return "vor Essen";
+  if(/^nach/i.test(s)) return "nach Essen";
+  var ty = (STATE.glucose.slotType||{})[s];
+  return ty==="pre" ? "vor Essen" : "nach Essen";
+}
+function slot3Typ(k){ var f = SLOT3.filter(function(x){ return x.k===k; })[0]; return f?f.t:"post"; }
+function normFuer(slot){ return slot3Typ(slot3(slot))==="pre" ? NORM.pre : NORM.post; }
+
 /* ══ Reihen ═════════════════════════════════════════════════════════════════════
    Eine Rechenstelle je Reihe. Wer eine Zahl braucht, holt sie hier - nicht in der
    Ansicht. Das Register des alten Werkzeugs ist damit auf sechs Reihen geschrumpft. */
 function rGewicht(){ return (STATE.weight.points||[]).filter(function(p){ return !p.hist && p.value!=null; })
-  .map(function(p){ return {iso:p.date, v:+p.value}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
+  .map(function(p){ return {iso:p.date, v:+p.value, note:p.note||null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function rBzAlle(){ var out=[];
   (STATE.glucose.days||[]).forEach(function(d){ (d.rows||[]).forEach(function(r){ (r.values||[]).forEach(function(v){
-    if(v && v.v!=null) out.push({iso:d.iso, slot:r.slot, v:+v.v, t:v.t||null}); }); }); });
+    if(v && v.v!=null) out.push({iso:d.iso, slot:r.slot, g3:slot3(r.slot), v:+v.v, t:v.t||null, note:v.note||null}); }); }); });
   return out.sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
-function rBzTage(){ var m={}; rBzAlle().forEach(function(x){ (m[x.iso]=m[x.iso]||[]).push(x.v); });
-  return Object.keys(m).sort().map(function(iso){ return {iso:iso, v:mittel(m[iso]), n:m[iso].length}; }); }
+function rBzTage(){ var m={}, nz={};
+  rBzAlle().forEach(function(x){ (m[x.iso]=m[x.iso]||[]).push(x.v);
+    if(x.note) (nz[x.iso]=nz[x.iso]||[]).push(x.note); });
+  (STATE.glucose.days||[]).forEach(function(d){ if(d.note) (nz[d.iso]=nz[d.iso]||[]).unshift(d.note); });
+  return Object.keys(m).sort().map(function(iso){ return {iso:iso, v:mittel(m[iso]), n:m[iso].length,
+    note:nz[iso]?nz[iso].join(" · "):null}; }); }
 function rBp(){ return (STATE.bloodpressure.points||[]).filter(function(p){ return p.sys!=null; })
-  .map(function(p){ return {iso:p.iso, v:+p.sys, dia:p.dia!=null?+p.dia:null, pulse:p.pulse!=null?+p.pulse:null, time:p.time||null}; })
+  .map(function(p){ return {iso:p.iso, v:+p.sys, dia:p.dia!=null?+p.dia:null, pulse:p.pulse!=null?+p.pulse:null,
+    time:p.time||null, note:p.note||null}; })
   .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function rFitbit(feld){ var f={sleep:function(w){return w.sleep&&w.sleep.avgH;}, steps:function(w){return w.steps&&w.steps.avg;},
     rhr:function(w){return w.rhr&&w.rhr.avg;}}[feld];
@@ -410,23 +493,44 @@ function stummel(xy){ var a=xy.split(","), x=Math.max(0,+a[0]-1.6);
 
 /* Funkenlinie fuer die Kacheln. Keine Achsen, keine Punkte - dafuer gilt in der Kachel:
    was gestrichelt ist, ist nicht gemessen. */
-function funke(reihe, farbe, w, h){
+function funke(reihe, farbe, w, h, schwellen){
   var v = (reihe||[]).map(function(x){return x.v;});
   if(!v.length) return "";
   w=w||260; h=h||46;
   var mn=Math.min.apply(null,v), mx=Math.max.apply(null,v), sp=(mx-mn)||1, p=3;
   var x0=ms(reihe[0].iso), x1=ms(reihe[reihe.length-1].iso), sx=(x1-x0)||1;
   function XY(r){ return (((ms(r.iso)-x0)/sx)*w).toFixed(1)+","+(p+(1-(r.v-mn)/sp)*(h-2*p)).toFixed(1); }
-  return segmente(reihe, XY).map(function(s){
+  return segmente(reihe, XY, schwellen).map(function(s){
     return '<polyline points="'+s.p+'" fill="none" stroke="'+farbe+'" stroke-width="'+(s.strich?1:1.6)+'"'
       + (s.strich?' stroke-dasharray="'+s.strich+'" opacity=".5"':'') + ' vector-effect="non-scaling-stroke"></polyline>';
   }).join("");
 }
-function funkeSvg(inhalt, w, h){
-  return '<svg viewBox="0 0 '+(w||260)+' '+(h||46)+'" preserveAspectRatio="none" style="width:100%;height:'+(h||46)+'px;display:block;margin-top:12px">'+inhalt+'</svg>';
+/* Trefferflaechen auch in der Kachel: die Funke ist klein, aber der Merkzettel soll
+   ueberall dieselbe Antwort geben. In der Kachel nur beim Ueberfahren - ein Tippen
+   gehoert dort dem Sprung ins Vollbild. */
+function funkeHits(reihe, w, h, opt){
+  opt = opt||{};
+  var pts = (reihe||[]).filter(function(x){ return x && x.v!=null; });
+  if(pts.length<2) return "";
+  var x0=ms(pts[0].iso), x1=ms(pts[pts.length-1].iso), sx=(x1-x0)||1;
+  var xs = pts.map(function(r){ return ((ms(r.iso)-x0)/sx)*w; });
+  return pts.map(function(r,i){
+    var lo = i ? (xs[i]+xs[i-1])/2 : 0, hi = i<pts.length-1 ? (xs[i]+xs[i+1])/2 : w;
+    var id = tipReg({ tag:dmy(r.iso), wert:nf(r.v,opt.dez==null?1:opt.dez), einheit:opt.einheit||"",
+      sub:opt.sub?opt.sub(r):"", notiz:r.note||"" });
+    return '<rect class="hit" data-tip="'+id+'" data-nurhover="1" x="'+lo.toFixed(1)+'" y="0" width="'
+      + Math.max(1,hi-lo).toFixed(1)+'" height="'+h+'"></rect>';
+  }).join("");
+}
+function funkeSvg(inhalt, w, h, hits){
+  return '<svg viewBox="0 0 '+(w||260)+' '+(h||46)+'" preserveAspectRatio="none" style="width:100%;height:'+(h||46)+'px;display:block;margin-top:12px">'+inhalt+(hits||"")+'</svg>';
 }
 
-/* Grosses Diagramm: Achsen, jeder Messpunkt als Raute. Hier darf keine Messung fehlen. */
+/* Grosses Diagramm: Achsen, jeder Messpunkt als Raute. Hier darf keine Messung fehlen.
+   Zwei Ebenen, die verschiedene Fragen beantworten: die FLAECHE (opt.zone) ist der
+   Bereich, in dem ein Wert unbedenklich ist - Flaeche plus beide Kanten, damit der
+   Rand nicht geraten werden muss. Die GESTRICHELTEN Linien (opt.linien) sind der
+   angestrebte Massstab. Die Flaeche sagt «unbedenklich», die Linie sagt «Ziel». */
 function bild(reihen, opt){
   opt = opt||{};
   var L=46,R=690,T=16,B=222, alle=[];
@@ -438,6 +542,7 @@ function bild(reihen, opt){
   var vs=alle.map(function(p){return p.v;});
   var mn=Math.min.apply(null,vs), mx=Math.max.apply(null,vs);
   if(opt.zone){ mn=Math.min(mn,opt.zone[0]); mx=Math.max(mx,opt.zone[1]); }
+  (opt.linien||[]).forEach(function(l){ mn=Math.min(mn,l.v); mx=Math.max(mx,l.v); });
   var pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
   function X(iso){ return L+((ms(iso)-x0)/(x1-x0))*(R-L); }
   function Y(v){ return T+(1-(v-mn)/((mx-mn)||1))*(B-T); }
@@ -445,13 +550,21 @@ function bild(reihen, opt){
   if(opt.zone){
     var yz1=Y(opt.zone[1]), yz2=Y(opt.zone[0]);
     h += '<rect x="'+L+'" y="'+yz1.toFixed(1)+'" width="'+(R-L)+'" height="'+Math.abs(yz2-yz1).toFixed(1)+'" fill="var(--zone)"></rect>'
-      +  '<line x1="'+L+'" y1="'+yz1.toFixed(1)+'" x2="'+R+'" y2="'+yz1.toFixed(1)+'" stroke="var(--zone-kante)" stroke-width="1"></line>';
+      +  '<line x1="'+L+'" y1="'+yz1.toFixed(1)+'" x2="'+R+'" y2="'+yz1.toFixed(1)+'" stroke="var(--zone-kante)" stroke-width="1"></line>'
+      +  '<line x1="'+L+'" y1="'+yz2.toFixed(1)+'" x2="'+R+'" y2="'+yz2.toFixed(1)+'" stroke="var(--zone-kante)" stroke-width="1"></line>';
   }
   for(var i=0;i<=4;i++){
     var v=mn+(mx-mn)*i/4, y=Y(v);
     h += '<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+R+'" y2="'+y.toFixed(1)+'" stroke="var(--grid)" stroke-width="1"></line>'
       +  '<text x="40" y="'+(y+3.5).toFixed(1)+'" text-anchor="end" fill="var(--faint)" font-size="10.5" font-family="var(--mono)">'+nf(v,opt.dez==null?1:opt.dez)+'</text>';
   }
+  (opt.linien||[]).forEach(function(l){
+    var ly=Y(l.v);
+    h += '<line x1="'+L+'" y1="'+ly.toFixed(1)+'" x2="'+R+'" y2="'+ly.toFixed(1)+'" stroke="'+(l.farbe||"var(--warn)")
+      + '" stroke-width="1.4" stroke-dasharray="6 5"'+(l.blass?' opacity=".55"':'')+'></line>'
+      + '<text x="'+(R+5)+'" y="'+(ly+3.5).toFixed(1)+'" fill="'+(l.farbe||"var(--warn)")+'" font-size="10" '
+      + 'font-family="var(--mono)"'+(l.blass?' opacity=".7"':'')+'>'+esc(l.label||nf(l.v,1))+'</text>';
+  });
   var isos=alle.map(function(p){return p.iso;}).sort();
   [0,0.5,1].forEach(function(f){ var iso=isos[Math.round(f*(isos.length-1))];
     h += '<text x="'+X(iso).toFixed(1)+'" y="242" text-anchor="middle" fill="var(--faint)" font-size="10.5" font-family="var(--mono)">'+dm(iso)+'</text>'; });
@@ -466,10 +579,34 @@ function bild(reihen, opt){
     (r.pts||[]).forEach(function(p){ if(p.v==null) return;
       h += '<circle cx="'+X(p.iso).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+(r.r||2.6)+'" fill="'+r.farbe+'"></circle>'; });
   });
+  /* Merkzettel: eine Trefferflaeche je Tag, halber Weg zum Nachbarn. Was der Zettel
+     zeigt, steht in der Reihe selbst - so muss die Ansicht nichts nachschlagen. */
+  var proTag = {};
+  reihen.forEach(function(r){ (r.pts||[]).forEach(function(p){ if(p.v==null) return;
+    (proTag[p.iso]=proTag[p.iso]||[]).push({r:r, p:p}); }); });
+  var tage = Object.keys(proTag).sort();
+  var tx = tage.map(X);
+  var notizen = 0;
+  h += tage.map(function(iso, i){
+    var lo = i ? (tx[i]+tx[i-1])/2 : L, hi = i<tage.length-1 ? (tx[i]+tx[i+1])/2 : R;
+    var eintraege = proTag[iso];
+    var erste = eintraege[0];
+    var sub = eintraege.slice(1).map(function(e){
+      return (e.r.name?e.r.name+" ":"")+nf(e.p.v, e.r.dez==null?(opt.dez==null?1:opt.dez):e.r.dez); }).join(" · ");
+    if(opt.sub) sub = [opt.sub(erste.p), sub].filter(Boolean).join(" · ");
+    var note = eintraege.map(function(e){ return e.p.note||""; }).filter(Boolean).join(" · ");
+    if(note) notizen++;
+    var id = tipReg({ tag:dmy(iso), wert:nf(erste.p.v, erste.r.dez==null?(opt.dez==null?1:opt.dez):erste.r.dez),
+      einheit:opt.einheit||"", sub:sub, notiz:note });
+    return '<rect class="hit" data-tip="'+id+'" x="'+lo.toFixed(1)+'" y="'+T+'" width="'
+      + Math.max(1,hi-lo).toFixed(1)+'" height="'+(B-T)+'"></rect>'
+      + (note ? '<circle class="notizpunkt" cx="'+tx[i].toFixed(1)+'" cy="'+(B+9)+'" r="2.4"></circle>' : "");
+  }).join("");
   var text = opt.text||"";
   if(bruecken) text += " Gestrichelt heisst: dazwischen wurde nicht gemessen.";
   if(volle>1+bruecken) text += " Wo die Linie bricht, fehlt die Messung ganz.";
-  return '<svg viewBox="0 0 700 250" style="width:100%;height:auto;display:block;margin-top:18px">'+h+'</svg>'
+  if(notizen) text += " Der kleine gelbe Punkt unter der Achse heisst: an diesem Tag steht eine Notiz.";
+  return '<svg viewBox="0 0 720 250" style="width:100%;height:auto;display:block;margin-top:18px">'+h+'</svg>'
     + (text?'<div class="bildtext">'+text+'</div>':'');
 }
 
@@ -494,24 +631,28 @@ function KZ(){
   var gL = G.length?G[G.length-1]:null;
 
   return {
-    gewicht:{ key:"gewicht", label:"Gewicht", einheit:"kg", reihe:G, farbe:"var(--good)",
+    gewicht:{ key:"gewicht", label:"Gewicht", einheit:"kg", reihe:G, farbe:"var(--good)", dez:1,
       wert:gL?nf(gL.v,1):"—", zustand:"var(--ink)",
       meta:G.length+" Messungen · "+periode()+" Tage" },
-    bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)",
+    bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
+      sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:nf(bzOe,1), zustand:ampelFarbe(pSoll>=90, pSoll<75),
       unter:"Ø 14 Tage · "+(pSoll!=null?pSoll+" % im Soll":"—"),
       meta:BZ.length+" Messungen · "+BZT.length+" Tage" },
-    bd:{ key:"bd", label:"Blutdruck", einheit:"", reihe:BP, farbe:"var(--akzent)",
+    bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BP, farbe:"var(--akzent)", dez:0,
+      sub:function(p){ return (p.dia!=null?"diastolisch "+Math.round(p.dia):"")
+        + (p.pulse!=null?" · Puls "+Math.round(p.pulse):"") + (p.time?" · "+p.time:""); },
       wert:bpL?(Math.round(bpL.v)+"/"+Math.round(bpL.dia)):"—",
       zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140),
       unter:(bpL?dm(bpL.iso):"—")+(bp7.length?" · Ø 7 Tage "+Math.round(mittel(bp7.map(function(p){return p.v;})))+"/"+Math.round(mittel(bp7.map(function(p){return p.dia;}))):""),
       meta:BP.length+" Messungen · "+bpTageN+" Tage" },
-    schlaf:{ key:"schlaf", label:"Schlaf", einheit:"h", reihe:SL, farbe:"var(--warn)",
+    schlaf:{ key:"schlaf", label:"Schlaf", einheit:"h", reihe:SL, farbe:"var(--warn)", dez:1,
+      sub:function(p){ return p.label?"Woche "+p.label:""; },
       wert:slL?nf(slL.v,1):"—", zustand:ampelFarbe(slL&&slL.v>=7, slL&&slL.v<6),
       unter:(slL?"Woche "+slL.label:"—")+" · Ziel 7 h",
       meta:SL.length+" Wochen · Fitbit" },
-    befinden:{ key:"befinden", label:"Befinden", einheit:"von 5",
-      reihe:BF.map(function(e){ return {iso:e.iso, v:e.idx}; }), farbe:"var(--akzent)",
+    befinden:{ key:"befinden", label:"Befinden", einheit:"von 5", dez:1,
+      reihe:BF.map(function(e){ return {iso:e.iso, v:e.idx, note:e.note||null}; }), farbe:"var(--akzent)",
       wert:bfL?nf(bfL.idx,1):"—", zustand:ampelFarbe(bfL&&bfL.idx>=4, bfL&&bfL.idx<=2),
       meta:BF.length+" volle Einträge" }
   };
@@ -535,7 +676,9 @@ function zeichneStatus(){
 }
 
 function kachelHtml(d, leit){
-  var f = funke(d.reihe, d.farbe, leit?700:260, leit?90:46);
+  var w = leit?700:260, hh = leit?90:46;
+  var f = funke(d.reihe, d.farbe, w, hh);
+  var hits = funkeHits(d.reihe, w, hh, {dez:d.dez, einheit:d.einheit, sub:d.sub});
   var zusatz = "";
   if(leit){
     var G=d.reihe, gL=G[G.length-1], w=STATE.weight||{};
@@ -555,7 +698,7 @@ function kachelHtml(d, leit){
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
     + '<div class="k-unter">'+esc(d.unter||"")+'</div>'
-    + funkeSvg(f, leit?700:260, leit?90:46)
+    + funkeSvg(f, w, hh, hits)
     + (leit?'':'<div class="k-meta">'+esc(d.meta)+'</div>')
     + '</button>';
 }
@@ -588,7 +731,7 @@ function zeichneWand(){
     + '<div class="woche"><div class="k-name">Diese Woche</div>'
     +   wz.map(function(x){ return '<div class="wz"><span>'+esc(x.l)+'</span><b'+(x.f?' style="color:'+x.f+'"':'')+'>'+esc(x.w)+'</b><i>'+esc(x.i)+'</i></div>'; }).join("")
     + '</div>'
-    + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Diagnosen, Rückblick, Rohdaten</div>'
+    + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rückblick, Rohdaten</div>'
     +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
     + '</div>';
 }
@@ -620,7 +763,7 @@ function zeichneVoll(){
       + (t4!=null ? " Das Vier-Wochen-Tempo liegt bei "+vz(t4,2)+" kg je Woche" : "")
       + (t4!=null && rest!=null && t4<0 ? "; bei diesem Tempo sind die "+nf(rest,1)+" kg bis Ziel 1 in gut "
           +Math.round(Math.abs(rest/t4))+" Wochen erreicht. Ein Datum nennt das Werkzeug bewusst nicht." : ".");
-    inhalt = bild([{pts:G, farbe:"var(--good)", r:3}], {dez:1,
+    inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
       text:"Alle "+G.length+" Messpunkte auf echter Zeitachse."
         + (w.goal1!=null ? " Ziel 1 liegt bei "+nf(w.goal1,0)+" kg und damit unter dem Bildausschnitt." : "")});
     neben = [ {l:"BMI", w:nf(bmi,1), u:(w.heightCm||"—")+" cm"},
@@ -633,24 +776,32 @@ function zeichneVoll(){
     var BZ=rBzAlle(), BZT=rBzTage();
     var imSoll = BZ.filter(function(x){ return ty[x.slot]==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
     var pSoll = BZ.length?Math.round(100*imSoll.length/BZ.length):null;
-    var nue = BZ.filter(function(x){ return x.slot==="nüchtern"; });
-    var post = BZ.filter(function(x){ return ty[x.slot]==="post"; });
-    kopfEinheit = "mmol/l · Ø 14 Tage";
-    satz = pSoll+" % der "+BZ.length+" Messungen liegen im Soll ihres Messpunkts — vor dem Essen ≤ "
-      + nf(th.preHigh,1)+", nach dem Essen ≤ "+nf(th.postHigh,1)+" mmol/l. Gemessen an "+BZT.length
-      + " von "+periode()+" Tagen der Beobachtungsperiode.";
+    var unterNorm = BZ.filter(function(x){ return x.v < normFuer(x.slot); });
+    var pNorm = BZ.length?Math.round(100*unterNorm.length/BZ.length):null;
+    var nue = BZ.filter(function(x){ return x.g3==="nüchtern"; });
+    var post = BZ.filter(function(x){ return x.g3==="nach Essen"; });
+    kopfEinheit = "mmol/l · Ø der letzten 14 Messtage";
+    satz = pSoll+" % der "+BZ.length+" Messungen liegen im Soll Deiner Therapiegrenzen — vor dem Essen ≤ "
+      + nf(th.preHigh,1)+", danach ≤ "+nf(th.postHigh,1)+" mmol/l. Die Fläche im Bild ist der Korridor "
+      + nf(th.critLow,1)+" bis "+nf(th.postHigh,1)+", in dem ein Wert unbedenklich ist; die gestrichelten Linien sind der "
+      + "Massstab eines Nicht-Diabetikers — "+nf(NORM.pre,1)+" nüchtern und vor dem Essen, "+nf(NORM.post,1)
+      + " zwei Stunden danach. Gemessen an "+BZT.length+" von "+periode()+" Tagen.";
     schalter = [{k:"verlauf", t:"Verlauf", an:UI.bzView==="verlauf"}, {k:"muster", t:"Tagesmuster", an:UI.bzView==="muster"}];
     inhalt = UI.bzView==="verlauf"
-      ? bild([{pts:BZT, farbe:"var(--akzent)"}], {dez:1, zone:[th.low, th.preHigh],
-          text:"Tagesmittel über alle "+BZT.length+" Messtage; das Band ist der Sollbereich vor dem Essen."})
+      ? bild([{pts:BZT, farbe:"var(--akzent)", name:"Ø"}], {dez:1, einheit:"mmol/l",
+          zone:[th.critLow, th.postHigh],
+          linien:[{v:NORM.pre, label:nf(NORM.pre,1)}, {v:NORM.post, label:nf(NORM.post,1), blass:true}],
+          sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
+          text:"Tagesmittel über alle "+BZT.length+" Messtage. Die Fläche ist der Korridor, die Kanten sind seine Grenzen."})
       : tagesmuster(BZ, th, ty);
     var bl = STATE.glucose.baseline;
-    neben = [ {l:"Nüchtern Ø", w:nf(mittel(nue.map(function(x){return x.v;})),1), u:zahl(nue.length,"Messung","Messungen"),
-        f:mittel(nue.map(function(x){return x.v;}))<=th.preHigh?"var(--good)":"var(--warn)"},
+    neben = [ {l:"nüchtern Ø", w:nf(mittel(nue.map(function(x){return x.v;})),1), u:zahl(nue.length,"Messung","Messungen"),
+        f:mittel(nue.map(function(x){return x.v;}))<NORM.pre?"var(--good)":"var(--warn)"},
       {l:"nach dem Essen Ø", w:nf(mittel(post.map(function(x){return x.v;})),1), u:zahl(post.length,"Messung","Messungen"),
-        f:mittel(post.map(function(x){return x.v;}))<=th.postHigh?"var(--good)":"var(--warn)"},
-      {l:"im Soll", w:pSoll+" %", u:imSoll.length+" von "+BZ.length, f:"var(--good)"},
-      {l:"Vorperiode", w:bl?nf(bl.avg,1):"—", u:bl?"Ø 2025 · heute "+nf(mittel(BZ.map(function(x){return x.v;})),1):"", f:"var(--faint)"} ];
+        f:mittel(post.map(function(x){return x.v;}))<NORM.post?"var(--good)":"var(--warn)"},
+      {l:"im Soll der Therapie", w:pSoll+" %", u:imSoll.length+" von "+BZ.length, f:"var(--good)"},
+      {l:"unter Nicht-Diabetiker", w:pNorm+" %", u:unterNorm.length+" von "+BZ.length,
+        f:pNorm>=70?"var(--good)":"var(--warn)"} ];
   }
 
   if(k==="bd"){
@@ -663,8 +814,11 @@ function zeichneVoll(){
     satz = BP.length+" Messungen an "+tageN+" Tagen, im Schnitt der letzten sieben Tage "
       + Math.round(mittel(bp7.map(function(p){return p.v;})))+"/"+Math.round(mittel(bp7.map(function(p){return p.dia;})))
       + " mmHg. Die obere Linie ist systolisch, die blasse darunter diastolisch.";
-    inhalt = bild([{pts:BP, farbe:"var(--akzent)"},{pts:dia, farbe:"var(--zweit)", dick:1.6, r:2.2}],
-      {dez:0, text:"Jede einzelne Messung an ihrem Tag — an manchen Tagen mehrere."});
+    inhalt = bild([{pts:BP, farbe:"var(--akzent)", name:"systolisch", dez:0},
+        {pts:dia, farbe:"var(--zweit)", dick:1.6, r:2.2, name:"diastolisch", dez:0}],
+      {dez:0, einheit:"mmHg",
+        sub:function(p){ return (p.pulse!=null?"Puls "+Math.round(p.pulse):"")+(p.time?" · "+p.time:""); },
+        text:"Jede einzelne Messung an ihrem Tag — an manchen Tagen mehrere."});
     neben = [ {l:"Ø 7 Tage", w:Math.round(mittel(bp7.map(function(p){return p.v;})))+"/"+Math.round(mittel(bp7.map(function(p){return p.dia;}))), u:zahl(bp7.length,"Messung","Messungen")},
       {l:"Puls Ø", w:puls.length?Math.round(mittel(puls.map(function(p){return p.pulse;}))):"—", u:"/min"},
       {l:"Pulsdruck", w:Math.round(bpL.v-bpL.dia), u:"systolisch minus diastolisch"},
@@ -680,7 +834,9 @@ function zeichneVoll(){
     satz = "Wochenwerte aus Fitbit. "+cfg.r.length+" Wochen tragen einen Wert für "+cfg.t
       + "; Wochen ohne Wert erscheinen nicht — die Linie behauptet dort nichts.";
     schalter = [{k:"sleep",t:"Schlaf",an:UI.reihe==="sleep"},{k:"steps",t:"Schritte",an:UI.reihe==="steps"},{k:"rhr",t:"Ruhepuls",an:UI.reihe==="rhr"}];
-    inhalt = bild([{pts:cfg.r, farbe:cfg.f, r:3}], {dez:cfg.dez, text:"Ein Punkt je Woche, gesetzt auf den Wochenanfang."});
+    inhalt = bild([{pts:cfg.r, farbe:cfg.f, r:3, name:cfg.t, dez:cfg.dez}], {dez:cfg.dez, einheit:cfg.e,
+      sub:function(p){ return p.label?"Woche "+p.label:""; },
+      text:"Ein Punkt je Woche, gesetzt auf den Wochenanfang."});
     neben = [ {l:"Schlaf", w:SL.length?nf(SL[SL.length-1].v,1):"—", u:"h · Ziel 7", f:SL.length&&SL[SL.length-1].v<6?"var(--warn)":null},
       {l:"Schritte", w:ST.length?tsd(ST[ST.length-1].v):"—", u:"je Tag"},
       {l:"Ruhepuls", w:RH.length?Math.round(RH[RH.length-1].v):"—", u:"/min"},
@@ -717,37 +873,46 @@ function zeichneVoll(){
     + '</div>';
 }
 
-/* Tagesmuster: eine Zeile je Messpunkt. Die Achse reicht bis zum hoechsten Sollwert -
-   sonst liegt die Sollkante der Nach-dem-Essen-Zeilen ausserhalb des Bildes. */
-function tagesmuster(BZ, th, ty){
-  var slots = STATE.glucose.slots||[];
+/* Tagesmuster: eine Zeile je Messpunkt — seit dem Umbau drei statt sechs. Der Gewinn ist
+   nicht Kürze, sondern Statistik: mit 17, 35 und 42 Werten tragen Quartile etwas, mit 6
+   und 8 nicht. Die Achse reicht von der Untergrenze des Korridors bis über seine Oberkante,
+   sonst läge die Kante ausserhalb des Bildes. */
+function tagesmuster(BZ, th){
   var v = BZ.map(function(x){return x.v;});
   if(!v.length) return '<div class="bildtext">Noch nicht gemessen.</div>';
-  var mn = Math.min.apply(null,v);
-  var mx = Math.max(Math.max.apply(null,v), th.preHigh||0, th.postHigh||0)+0.5;
-  var sp = (mx-mn)||1;
-  function pc(x){ return ((x-mn)/sp)*100; }
+  var lo = Math.min(th.critLow!=null?th.critLow:3, Math.min.apply(null,v));
+  var hi = Math.max(Math.max.apply(null,v), th.postHigh||10, NORM.post) + 1;
+  var sp = (hi-lo)||1;
+  function pc(x){ return ((x-lo)/sp)*100; }
   function q(a,p){ var s=a.slice().sort(function(x,y){return x-y;}), i=(s.length-1)*p;
     return s[Math.floor(i)]+(s[Math.ceil(i)]-s[Math.floor(i)])*(i-Math.floor(i)); }
-  var h = '<div style="display:flex;flex-direction:column;gap:9px;margin-top:20px">';
-  slots.forEach(function(s){
-    var a = BZ.filter(function(x){ return x.slot===s; }).map(function(x){ return x.v; });
+  var h = '<div style="display:flex;flex-direction:column;gap:20px;margin-top:20px">';
+  SLOT3.forEach(function(g){
+    var a = BZ.filter(function(x){ return x.g3===g.k; }).map(function(x){ return x.v; });
     if(!a.length) return;
-    var soll = ty[s]==="pre" ? th.preHigh : th.postHigh;
-    h += '<div style="display:grid;grid-template-columns:132px 1fr 74px;gap:14px;align-items:center">'
-      + '<div style="font-size:13.5px;color:var(--muted);text-align:right">'+esc(s)+'</div>'
-      + '<div style="position:relative;height:26px;background:var(--surface2);border-radius:6px">'
-      +   '<div style="position:absolute;top:0;bottom:0;left:'+pc(soll).toFixed(1)+'%;right:0;background:rgba(232,115,94,.12);border-left:1px solid rgba(232,115,94,.55)"></div>'
-      +   '<div style="position:absolute;top:11px;height:3px;left:'+pc(Math.min.apply(null,a)).toFixed(1)+'%;width:'+(pc(Math.max.apply(null,a))-pc(Math.min.apply(null,a))).toFixed(1)+'%;background:var(--line)"></div>'
-      +   '<div style="position:absolute;top:5px;height:15px;left:'+pc(q(a,.25)).toFixed(1)+'%;width:'+Math.max(0.8,pc(q(a,.75))-pc(q(a,.25))).toFixed(1)+'%;background:rgba(143,184,232,.22);border-radius:3px"></div>'
-      +   '<div style="position:absolute;top:3px;height:19px;width:2px;left:'+pc(q(a,.5)).toFixed(1)+'%;background:var(--ink)"></div>'
+    var soll = g.t==="pre" ? NORM.pre : NORM.post;
+    var drin = a.filter(function(x){ return x<soll; }).length;
+    var mn=Math.min.apply(null,a), mx=Math.max.apply(null,a), md=q(a,.5);
+    h += '<div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:7px">'
+      + '<div style="font-size:15px;font-weight:620">'+esc(g.lang)+'</div>'
+      + '<div class="mono" style="font-size:11px;color:var(--faint)">'+zahl(a.length,"Wert","Werte")+' · '
+      +   drin+' unter '+nf(soll,1)+'</div></div>'
+      + '<div style="position:relative;height:38px;background:var(--surface2);border-radius:7px">'
+      +   '<div style="position:absolute;top:0;bottom:0;left:'+pc(lo).toFixed(1)+'%;width:'+(pc(th.postHigh||10)-pc(lo)).toFixed(1)+'%;background:var(--zone);border-left:1px solid var(--zone-kante);border-right:1px solid var(--zone-kante)"></div>'
+      +   '<div style="position:absolute;top:0;bottom:0;left:'+pc(soll).toFixed(1)+'%;border-left:1.4px dashed var(--warn)"></div>'
+      +   '<div style="position:absolute;top:17px;height:3px;left:'+pc(mn).toFixed(1)+'%;width:'+Math.max(0.6,pc(mx)-pc(mn)).toFixed(1)+'%;background:var(--faint);border-radius:2px"></div>'
+      +   '<div style="position:absolute;top:9px;height:20px;left:'+pc(q(a,.25)).toFixed(1)+'%;width:'+Math.max(0.8,pc(q(a,.75))-pc(q(a,.25))).toFixed(1)+'%;background:rgba(143,184,232,.28);border-radius:4px"></div>'
+      +   '<div style="position:absolute;top:6px;height:26px;width:2px;left:'+pc(md).toFixed(1)+'%;background:var(--ink)"></div>'
       + '</div>'
-      + '<div class="mono" style="font-size:12px;color:var(--faint)">'+zahl(a.length,"Wert","Werte")+'</div></div>';
+      + '<div style="font-size:12.5px;color:var(--faint);margin-top:6px">'+esc(g.hint)+' · Median '+nf(md,1)
+      +   ' · Spanne '+nf(mn,1)+' bis '+nf(mx,1)+' · gestrichelt '+nf(soll,1)+'</div></div>';
   });
-  h += '<div style="display:grid;grid-template-columns:132px 1fr 74px;gap:14px"><div></div>'
-    + '<div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)">'
-    +   '<span>'+nf(mn,1)+'</span><span>mmol/l</span><span>'+nf(mx,1)+'</span></div><div></div></div></div>'
-    + '<div class="bildtext">Kasten = mittlere Hälfte, Strich = Median, feine Linie = Spanne. Die rote Kante ist der Sollwert dieses Messpunkts.</div>';
+  h += '<div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)">'
+    +   '<span>'+nf(lo,1)+'</span><span>mmol/l</span><span>'+nf(hi,1)+'</span></div></div>'
+    + '<div class="bildtext">Kasten = mittlere Hälfte, heller Strich = Median, feine Linie = Spanne. '
+    + 'Die Fläche ist der Korridor '+nf(lo,1)+' bis '+nf(th.postHigh||10,1)+', die gestrichelte Kante der Massstab eines '
+    + 'Nicht-Diabetikers für diesen Messpunkt. Ältere Messungen aus sechs Messpunkten sind hier zusammengefasst — '
+    + 'die Uhrzeit steht an jeder einzelnen Messung und bleibt erhalten.</div>';
   return h;
 }
 
@@ -795,42 +960,147 @@ function docsAm(docs){
 }
 function docLinks(docs){ return docsAm(docs); }
 
-/* Erst die Kacheln: was liegt hier und wie viel. Kein Inhalt, bevor gewaehlt ist. */
+/* Balken statt Linie: bei einer Akte ist die Frage nicht «welcher Wert», sondern «wie viel
+   liegt in welchem Jahr». Leere Jahre bleiben leer - die Lücke ist die Aussage. */
+function balkenSvg(vals, w, h, farbe, marken){
+  var mx = Math.max.apply(null, vals.concat([1])), n = vals.length, gap = 2;
+  var bw = (w-(n-1)*gap)/n, s = "";
+  vals.forEach(function(v,i){
+    var bh = v ? Math.max(2, v/mx*h) : 0;
+    if(!bh) return;
+    var id = marken ? tipReg(marken(i,v)) : null;
+    s += '<rect x="'+(i*(bw+gap)).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)
+      + '" fill="'+farbe+'" opacity=".72"></rect>';
+    if(id) s += '<rect class="hit" data-tip="'+id+'" data-nurhover="1" x="'+(i*(bw+gap)).toFixed(1)+'" y="0" width="'
+      + bw.toFixed(1)+'" height="'+h+'"></rect>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:'+h+'px;display:block;margin-top:12px">'+s+'</svg>';
+}
+function jahreReihe(isos){
+  var js = isos.map(function(x){ return +String(x||"").slice(0,4); }).filter(function(y){ return y>1900; });
+  if(!js.length) return {von:null, bis:null, vals:[]};
+  var von=Math.min.apply(null,js), bis=Math.max.apply(null,js), vals=[];
+  for(var y=von;y<=bis;y++) vals.push(js.filter(function(x){ return x===y; }).length);
+  return {von:von, bis:bis, vals:vals};
+}
+
+/* Erst die Kachelwand: dieselbe Anatomie wie «Heute» - Zahl, Untertitel, Bild, Fusszeile.
+   Der Untertitel trägt das oberste Blatt, nicht bloss die Anzahl: die Kachel beantwortet
+   damit beides, «wie viel liegt hier» und «muss ich hinein». */
 function aktenUebersicht(){
-  var PA = (STATE.lab.panels||[]), EV = (STATE.history.events||[]);
-  var jahre = PA.map(function(p){ return String(p.date||"").slice(0,4); }).filter(Boolean).sort();
-  var evJ = EV.map(function(e){ return String(e.date||"").slice(0,4); }).filter(Boolean).sort();
-  var meds = (STATE.meds&&STATE.meds.liste)||[], rb = STATE.review||[];
-  var K = [
-    {k:"labor", n:"Labor", z:PA.length+" Blätter",
-      t:((STATE.lab.params)||[]).length+" Parameter, ein Blatt je Termin — mit den Dokumenten daran.",
-      s:jahre.length?jahre[0]+"–"+jahre[jahre.length-1]:""},
-    {k:"history", n:"Krankengeschichte", z:EV.length+" Einträge",
-      t:"Diagnosen, Eingriffe und Befunde, ein Jahr auf einmal.",
-      s:evJ.length?evJ[0]+"–"+evJ[evJ.length-1]:""},
-    {k:"meds", n:"Medikation", z:zahl(meds.length,"Präparat","Präparate"),
-      t:"Der eMediplan als eine Tafel — kurz genug für einen Blick.",
-      s:(STATE.meds&&STATE.meds.stand)?"Stand "+dmy(STATE.meds.stand):""},
-    {k:"review", n:"Rückblick", z:zahl(rb.length,"Woche","Wochen"),
-      t:"Deine Wochennotizen, eine Woche auf einmal statt alle am Stück.",
-      s:rb.length?"seit "+(rb[rb.length-1].kw||""):""},
-    {k:"roh", n:"Rohdaten", z:"alle Messtage",
-      t:"Jeder erfasste Wert als Tabelle, dazu der CSV-Export.",
-      s:"Gewicht · Blutzucker · Blutdruck · Befinden"}
-  ];
-  return '<div class="buehne">'
+  var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var EV = (STATE.history.events||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var P = STATE.lab.params||[], meds = (STATE.meds&&STATE.meds.liste)||[], rb = STATE.review||[];
+  var flagsN = PA.reduce(function(n,p){ return n+Object.keys(p.flags||{}).length; }, 0);
+  var pL = PA.length?PA[PA.length-1]:null;
+  var lj = jahreReihe(PA.map(function(p){ return p.date; }));
+
+  /* HbA1c ist die Reihe, die die Laborakte erzählt - darum steht sie in der Leitkachel. */
+  var hb = PA.filter(function(p){ return p.values && p.values.hba1c!=null; })
+    .map(function(p){ return {iso:p.date, v:+p.values.hba1c}; });
+  var hbF = P.filter(function(x){ return x.key==="hba1c"; })[0];
+
+  var pFlags = pL ? Object.keys(pL.flags||{}) : [];
+  var pNamen = pFlags.map(function(k){ var f=P.filter(function(x){return x.key===k;})[0]; return f?f.label:k; });
+  var labUnter = pL
+    ? "Zuoberst "+dmy(pL.date)+(pL.source?", "+pL.source:"")
+      + (pNamen.length ? " — "+pNamen.slice(0,2).join(" und ")+(pNamen.length>2?" und "+(pNamen.length-2)+" weitere":"")+" markiert" : " — kein Wert markiert")
+    : "Noch kein Laborblatt erfasst.";
+
+  /* Zuoberst heisst: das jüngste VERGANGENE. Ein Termin im September ist Zukunft und
+     kein Befund - er gehört in die Statuszeile, nicht auf das Deckblatt der Akte. */
+  var evVergangen = EV.filter(function(e){ return ms(e.date)<=heuteMs(); });
+  var eL = evVergangen.length?evVergangen[evVergangen.length-1]:null;
+  var ej = jahreReihe(EV.map(function(e){ return e.date; }));
+  var arten = Object.keys(EV.reduce(function(m,e){ if(e.kind) m[e.kind]=1; return m; },{})).length;
+
+  var mStand = STATE.meds&&STATE.meds.stand;
+  var mAlter = mStand ? Math.round(tage(mStand)/30.4) : null;
+  var taeglich = meds.filter(function(m){ return /^\s*\d\s*[–-]/.test(m.dosis||""); }).length;
+  var reserve = meds.filter(function(m){ return /^\s*i\.\s*R\.?/i.test(m.dosis||""); }).length;
+  var sonst = meds.length - taeglich - reserve;
+
+  var rbS = rb.slice().sort(function(a,b){ return (a.weekIso||"")<(b.weekIso||"")?-1:1; });
+  var rL = rbS.length?rbS[rbS.length-1]:null;
+  var sterne = rbS.map(function(r){ return +r.stars||0; });
+  var bewertet = sterne.filter(function(s){ return s>0; }).length;
+
+  var RT = rohTage();
+  var rj = jahreReihe(RT.map(function(z){ return z.iso; }));
+  var heuteZ = RT.filter(function(z){ return z.iso===isoVon(new Date(heuteMs())); })[0];
+  var offen = [];
+  if(heuteZ){ if(heuteZ.bz==null) offen.push("Zucker"); if(!heuteZ.bp) offen.push("Druck"); if(heuteZ.bf==null) offen.push("Befinden"); }
+
+  var h = '<div class="buehne">'
     + '<div class="b-kopf"><div><div class="k-name">Akten</div>'
     +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">Was liegt hier</div></div>'
     + '<button class="btn rund no-print" data-zu="1">×</button></div>'
-    + '<div class="kacheln" style="margin-top:20px">'
-    + K.map(function(x){
-        return '<button class="kachel" data-akte="'+x.k+'" style="background:var(--surface2);border-color:var(--line2)">'
-          + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'
-          +   '<div style="font-size:16.5px;font-weight:620">'+esc(x.n)+'</div>'
-          +   '<div class="mono" style="font-size:11px;color:var(--akzent)">'+esc(x.z)+'</div></div>'
-          + '<div style="font-size:13.5px;color:var(--faint);margin-top:6px">'+esc(x.t)+'</div>'
-          + '<div class="k-meta">'+esc(x.s)+'</div></button>'; }).join("")
-    + '</div></div>';
+    + '<div class="wand" style="margin-top:20px">';
+
+  /* Leitkachel Labor */
+  h += '<button class="kachel leit" data-akte="labor">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">'
+    +   '<div class="k-name">Labor</div>'
+    +   '<div class="k-meta" style="margin:0">'+P.length+' Parameter'+(lj.von?' · '+lj.von+'–'+lj.bis:'')+'</div></div>'
+    + '<div class="k-reihe"><div class="k-zahl">'+PA.length+'</div><div class="k-einheit">Blätter</div>'
+    +   (flagsN?'<div style="font-size:16px;color:var(--warn);font-weight:600;margin-left:6px">'+flagsN+' markierte Werte</div>':'')
+    + '</div>'
+    + '<div class="k-unter">'+esc(labUnter)+'</div>'
+    + (hb.length>1
+        /* In der Akte laeuft die Linie durch: zwischen zwei Laborterminen liegen Jahre, und
+           eine Reihe aus lauter Bruchstuecken erzaehlt nichts. Die Luecke steht in den
+           Jahresbalken der anderen Kacheln, wo sie die Aussage IST. */
+        ? funkeSvg(funke(hb, "var(--akzent)", 700, 90, {voll:1e9, bruecke:1e9}), 700, 90,
+            funkeHits(hb, 700, 90, {dez:1, einheit:hbF?hbF.unit:"%", sub:function(){ return "HbA1c"; }}))
+          + '<div class="bildtext">HbA1c über '+hb.length+' Blätter, '+dmy(hb[0].iso)
+          + ' bis '+dmy(hb[hb.length-1].iso)+' — die Reihe, die diese Akte erzählt.</div>'
+        : '')
+    + '</button>';
+
+  h += '<div class="kacheln">';
+
+  h += '<button class="kachel" data-akte="history">'
+    + '<div class="k-name">Krankengeschichte</div>'
+    + '<div class="k-reihe"><div class="k-zahl">'+EV.length+'</div><div class="k-einheit">Einträge</div></div>'
+    + '<div class="k-unter">'+esc(eL ? "Zuoberst "+dmy(eL.date)+" — «"+(eL.title||"ohne Titel")+"»" : "Noch kein Eintrag.")+'</div>'
+    + (ej.vals.length>1 ? balkenSvg(ej.vals, 260, 46, "var(--akzent)", function(i,v){
+        return {tag:String(ej.von+i), wert:String(v), einheit:v===1?"Eintrag":"Einträge", sub:"", notiz:""}; }) : '')
+    + '<div class="k-meta">'+(ej.von?ej.von+'–'+ej.bis+' · ':'')+zahl(arten,"Art","Arten")+'</div></button>';
+
+  h += '<button class="kachel" data-akte="meds">'
+    + '<div class="k-name">Medikation</div>'
+    + '<div class="k-reihe"><div class="k-zahl">'+meds.length+'</div><div class="k-einheit">Präparate</div></div>'
+    + '<div class="k-unter">'+esc(mStand
+        ? "Plan vom "+dmy(mStand)+" — seit "+mAlter+" Monaten unverändert"
+        : "Kein Stand vermerkt.")+'</div>'
+    + '<div style="height:46px;margin-top:12px;display:flex;align-items:flex-end;gap:5px">'
+    +   [].concat(
+          Array.apply(null,Array(taeglich)).map(function(){ return '<div style="flex:1;height:18px;background:var(--akzent);opacity:.72;border-radius:2px"></div>'; }),
+          Array.apply(null,Array(sonst>0?sonst:0)).map(function(){ return '<div style="flex:1;height:18px;background:var(--zweit);opacity:.5;border-radius:2px"></div>'; }),
+          Array.apply(null,Array(reserve)).map(function(){ return '<div style="flex:1;height:18px;border:1px dashed var(--faint);border-radius:2px"></div>'; })
+        ).join("")
+    + '</div>'
+    + '<div class="k-meta">'+taeglich+' täglich'+(sonst>0?' · '+sonst+' nach Plan':'')+(reserve?' · '+reserve+' in Reserve':'')+'</div></button>';
+
+  h += '<button class="kachel" data-akte="review">'
+    + '<div class="k-name">Rückblick</div>'
+    + '<div class="k-reihe"><div class="k-zahl">'+rb.length+'</div><div class="k-einheit">'+(rb.length===1?"Woche":"Wochen")+'</div></div>'
+    + '<div class="k-unter">'+esc(rL ? "Zuoberst "+(rL.kw||"")+" — «"+(rL.headline||"ohne Titel")+"»" : "Noch kein Rückblick.")+'</div>'
+    + (sterne.length>1 ? balkenSvg(sterne, 260, 46, "var(--akzent)", function(i,v){
+        return {tag:(rbS[i].kw||""), wert:"★".repeat(v), einheit:"", sub:rbS[i].headline||"", notiz:""}; }) : '')
+    + '<div class="k-meta">'+zahl(bewertet,"Woche","Wochen")+' mit Bewertung</div></button>';
+
+  h += '<button class="kachel" data-akte="roh">'
+    + '<div class="k-name">Rohdaten</div>'
+    + '<div class="k-reihe"><div class="k-zahl">'+RT.length+'</div><div class="k-einheit">Messtage</div></div>'
+    + '<div class="k-unter">'+esc(heuteZ
+        ? "Heute "+(heuteZ.gw!=null?nf(heuteZ.gw,1)+" kg":"noch nichts")+(offen.length?" — "+offen.join(", ")+" fehlen noch":" — alles erfasst")
+        : "Heute noch nichts erfasst.")+'</div>'
+    + (rj.vals.length>1 ? balkenSvg(rj.vals, 260, 46, "var(--akzent)", function(i,v){
+        return {tag:String(rj.von+i), wert:String(v), einheit:v===1?"Messtag":"Messtage", sub:"", notiz:""}; }) : '')
+    + '<div class="k-meta">'+(rj.von?'seit '+rj.von+' · ':'')+'CSV-Export</div></button>';
+
+  return h + '</div></div></div>';
 }
 
 /* Der Rahmen: Inhalt links, Auswahl rechts — und rechts stehen die BLÄTTER, nicht die
@@ -949,11 +1219,48 @@ function akteHistory(){
         x===j, 'data-wahl="'+x+'"'); }).join("") });
 }
 
+/* Die Medikation ist die einzige Akte, die sich ändert, ohne dass ein Blatt dazukommt:
+   eine Dosis wird angepasst, ein Präparat abgesetzt. Darum ist sie hier auch schreibbar -
+   auf einer Arbeitskopie, die erst beim Speichern in die Datei geht. Die Arztkopie ist
+   eingefroren und zeigt den Knopf nicht. */
+function medArbeit(){
+  if(!UI.medListe) UI.medListe = JSON.parse(JSON.stringify(((STATE.meds||{}).liste)||[]));
+  if(!UI.medKopf) UI.medKopf = {stand:(STATE.meds||{}).stand||"", quelle:(STATE.meds||{}).quelle||""};
+  return UI.medListe;
+}
 function akteMeds(){
   var M = STATE.meds||{}, L = M.liste||[];
-  if(!L.length) return aktenRahmen({bereich:"Medikation", titel:"Kein Plan erfasst", links:'<p class="satz">Sobald ein eMediplan erfasst ist, steht er hier.</p>'});
+  if(UI.medEdit){
+    var A = medArbeit(), K = UI.medKopf;
+    return aktenRahmen({ bereich:"Medikation", titel:"Plan bearbeiten",
+      untertitel:"Änderungen gehen erst beim Speichern in die Datei.",
+      aktion:'<button class="btn" id="medAbbruch">Abbrechen</button>'
+        + '<button class="btn stark" id="medSpeichern">Speichern</button>',
+      links:'<div class="med-z" style="border-bottom:1px solid var(--line);padding-bottom:9px">'
+        + '<div class="lbl">Präparat</div><div class="lbl">Wirkstoff</div><div class="lbl">M–Mi–A–N</div><div></div></div>'
+        + A.map(function(m,i){
+            return '<div class="med-z">'
+              + '<input type="text" data-med="'+i+'" data-f="name" value="'+esc(m.name||"")+'" placeholder="Name und Stärke">'
+              + '<input type="text" data-med="'+i+'" data-f="wirkstoff" value="'+esc(m.wirkstoff||"")+'" placeholder="Wirkstoff">'
+              + '<input type="text" data-med="'+i+'" data-f="dosis" value="'+esc(m.dosis||"")+'" placeholder="1–0–0–0">'
+              + '<button class="med-weg" data-medweg="'+i+'" title="Präparat entfernen">×</button></div>'
+              + '<div style="padding:0 0 10px"><input type="text" data-med="'+i+'" data-f="verordner" value="'
+              + esc(m.verordner||"")+'" placeholder="verordnet von" style="height:38px;font-size:14px"></div>'; }).join("")
+        + '<button class="btn" id="medPlus" style="margin-top:14px;color:var(--akzent)">+ Präparat</button>'
+        + '<div class="felder" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">'
+        +   '<div class="feld"><div class="lbl">Stand des Plans</div>'
+        +     '<input type="text" data-medkopf="stand" value="'+esc(K.stand||"")+'" placeholder="2026-08-15"></div>'
+        +   '<div class="feld" style="flex:2 1 260px"><div class="lbl">Quelle</div>'
+        +     '<input type="text" data-medkopf="quelle" value="'+esc(K.quelle||"")+'" placeholder="eMediplan, Praxis…"></div>'
+        + '</div>'
+        + '<div class="bildtext">Ein Präparat ohne Namen wird beim Speichern verworfen. «i. R.» steht für «in Reserve».</div>' });
+  }
+  if(!L.length) return aktenRahmen({bereich:"Medikation", titel:"Kein Plan erfasst",
+    aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
+    links:'<p class="satz">Sobald ein eMediplan erfasst ist, steht er hier.</p>'});
   return aktenRahmen({ bereich:"Medikation", titel:zahl(L.length,"Präparat","Präparate"),
     untertitel:(M.stand?"Stand "+dmy(M.stand)+" · ":"")+(M.quelle||""),
+    aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
       + '<th>Präparat</th><th style="text-align:left">Wirkstoff</th><th>M–Mi–A–N</th><th>Verordnung</th>'
       + '</tr></thead><tbody>'
@@ -962,6 +1269,24 @@ function akteMeds(){
           + '<td class="mono" style="color:var(--akzent)">'+esc(m.dosis||"")+'</td>'
           + '<td style="color:var(--faint)">'+esc(m.verordner||"")+'</td></tr>'; }).join("")
       + '</tbody></table></div>' });
+}
+
+async function medSpeichern(){
+  var A = (UI.medListe||[]).filter(function(m){ return String(m.name||"").trim()!==""; });
+  var K = UI.medKopf||{};
+  var N = JSON.parse(JSON.stringify(STATE));
+  N.meds = N.meds||{};
+  N.meds.liste = A;
+  if(String(K.stand||"").trim()) N.meds.stand = String(K.stand).trim();
+  if(String(K.quelle||"").trim()) N.meds.quelle = String(K.quelle).trim();
+  N.updated = dmy(isoVon(new Date(heuteMs())));
+  var ok;
+  try{ ok = await ghSchreiben(N, false); }
+  catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
+  if(ok!==true) return false;
+  UI.medEdit = false; UI.medListe = null; UI.medKopf = null;
+  zustandSetzen(N);
+  return meldung(zahl(A.length,"Präparat","Präparate")+" gespeichert.");
 }
 
 function akteReview(){
@@ -992,11 +1317,13 @@ function akteReview(){
 function rohTage(){
   var T = {};
   function merk(iso){ return T[iso] = T[iso] || {iso:iso}; }
-  rGewicht().forEach(function(x){ merk(x.iso).gw = x.v; });
-  rBzTage().forEach(function(x){ merk(x.iso).bz = x.v; merk(x.iso).bzn = x.n; });
-  rBp().forEach(function(x){ var z=merk(x.iso); (z.bp = z.bp||[]).push(Math.round(x.v)+"/"+Math.round(x.dia)); });
-  rBefinden().forEach(function(x){ merk(x.iso).bf = x.idx; });
-  return Object.keys(T).sort().reverse().map(function(k){ return T[k]; });
+  rGewicht().forEach(function(x){ var z=merk(x.iso); z.gw = x.v; if(x.note) (z.nz=z.nz||[]).push(x.note); });
+  rBzTage().forEach(function(x){ var z=merk(x.iso); z.bz = x.v; z.bzn = x.n; if(x.note) (z.nz=z.nz||[]).push(x.note); });
+  rBp().forEach(function(x){ var z=merk(x.iso); (z.bp = z.bp||[]).push(Math.round(x.v)+"/"+Math.round(x.dia));
+    if(x.note) (z.nz=z.nz||[]).push(x.note); });
+  rBefinden().forEach(function(x){ var z=merk(x.iso); z.bf = x.idx; if(x.note) (z.nz=z.nz||[]).push(x.note); });
+  return Object.keys(T).sort().reverse().map(function(k){ var z=T[k];
+    z.notiz = z.nz ? z.nz.join(" · ") : ""; return z; });
 }
 
 /* CSV, nicht JSON: die Rohdaten sind der Ort, an dem man die Zahlen in etwas anderes
@@ -1004,10 +1331,11 @@ function rohTage(){
    einem deutschen System nicht jede Zahl als Datum liest. */
 function csvExport(){
   var alle = rohTage(), liste = (UI.wahl==="14") ? alle.slice(0,14) : alle;
-  var kopf = ["Tag","Gewicht kg","Blutzucker Mittel","Messungen","Blutdruck","Befinden"];
+  var kopf = ["Tag","Gewicht kg","Blutzucker Mittel","Messungen","Blutdruck","Befinden","Notiz"];
   var zeilen = liste.map(function(z){
     return [z.iso, z.gw!=null?nf(z.gw,1):"", z.bz!=null?nf(z.bz,1):"", z.bzn||"",
-      z.bp?z.bp.join(" "):"", z.bf!=null?nf(z.bf,1):""].join(";"); });
+      z.bp?z.bp.join(" "):"", z.bf!=null?nf(z.bf,1):"",
+      String(z.notiz||"").replace(/[;\r\n]/g," ")].join(";"); });
   var txt = "\ufeff"+kopf.join(";")+"\r\n"+zeilen.join("\r\n")+"\r\n";
   var a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([txt], {type:"text/csv;charset=utf-8"}));
@@ -1018,17 +1346,20 @@ function csvExport(){
 function akteRoh(){
   var alle = rohTage(), nur14 = (UI.wahl==="14"), liste = nur14 ? alle.slice(0,14) : alle;
   return aktenRahmen({ bereich:"Rohdaten", titel:zahl(liste.length,"Messtag","Messtage"),
-    untertitel:"Wochenwerte stehen in ihren Kennzahlen, nicht hier.",
+    untertitel:"Wochenwerte stehen in ihren Kennzahlen, nicht hier. Notizen stehen ganz rechts — vollständig im CSV.",
     aktion:'<button class="btn" id="btnCsv" style="color:var(--akzent)">↓ CSV</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
       + '<th>Tag</th><th>Gewicht kg</th><th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th><th>Befinden</th>'
+      + '<th style="text-align:left">Notiz</th>'
       + '</tr></thead><tbody>'
       + liste.map(function(z){
           return '<tr><td>'+dmy(z.iso)+'</td><td>'+(z.gw!=null?nf(z.gw,1):"·")+'</td>'
             + '<td>'+(z.bz!=null?nf(z.bz,1):"·")+'</td>'
             + '<td style="color:var(--faint)">'+(z.bzn||"·")+'</td>'
             + '<td>'+(z.bp?z.bp.join(" · "):"·")+'</td>'
-            + '<td>'+(z.bf!=null?nf(z.bf,1):"·")+'</td></tr>'; }).join("")
+            + '<td>'+(z.bf!=null?nf(z.bf,1):"·")+'</td>'
+            + '<td style="text-align:left;color:var(--warn);max-width:280px;overflow:hidden;text-overflow:ellipsis" '
+            + 'title="'+esc(z.notiz||"")+'">'+esc(z.notiz||"")+'</td></tr>'; }).join("")
       + '</tbody></table></div>',
     listeKopf:"Ausschnitt",
     liste: lz("Letzte 14 Tage", "14", nur14, 'data-wahl="14"')
@@ -1044,6 +1375,22 @@ function erfHat(reihe){ var iso=erfIso(); return reihe.some(function(x){ return 
 function tv(k){ var v=UI.erfWerte[k]; return v==null?"":String(v); }
 function num(s){ if(s==null) return null; s=String(s).trim().replace(",","."); return s===""?null:(isFinite(+s)?+s:null); }
 
+/* Notiz einer Kachel: Kuerzel und Freitext ergeben EINEN Text. Was gespeichert wird, ist
+   das, was hier herauskommt - es gibt keine zweite Fassung, die auseinanderlaufen koennte. */
+function kuerzelAn(k){ return UI.erfKuerzel[k]||[]; }
+function notizText(k){
+  return [kuerzelAn(k).join(" · "), String(UI.erfWerte["note_"+k]||"").trim()].filter(Boolean).join(" · ");
+}
+function notizBlock(k){
+  return '<div class="lbl" style="margin-top:16px">Notiz</div>'
+    + '<div class="kuerzel">'+(KUERZEL[k]||[]).map(function(x){
+        var an = kuerzelAn(k).indexOf(x)>=0;
+        return '<button class="kz-knopf'+(an?" an":"")+'" data-kuerzel="'+k+'" data-kw="'+esc(x)+'">'+esc(x)+(an?" ✓":"")+'</button>'; }).join("")
+    + '</div>'
+    + '<textarea class="notiz" data-w="note_'+k+'" placeholder="und was Du sonst festhalten willst…" '
+    + 'style="margin-top:9px">'+esc(UI.erfWerte["note_"+k]||"")+'</textarea>';
+}
+
 function zeichneErf(){
   var iso = erfIso(), wt = new Date(iso+"T12:00:00").getDay();
   var TAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
@@ -1051,22 +1398,30 @@ function zeichneErf(){
   var G=rGewicht(), BZT=rBzTage(), BP=rBp(), BF=rBefinden();
   var auf = UI.erfAuf==="auto"
     ? (!erfHat(G)?"gw":(!erfHat(BZT)?"bz":(!erfHat(BP)?"bd":(!erfHat(BF)?"bf":null)))) : UI.erfAuf;
-  var slots = STATE.glucose.slots||[], dims = befDims();
+  var dims = befDims();
   var gE = G.filter(function(x){return x.iso===iso;})[0], bzE = BZT.filter(function(x){return x.iso===iso;})[0];
   var bpT = BP.filter(function(x){return x.iso===iso;}), bfE = BF.filter(function(x){return x.iso===iso;})[0];
-  var bzNeu = slots.filter(function(s,i){ return tv("bz"+i)!==""; }).length;
+  var bzNeu = SLOT3.filter(function(s,i){ return tv("bz"+i)!==""; }).length;
   var bpNeu = UI.erfBp.filter(function(r){ return String(r.sys).trim()!=="" || String(r.dia).trim()!==""; }).length;
   var bfNeu = dims.filter(function(d){ return UI.erfWerte["bf_"+d.key]!=null; }).length;
 
-  function zeile(k, label, fertig, neu, grauText){
-    /* Beides zeigen, wenn es beides gibt: der Entwurf verdeckt sonst den echten Stand -
-       «1 Wert neu» an einem Tag, an dem schon zwei Messungen liegen, ist eine Luecke,
-       die es nicht gibt. */
-    var st = [fertig, neu].filter(Boolean).join(" · ") || grauText || "offen";
-    var f = neu ? "var(--akzent)" : (fertig ? "var(--faint)" : (grauText?"var(--faint)":"var(--warn)"));
-    return '<button class="zeile" data-erf="'+k+'"><b>'+esc(label)+'</b>'
-      + '<span style="display:flex;align-items:center;gap:12px"><span class="st" style="color:'+f+'">'+esc(st)+'</span>'
-      + '<span class="pf">'+(auf===k?"▾":"▸")+'</span></span></button>';
+  /* Eine Kachel traegt den heutigen Stand, nicht bloss ihren Namen: erledigt zeigt den
+     Wert, offen ein Plus. Die offene Kachel waechst an Ort und Stelle auf volle Breite -
+     es bleibt bei einer offenen Kachel, damit der Daumen weiss, wo er ist. */
+  function kachel(k, name, wert, gruen, sub, koerper){
+    if(auf===k) return '<div class="ek offen" style="grid-column:1/-1">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">'
+      +   '<div class="k-name" style="color:var(--akzent)">'+esc(name)+'</div>'
+      +   '<button class="btn" data-erf="'+k+'" style="padding:4px 10px;font-size:13px">zuklappen</button></div>'
+      + koerper + '</div>';
+    return '<button class="ek'+(gruen?" fertig":"")+'" data-erf="'+k+'">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+      +   '<div class="k-name">'+esc(name)+'</div>'+(gruen?'<div style="color:var(--good);font-size:14px">✓</div>':'')+'</div>'
+      + '<div style="display:flex;align-items:baseline;gap:6px;margin-top:8px">'
+      +   (wert ? '<div class="ek-wert"'+(gruen?' style="color:var(--good)"':'')+'>'+esc(wert)+'</div>'
+               : '<div class="ek-plus">+</div><div style="font-size:14px;color:var(--muted)">noch nicht</div>')
+      + '</div>'
+      + '<div class="ek-sub">'+esc(sub||"")+'</div></button>';
   }
   function feld(k, lbl, ph){
     return '<div class="feld"><div class="lbl">'+esc(lbl)+'</div>'
@@ -1076,55 +1431,90 @@ function zeichneErf(){
   var h = '<div class="buehne"><div class="b-kopf"><div>'
     + '<div class="k-name">Erfassen</div>'
     + '<div style="display:flex;align-items:center;gap:10px;margin-top:6px">'
-    +   '<button class="btn" data-tag="-1" style="width:34px;height:34px;padding:0">‹</button>'
+    +   '<button class="btn" data-tag="-1" title="einen Tag nachtragen" style="width:34px;height:34px;padding:0">‹</button>'
     +   '<div style="font-size:22px;font-weight:640;min-width:210px">'+(UI.erfTag===0?"heute · ":"")+dmy(iso)+'</div>'
     +   '<button class="btn" data-tag="1" style="width:34px;height:34px;padding:0'
     +     (UI.erfTag===0?';opacity:.35;cursor:default" disabled':'"')+'>›</button>'
     + '</div></div><button class="btn rund" data-zu="1">×</button></div>'
-    + '<div style="font-size:13.5px;color:var(--faint);margin-top:8px">Offen ist immer nur eine Zeile — von selbst die erste, die an diesem Tag noch fehlt. Die Zukunft ist gesperrt.</div>'
-    + '<div style="display:flex;flex-direction:column;margin-top:22px">'
-    + '<div class="abschnitt erste">Der Tag · '+TAGE[wt]+'</div>';
+    + '<div style="font-size:13.5px;color:var(--faint);margin-top:8px">'
+    +   (UI.erfTag===0
+          ? "Mit ‹ einen Tag zurück, um Vergessenes nachzutragen. Die Zukunft ist gesperrt."
+          : "Du trägst "+TAGE[wt]+", den "+dmy(iso)+" nach — "+zahl(UI.erfTag,"Tag","Tage")+" zurück.")
+    + '</div>'
+    + '<div class="abschnitt erste">Der Tag · '+TAGE[wt]+'</div>'
+    + '<div class="kacheln" style="margin-top:14px">';
 
-  h += zeile("gw","Gewicht", gE?nf(gE.v,1)+" kg":"", tv("gewicht")?tv("gewicht")+" kg neu":"");
-  if(auf==="gw") h += '<div class="koerper" style="display:flex;align-items:center;gap:10px">'
-    + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="112,8" style="width:120px">'
-    + '<div style="font-size:14.5px;color:var(--faint)">kg</div></div>';
+  h += kachel("gw", "Gewicht",
+    tv("gewicht") ? tv("gewicht")+" kg" : (gE?nf(gE.v,1)+" kg":""),
+    !!gE && !tv("gewicht"),
+    gE ? (gE.note||"heute erfasst") : (G.length?"zuletzt "+dmy(G[G.length-1].iso)+" · "+nf(G[G.length-1].v,1)+" kg":""),
+    '<div style="display:flex;align-items:center;gap:10px;margin-top:12px">'
+    + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="112,8" style="width:130px">'
+    + '<div style="font-size:14.5px;color:var(--faint)">kg</div></div>'
+    + notizBlock("gw"));
 
-  h += zeile("bz","Blutzucker", bzE?zahl(bzE.n,"Messung","Messungen"):"", bzNeu?zahl(bzNeu,"Wert neu","Werte neu"):"");
-  if(auf==="bz") h += '<div class="koerper"><div class="felder">'
-    + slots.map(function(s,i){ return feld("bz"+i, s.replace("nach dem ","n. ").replace("nach ","n. ").replace("vor ","v. ")); }).join("")
-    + '</div><div class="bildtext">Leer lassen, wo nicht gemessen wurde.</div></div>';
+  h += kachel("bz", "Blutzucker",
+    bzNeu ? zahl(bzNeu,"Wert","Werte") : (bzE?nf(bzE.v,1):""),
+    !!bzE && !bzNeu,
+    bzE ? zahl(bzE.n,"Messung","Messungen")+" heute" : (BZT.length?"zuletzt "+dmy(BZT[BZT.length-1].iso):""),
+    '<div style="display:flex;flex-direction:column;gap:9px;margin-top:12px">'
+    + SLOT3.map(function(s,i){
+        var v = num(tv("bz"+i)), soll = s.t==="pre"?NORM.pre:NORM.post;
+        return '<div style="display:grid;grid-template-columns:132px 120px 1fr;gap:10px;align-items:center">'
+          + '<div style="font-size:14.5px;color:var(--muted)">'+esc(s.lang)+'</div>'
+          + '<input type="text" inputmode="decimal" data-w="bz'+i+'" value="'+esc(tv("bz"+i))+'" placeholder="mmol/l">'
+          + '<div style="font-size:13px;color:'+(v==null?"var(--faint)":(v<soll?"var(--good)":(v<=(STATE.glucose.th||{}).postHigh?"var(--warn)":"var(--high)")))+'">'
+          +   (v==null ? esc(s.hint) : (v<soll ? "unter "+nf(soll,1)+" — wie ein Nicht-Diabetiker"
+                : (v<=(STATE.glucose.th||{}).postHigh ? "über "+nf(soll,1)+", im Korridor" : "über dem Korridor")))
+          + '</div></div>'; }).join("")
+    + '</div><div class="bildtext">Leer lassen, wo nicht gemessen wurde. Drei Messpunkte statt sechs — die Uhrzeit trägt die Mahlzeit.</div>'
+    + notizBlock("bz"));
 
-  h += zeile("bd","Blutdruck", bpT.length?zahl(bpT.length,"Messung","Messungen"):"", bpNeu?zahl(bpNeu,"Messung neu","Messungen neu"):"");
-  if(auf==="bd") h += '<div class="koerper"><div style="display:flex;flex-direction:column;gap:9px">'
+  h += kachel("bd", "Blutdruck",
+    bpNeu ? zahl(bpNeu,"Messung","Messungen") : (bpT.length?Math.round(bpT[0].v)+"/"+Math.round(bpT[0].dia):""),
+    !!bpT.length && !bpNeu,
+    bpT.length ? zahl(bpT.length,"Messung","Messungen")+" heute"
+      : (BP.length?"zuletzt "+dmy(BP[BP.length-1].iso)+" · "+Math.round(BP[BP.length-1].v)+"/"+Math.round(BP[BP.length-1].dia):""),
+    '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">'
     + UI.erfBp.map(function(r,i){
-        return '<div class="bp-zeile"><div class="lbl">Messung '+(i+1)+'</div>'
+        return '<div><div class="bp-zeile"><div class="lbl">Messung '+(i+1)+'</div>'
           + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="sys" value="'+esc(r.sys)+'" placeholder="sys">'
           + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="dia" value="'+esc(r.dia)+'" placeholder="dia">'
-          + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="puls" value="'+esc(r.puls)+'" placeholder="Puls"></div>'; }).join("")
+          + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="puls" value="'+esc(r.puls)+'" placeholder="Puls"></div>'
+          + '<input type="text" data-bp="'+i+'" data-f="note" value="'+esc(r.note||"")+'" placeholder="Notiz zu dieser Messung" style="margin-top:7px"></div>'; }).join("")
     + '<button class="btn" id="btnBpPlus" style="align-self:flex-start;color:var(--akzent)">+ weitere Messung</button>'
-    + '</div></div>';
+    + '</div>'
+    + '<div class="kuerzel">'+(KUERZEL.bd||[]).map(function(x){
+        var an = kuerzelAn("bd").indexOf(x)>=0;
+        return '<button class="kz-knopf'+(an?" an":"")+'" data-kuerzel="bd" data-kw="'+esc(x)+'">'+esc(x)+(an?" ✓":"")+'</button>'; }).join("")
+    + '</div><div class="bildtext">Gewählte Kürzel stehen vor jeder Notiz dieser Erfassung.</div>');
 
-  h += zeile("bf","Befinden", bfE?"Index "+nf(bfE.idx,1):"", bfNeu?bfNeu+" von "+dims.length:"");
-  if(auf==="bf") h += '<div class="koerper"><div style="display:flex;flex-direction:column;gap:9px">'
+  h += kachel("bf", "Befinden",
+    bfNeu ? bfNeu+" von "+dims.length : (bfE?nf(bfE.idx,1):""),
+    !!bfE && !bfNeu,
+    bfE ? "Index "+nf(bfE.idx,1)+" heute" : zahl(dims.length,"Skala","Skalen"),
+    '<div style="display:flex;flex-direction:column;gap:9px;margin-top:12px">'
     + dims.map(function(d){
         var v = UI.erfWerte["bf_"+d.key];
         return '<div class="bef-zeile"><div style="font-size:14.5px;color:var(--muted)">'+esc(d.label)+'</div>'
           + '<div class="stufen">'+[1,2,3,4,5].map(function(n){
               return '<button class="stufe'+(v===n?" an":"")+'" data-bf="'+d.key+'" data-v="'+n+'">'+n+'</button>'; }).join("")+'</div>'
           + '<div class="anker">'+esc(v&&d.anchors?d.anchors[v-1]:"")+'</div></div>'; }).join("")
-    + '</div><div class="bildtext">Ein Index entsteht nur aus allen '+dims.length+' Skalen.</div></div>';
+    + '</div><div class="bildtext">Ein Index entsteht nur aus allen '+dims.length+' Skalen.</div>'
+    + notizBlock("bf"));
 
-  h += '<div class="abschnitt">'+(wochenende?"Woche zum "+dm(iso)+" · jetzt fällig":"Woche · fällig am Sonntag")+'</div>';
+  h += '</div>';
+
   var wNeu = ["trinken","verdauung","schlaf","schritte","rhr"].filter(function(k){ return UI.erfWerte[k]!=null && String(UI.erfWerte[k]).trim()!==""; }).length;
-  /* «ab Sonntag» nur, solange nichts getippt ist. Sonst leugnet die Zeile einen Wert,
-     den die Fusszeile zaehlt und speichern() schreibt - die Felder sind offen, das
-     Speichern funktioniert, und zwei Anzeigen auf demselben Schirm widersprechen sich. */
-  h += zeile("woche","Trinken, Verdauung, Fitbit", "", wNeu?zahl(wNeu,"Wert neu","Werte neu"):"",
-    (wochenende||wNeu)?"":"ab Sonntag");
-  if(auf==="woche") h += '<div class="koerper">'
-    + (wochenende?"":'<div style="font-size:13.5px;color:var(--faint);margin-bottom:12px">Diese Werte gelten für die ganze Woche, nicht für einen Tag — darum stehen sie sonntags offen.</div>')
-    + '<div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center">'
+  h += '<div class="abschnitt">'+(wochenende?"Woche zum "+dm(iso)+" · jetzt fällig":"Woche · fällig am Sonntag")+'</div>'
+    + '<div class="kacheln" style="margin-top:14px">';
+
+  h += kachel("woche", "Trinken, Verdauung, Fitbit",
+    wNeu ? zahl(wNeu,"Wert","Werte") : "",
+    false,
+    (wochenende||wNeu) ? "Schlaf · Schritte · Ruhepuls · Trinken · Verdauung" : "öffnet am Sonntag",
+    (wochenende?"":'<div style="font-size:13.5px;color:var(--faint);margin-top:12px">Diese Werte gelten für die ganze Woche, nicht für einen Tag — darum stehen sie sonntags offen.</div>')
+    + '<div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin-top:12px">'
     +   '<div style="display:flex;align-items:center;gap:11px"><div style="font-size:14.5px;color:var(--muted)">Trinken Ø 3 l</div>'
     +     '<button class="schieber'+(UI.erfWerte.trinken===1?" an":"")+'" id="btnTrinken"><span class="knopf"></span></button>'
     +     '<div style="font-size:13px;color:var(--faint)">'+(UI.erfWerte.trinken===1?"erreicht":"nicht erreicht")+'</div></div>'
@@ -1133,20 +1523,20 @@ function zeichneErf(){
             return '<button class="stern'+((+UI.erfWerte.verdauung>=n)?" an":"")+'" data-stern="'+n+'">'
               + ((+UI.erfWerte.verdauung>=n)?"★":"☆")+'</button>'; }).join("")+'</div></div>'
     + '</div>'
-    /* Schlaf, Schritte und Ruhepuls sind Wochenwerte und gehören hierher, nicht unter
-       «selten»: Fitbit liefert sie, aber wenn ein Wert fehlt, wird er sonntags nachgetragen. */
     + '<div class="felder" style="margin-top:16px">'
     +   feld("schlaf","Schlaf h")+feld("schritte","Schritte Ø/Tag")+feld("rhr","Ruhepuls")
-    + '</div></div>';
+    + '</div>');
 
-  h += '<div class="abschnitt">Selten · nur bei Bedarf</div>'
-    + zeile("selten","Körpermasse","","","alle vier Wochen");
-  if(auf==="selten") h += '<div class="koerper"><div class="felder">'
+  h += kachel("selten", "Körpermasse", "", false, "alle vier Wochen",
+    '<div class="felder" style="margin-top:12px">'
     + feld("brust","Brust cm")+feld("taille","Taille cm")+feld("huefte","Hüfte cm")
-    + '</div></div>';
+    + '</div>');
 
-  var anzahl = Object.keys(UI.erfWerte).filter(function(k){ return String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu;
-  h += '</div><div class="fuss-erf"><div>'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
+  h += '</div>';
+
+  var anzahl = Object.keys(UI.erfWerte).filter(function(k){
+    return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu;
+  h += '<div class="fuss-erf"><div>'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
     + esc((CFG&&CFG.file)||"monitoring.json")+'</div><div style="display:flex;gap:9px">'
     + '<button class="btn" data-zu="1">Abbrechen</button>'
     + '<button class="btn stark" id="btnSpeichern"'+(anzahl?"":" disabled")+'>Speichern</button></div></div>';
@@ -1188,16 +1578,27 @@ async function speichern(){
   N.digestion = N.digestion||{weeks:[]}; N.digestion.weeks = N.digestion.weeks||[];
   N.fitbit = N.fitbit||{weeks:[]}; N.fitbit.weeks = N.fitbit.weeks||[];
 
-  var g = num(W.gewicht);
-  if(g!=null){ punktSetzen(N.weight.points, "date", iso, {value:g}); geschrieben++; }
+  var g = num(W.gewicht), nGw = notizText("gw");
+  if(g!=null){ punktSetzen(N.weight.points, "date", iso, {value:g, note:nGw||null}); geschrieben++; }
 
-  var slots = N.glucose.slots||[], neueRows = [];
-  slots.forEach(function(s,i){ var v=num(W["bz"+i]); if(v!=null) neueRows.push({slot:s, values:[{v:v}]}); });
+  /* Drei Messpunkte. Die alten Namen bleiben in der Datei stehen - was einmal als
+     «nach Frühstück» erfasst wurde, heisst dort weiter so; nur Neues kommt in die drei.
+     slots und slotType werden mitgeführt, damit die Datei sich selbst erklärt. */
+  N.glucose.slots = N.glucose.slots||[];
+  N.glucose.slotType = N.glucose.slotType||{};
+  SLOT3.forEach(function(s){
+    if(N.glucose.slots.indexOf(s.k)<0) N.glucose.slots.push(s.k);
+    N.glucose.slotType[s.k] = s.t;
+  });
+  var neueRows = [], jetzt = new Date(), zeit = String(jetzt.getHours()).padStart(2,"0")+":"+String(jetzt.getMinutes()).padStart(2,"0");
+  SLOT3.forEach(function(s,i){ var v=num(W["bz"+i]); if(v!=null) neueRows.push({slot:s.k, values:[{v:v, t:zeit}]}); });
+  var nBz = notizText("bz");
   if(neueRows.length){
     var tag = N.glucose.days.filter(function(d){ return d.iso===iso; })[0];
     if(!tag){ tag={iso:iso, date:dm(iso), rows:[]}; N.glucose.days.push(tag);
       N.glucose.days.sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
     tag.rows = tag.rows||[];
+    if(nBz) tag.note = [tag.note, nBz].filter(Boolean).join(" · ");
     neueRows.forEach(function(nr){
       var r = tag.rows.filter(function(x){ return x.slot===nr.slot; })[0];
       if(r){ r.values = (r.values||[]).concat(nr.values); } else { tag.rows.push(nr); }
@@ -1205,6 +1606,7 @@ async function speichern(){
     });
   }
 
+  var nBdKuerzel = kuerzelAn("bd").join(" · ");
   UI.erfBp.forEach(function(r){
     var sys=num(r.sys), dia=num(r.dia);
     if(sys==null || dia==null) return;
@@ -1213,6 +1615,8 @@ async function speichern(){
     if(N.bloodpressure.points.some(function(p){ return p.iso===iso && +p.sys===sys && +p.dia===dia; })) return;
     var p = {iso:iso, sys:sys, dia:dia};
     var pl = num(r.puls); if(pl!=null) p.pulse = pl;
+    var note = [nBdKuerzel, String(r.note||"").trim()].filter(Boolean).join(" · ");
+    if(note) p.note = note;
     N.bloodpressure.points.push(p);
     geschrieben++;
   });
@@ -1220,7 +1624,11 @@ async function speichern(){
 
   var dims = befDims(), bfFelder = {};
   dims.forEach(function(d){ if(W["bf_"+d.key]!=null) bfFelder[d.key] = W["bf_"+d.key]; });
-  if(Object.keys(bfFelder).length){ punktSetzen(N.befinden.entries, "iso", iso, bfFelder); geschrieben++; }
+  var nBf = notizText("bf");
+  if(Object.keys(bfFelder).length){
+    if(nBf) bfFelder.note = nBf;
+    punktSetzen(N.befinden.entries, "iso", iso, bfFelder); geschrieben++;
+  }
 
   var kf = {chest:num(W.brust), waist:num(W.taille), hip:num(W.huefte)};
   if(kf.chest!=null || kf.waist!=null || kf.hip!=null){ punktSetzen(N.body.points, "date", iso, kf); geschrieben++; }
@@ -1243,7 +1651,7 @@ async function speichern(){
   try{ ok = await ghSchreiben(N, false); }
   catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
   if(ok!==true) return false;   // STATE bleibt unangetastet, der Entwurf steht noch da
-  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:""}]; UI.erfAuf = "auto";
+  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}]; UI.erfAuf = "auto"; UI.erfKuerzel = {};
   zustandSetzen(N);
   return meldung(zahl(geschrieben,"Eintrag","Einträge")+" unter dem "+dmy(iso)+" gespeichert.");
 }
@@ -1339,7 +1747,52 @@ function connModal(){
 }
 
 /* ══ Zeichnen und Bedienung ═════════════════════════════════════════════════════ */
+/* Merkzettel. Am Rechner beim Ueberfahren, am Telefon beim Antippen - dort gibt es kein
+   Ueberfahren, und eine Funktion, die genau auf dem Geraet fehlt, an dem man sie am
+   ehesten braucht, ist keine. In der Kachel gilt nur Ueberfahren: das Antippen gehoert
+   dort dem Sprung ins Vollbild. */
+function tipZeigen(id, x, y){
+  var o = TIPS[id], t = document.getElementById("tip");
+  if(!o || !t) return;
+  t.innerHTML = '<div class="t-tag">'+esc(o.tag)+'</div>'
+    + '<div class="t-wert">'+esc(o.wert)+(o.einheit?'<span class="t-einheit">'+esc(o.einheit)+'</span>':'')+'</div>'
+    + (o.sub?'<div class="t-sub">'+esc(o.sub)+'</div>':'')
+    + (o.notiz?'<div class="t-notiz">'+esc(o.notiz)+'</div>':'');
+  t.style.display = "block";
+  tipStellen(x, y);
+}
+/* Der Zettel darf nie verdecken, worueber er spricht: er haelt Abstand und kippt am
+   rechten Rand nach links, am oberen nach unten. */
+function tipStellen(x, y){
+  var t = document.getElementById("tip"); if(!t || t.style.display!=="block") return;
+  var r = t.getBoundingClientRect();
+  var l = x+16, o = y-r.height-16;
+  if(l+r.width > window.innerWidth-8) l = x-r.width-16;
+  if(l < 8) l = 8;
+  if(o < 8) o = y+22;
+  t.style.left = l+"px"; t.style.top = o+"px";
+}
+function tipWeg(){ var t=document.getElementById("tip"); if(t) t.style.display="none"; }
+function hitVon(e){ return (e.target && e.target.closest) ? e.target.closest(".hit") : null; }
+
+document.addEventListener("mouseover", function(e){ var h=hitVon(e); if(h) tipZeigen(h.dataset.tip, e.clientX, e.clientY); });
+document.addEventListener("mousemove", function(e){ var h=hitVon(e); if(h) tipStellen(e.clientX, e.clientY); });
+document.addEventListener("mouseout",  function(e){ if(hitVon(e)) tipWeg(); });
+document.addEventListener("click", function(e){
+  var h = hitVon(e);
+  if(h && !h.dataset.nurhover){
+    var r = h.getBoundingClientRect();
+    tipZeigen(h.dataset.tip, r.left+r.width/2, r.top+Math.min(60, r.height/3));
+    return;
+  }
+  tipWeg();
+});
+window.addEventListener("scroll", tipWeg, {passive:true});
+
 function zeichne(){
+  /* Das Merkzettel-Register gehoert zu DIESEM Bild. Wer es nicht leert, sammelt bei
+     jedem Neuzeichnen Eintraege an, die auf nichts mehr zeigen. */
+  TIPS = {}; TIPN = 0; tipWeg();
   var kopfE = document.getElementById("kopfEyebrow"), kopfZ = document.getElementById("kopfZeile");
   var kopie = FROZEN, stand = STATE.updated||"—";
   kopfE.textContent = kopie ? "Arztkopie · reine Ansicht" : "Monitoring";
@@ -1413,27 +1866,44 @@ document.addEventListener("click", function(e){
   if(t.dataset.kz){ UI.kz = t.dataset.kz; UI.seite = "voll"; zeichne(); window.scrollTo(0,0); return; }
   /* × heisst überall dasselbe: eine Ebene hoch. Im Akten-Detail zurück zu den Kacheln,
      in der Kachelübersicht zurück zu «Heute». */
-  if(t.dataset.zu==="akten"){ UI.akte = null; UI.blatt = 0; UI.sicht = null; UI.wahl = null; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; zeichne(); return; }
+  if(t.dataset.zu==="akten"){ UI.akte = null; UI.blatt = 0; UI.sicht = null; UI.wahl = null;
+    UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; UI.medEdit = false; zeichne(); return; }
   if(t.id==="btnAkten"){ UI.seite = "akten"; UI.akte = null; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.akte){ UI.akte = t.dataset.akte; UI.blatt = 0; UI.sicht = null; UI.wahl = null; zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.akte){ UI.akte = t.dataset.akte; UI.blatt = 0; UI.sicht = null; UI.wahl = null;
+    UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); window.scrollTo(0,0); return; }
   if(t.dataset.blatt!==undefined){ UI.blatt = +t.dataset.blatt; zeichne(); return; }
   if(t.dataset.sicht){ UI.sicht = t.dataset.sicht; UI.wahl = null; zeichne(); return; }
   if(t.dataset.wahl){ UI.wahl = t.dataset.wahl; zeichne(); return; }
   if(t.id==="btnCsv"){ csvExport(); return; }
+
+  /* Medikation bearbeiten. Die Arbeitskopie wird beim Oeffnen gezogen und beim Abbrechen
+     verworfen - STATE bleibt bis zum bestaetigten Schreiben unangetastet. */
+  if(t.id==="medEdit"){ UI.medEdit = true; UI.medListe = null; UI.medKopf = null; UI.erfMeldung = null; zeichne(); return; }
+  if(t.id==="medAbbruch"){ UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); return; }
+  if(t.id==="medPlus"){ medArbeit().push({name:"", wirkstoff:"", dosis:"", verordner:""}); zeichne(); return; }
+  if(t.dataset.medweg!==undefined){ medArbeit().splice(+t.dataset.medweg, 1); zeichne(); return; }
+  if(t.id==="medSpeichern"){ medSpeichern(); return; }
   if(t.dataset.sch){ if(UI.kz==="bz") UI.bzView = t.dataset.sch; else UI.reihe = t.dataset.sch; zeichne(); return; }
   if(t.id==="btnErf" || t.id==="btnErf2"){ UI.seite = "erf"; UI.erfMeldung = null; zeichne(); window.scrollTo(0,0); return; }
 
   /* Der Entwurf gehoert zu EINEM Tag. Wandert er beim Blaettern mit, landet der Wert
      am falschen Datum - darum wird er beim Datumswechsel geleert. */
   if(t.dataset.tag){ UI.erfTag = Math.max(0, UI.erfTag - (+t.dataset.tag));
-    UI.erfAuf="auto"; UI.erfMeldung=null; UI.erfWerte={}; UI.erfBp=[{sys:"",dia:"",puls:""}];
+    UI.erfAuf="auto"; UI.erfMeldung=null; UI.erfWerte={}; UI.erfKuerzel={}; UI.erfBp=[{sys:"",dia:"",puls:"",note:""}];
     zeichne(); return; }
   if(t.dataset.erf){ UI.erfAuf = (UI.erfAuf===t.dataset.erf) ? null : t.dataset.erf; UI.erfMeldung=null; zeichne(); return; }
   if(t.dataset.bf){ UI.erfWerte["bf_"+t.dataset.bf] = +t.dataset.v; UI.erfMeldung=null; zeichne(); return; }
+  if(t.dataset.kuerzel){
+    var kk = t.dataset.kuerzel, kw = t.dataset.kw;
+    var liste = UI.erfKuerzel[kk] = UI.erfKuerzel[kk] || [];
+    var pos = liste.indexOf(kw);
+    if(pos<0) liste.push(kw); else liste.splice(pos,1);
+    UI.erfMeldung = null; zeichne(); return;
+  }
   if(t.dataset.stern){ UI.erfWerte.verdauung = +t.dataset.stern; UI.erfMeldung=null; zeichne(); return; }
   if(t.id==="btnTrinken"){ UI.erfWerte.trinken = (UI.erfWerte.trinken===1?0:1); UI.erfMeldung=null; zeichne(); return; }
-  if(t.id==="btnBpPlus"){ UI.erfBp.push({sys:"",dia:"",puls:""}); zeichne(); return; }
+  if(t.id==="btnBpPlus"){ UI.erfBp.push({sys:"",dia:"",puls:"",note:""}); zeichne(); return; }
   if(t.id==="btnSpeichern"){ speichern(); return; }
 });
 
@@ -1443,6 +1913,10 @@ document.addEventListener("input", function(e){
   var i = e.target;
   if(i.dataset.w){ UI.erfWerte[i.dataset.w] = i.value; return; }
   if(i.dataset.bp!==undefined){ UI.erfBp[+i.dataset.bp][i.dataset.f] = i.value; return; }
+  /* Die Medikationsfelder schreiben in die Arbeitskopie, nicht in STATE - und ohne
+     Neuzeichnen, sonst verliert das Feld bei jedem Zeichen den Fokus. */
+  if(i.dataset.med!==undefined){ medArbeit()[+i.dataset.med][i.dataset.f] = i.value; return; }
+  if(i.dataset.medkopf){ medArbeit(); UI.medKopf[i.dataset.medkopf] = i.value; return; }
 });
 
 /* ══ Start ══════════════════════════════════════════════════════════════════════ */
