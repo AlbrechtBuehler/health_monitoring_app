@@ -175,16 +175,22 @@
   .bz-row .r{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
   .docs{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:15px 18px;background:var(--surface2)}
   /* Merkzettel: EIN schwebendes Element fuer alle Bilder. Der Zustand haengt nicht am
-     UI-Objekt - sonst zeichnete jede Mausbewegung die ganze Seite neu. */
+     UI-Objekt - sonst zeichnete jede Mausbewegung die ganze Seite neu.
+     ZWEI STUFEN (Entscheid Albrecht vom 15.08.2026: «ziemlich ueberbordend, nimmt viel
+     Raum ein»): Ueberfahren zeigt nur Datum, Wert und eine kurze Zeile - erst Anklicken
+     bzw. Antippen klappt die Notiz auf. Eine Karte, die beim blossen Vorbeifahren ein
+     Drittel des Bildes verdeckt, verdeckt das, worueber sie spricht. */
   .hit{fill:transparent;cursor:crosshair}
   #tip{position:fixed;z-index:60;pointer-events:none;background:var(--bg);border:1px solid var(--akzent);
-    border-radius:10px;padding:9px 13px;box-shadow:0 8px 24px rgba(0,0,0,.5);white-space:nowrap;display:none}
+    border-radius:10px;padding:8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.5);display:none;max-width:270px}
   #tip .t-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-  #tip .t-wert{font-size:20px;font-weight:640;letter-spacing:-.02em;margin-top:2px}
+  #tip .t-wert{font-size:19px;font-weight:640;letter-spacing:-.02em;margin-top:1px;white-space:nowrap}
   #tip .t-einheit{font-size:12.5px;color:var(--muted);font-weight:400;margin-left:5px}
-  #tip .t-sub{font-size:12px;color:var(--faint);margin-top:1px}
+  #tip .t-sub{font-size:12px;color:var(--faint);margin-top:2px;line-height:1.35;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #tip .t-wink{font-size:11.5px;color:var(--warn);margin-top:5px;white-space:nowrap}
   #tip .t-notiz{font-size:12.5px;color:var(--warn);margin-top:6px;padding-top:6px;border-top:1px solid var(--line);
-    white-space:normal;max-width:230px;line-height:1.4}
+    line-height:1.4}
   .notizpunkt{fill:var(--warn)}
   /* Erfassen als Kachelwand */
   .ek{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
@@ -580,24 +586,45 @@ function bild(reihen, opt){
       h += '<circle cx="'+X(p.iso).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+(r.r||2.6)+'" fill="'+r.farbe+'"></circle>'; });
   });
   /* Merkzettel: eine Trefferflaeche je Tag, halber Weg zum Nachbarn. Was der Zettel
-     zeigt, steht in der Reihe selbst - so muss die Ansicht nichts nachschlagen. */
+     zeigt, steht in der Reihe selbst - so muss die Ansicht nichts nachschlagen.
+     An einem Tag mit mehreren Messungen wird ZUSAMMENGEFASST, nicht aufgezaehlt: am
+     02.08. lagen sechs Blutdruckmessungen, und zwoelf Einzelwerte in einem Zettel sind
+     keine Antwort, sondern eine Tabelle. */
   var proTag = {};
-  reihen.forEach(function(r){ (r.pts||[]).forEach(function(p){ if(p.v==null) return;
-    (proTag[p.iso]=proTag[p.iso]||[]).push({r:r, p:p}); }); });
+  reihen.forEach(function(r, ri){ (r.pts||[]).forEach(function(p){ if(p.v==null) return;
+    var d = proTag[p.iso] = proTag[p.iso] || {};
+    (d[ri] = d[ri] || {r:r, pts:[]}).pts.push(p); }); });
   var tage = Object.keys(proTag).sort();
   var tx = tage.map(X);
   var notizen = 0;
   h += tage.map(function(iso, i){
     var lo = i ? (tx[i]+tx[i-1])/2 : L, hi = i<tage.length-1 ? (tx[i]+tx[i+1])/2 : R;
-    var eintraege = proTag[iso];
-    var erste = eintraege[0];
-    var sub = eintraege.slice(1).map(function(e){
-      return (e.r.name?e.r.name+" ":"")+nf(e.p.v, e.r.dez==null?(opt.dez==null?1:opt.dez):e.r.dez); }).join(" · ");
-    if(opt.sub) sub = [opt.sub(erste.p), sub].filter(Boolean).join(" · ");
-    var note = eintraege.map(function(e){ return e.p.note||""; }).filter(Boolean).join(" · ");
+    var d = proTag[iso], ks = Object.keys(d).sort();
+    /* Der Durchschnitt ist die Antwort, nicht die Liste. Die Spanne kommt nur dazu, wenn
+       sie etwas sagt - am 02.08. lagen sechs Blutdruckmessungen zwischen 100 und 126,
+       das verschweigt ein Mittelwert. An einem gewoehnlichen Tag steht sie nicht da. */
+    function zeig(g){
+      var vs = g.pts.map(function(x){ return x.v; });
+      var dez = g.r.dez==null ? (opt.dez==null?1:opt.dez) : g.r.dez;
+      var m = mittel(vs);
+      if(vs.length===1) return {txt:nf(m,dez), breit:false};
+      var mn2=Math.min.apply(null,vs), mx2=Math.max.apply(null,vs);
+      var breit = m ? (mx2-mn2)/Math.abs(m) > 0.08 : false;
+      return {txt:(vs.length>1?"Ø ":"")+nf(m,dez), breit:breit,
+        spanne:nf(mn2,dez)+"–"+nf(mx2,dez)};
+    }
+    var erste = d[ks[0]], n = erste.pts.length, e0 = zeig(erste);
+    var teile = [];
+    if(n>1) teile.push(zahl(n,"Messung","Messungen"));
+    else if(opt.sub){ var s0 = opt.sub(erste.pts[0]); if(s0) teile.push(s0); }
+    ks.slice(1).forEach(function(k){ var z=zeig(d[k]);
+      teile.push((d[k].r.name?d[k].r.name+" ":"")+z.txt); });
+    if(e0.breit) teile.push("Spanne "+e0.spanne);
+    var note = ks.reduce(function(a,k){ return a.concat(d[k].pts.map(function(p){ return p.note||""; })); }, [])
+      .filter(Boolean).filter(function(x,ix,arr){ return arr.indexOf(x)===ix; }).join(" · ");
     if(note) notizen++;
-    var id = tipReg({ tag:dmy(iso), wert:nf(erste.p.v, erste.r.dez==null?(opt.dez==null?1:opt.dez):erste.r.dez),
-      einheit:opt.einheit||"", sub:sub, notiz:note });
+    var id = tipReg({ tag:dmy(iso), wert:e0.txt, einheit:opt.einheit||"",
+      sub:teile.join(" · "), notiz:note });
     return '<rect class="hit" data-tip="'+id+'" x="'+lo.toFixed(1)+'" y="'+T+'" width="'
       + Math.max(1,hi-lo).toFixed(1)+'" height="'+(B-T)+'"></rect>'
       + (note ? '<circle class="notizpunkt" cx="'+tx[i].toFixed(1)+'" cy="'+(B+9)+'" r="2.4"></circle>' : "");
@@ -640,8 +667,8 @@ function KZ(){
       unter:"Ø 14 Tage · "+(pSoll!=null?pSoll+" % im Soll":"—"),
       meta:BZ.length+" Messungen · "+BZT.length+" Tage" },
     bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BP, farbe:"var(--akzent)", dez:0,
-      sub:function(p){ return (p.dia!=null?"diastolisch "+Math.round(p.dia):"")
-        + (p.pulse!=null?" · Puls "+Math.round(p.pulse):"") + (p.time?" · "+p.time:""); },
+      sub:function(p){ return [p.dia!=null?"diastolisch "+Math.round(p.dia):"",
+        p.pulse!=null?"Puls "+Math.round(p.pulse):"", p.time||""].filter(Boolean).join(" · "); },
       wert:bpL?(Math.round(bpL.v)+"/"+Math.round(bpL.dia)):"—",
       zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140),
       unter:(bpL?dm(bpL.iso):"—")+(bp7.length?" · Ø 7 Tage "+Math.round(mittel(bp7.map(function(p){return p.v;})))+"/"+Math.round(mittel(bp7.map(function(p){return p.dia;}))):""),
@@ -817,7 +844,7 @@ function zeichneVoll(){
     inhalt = bild([{pts:BP, farbe:"var(--akzent)", name:"systolisch", dez:0},
         {pts:dia, farbe:"var(--zweit)", dick:1.6, r:2.2, name:"diastolisch", dez:0}],
       {dez:0, einheit:"mmHg",
-        sub:function(p){ return (p.pulse!=null?"Puls "+Math.round(p.pulse):"")+(p.time?" · "+p.time:""); },
+        sub:function(p){ return [p.pulse!=null?"Puls "+Math.round(p.pulse):"", p.time||""].filter(Boolean).join(" · "); },
         text:"Jede einzelne Messung an ihrem Tag — an manchen Tagen mehrere."});
     neben = [ {l:"Ø 7 Tage", w:Math.round(mittel(bp7.map(function(p){return p.v;})))+"/"+Math.round(mittel(bp7.map(function(p){return p.dia;}))), u:zahl(bp7.length,"Messung","Messungen")},
       {l:"Puls Ø", w:puls.length?Math.round(mittel(puls.map(function(p){return p.pulse;}))):"—", u:"/min"},
@@ -1750,14 +1777,19 @@ function connModal(){
 /* Merkzettel. Am Rechner beim Ueberfahren, am Telefon beim Antippen - dort gibt es kein
    Ueberfahren, und eine Funktion, die genau auf dem Geraet fehlt, an dem man sie am
    ehesten braucht, ist keine. In der Kachel gilt nur Ueberfahren: das Antippen gehoert
-   dort dem Sprung ins Vollbild. */
-function tipZeigen(id, x, y){
+   dort dem Sprung ins Vollbild.
+   Zwei Stufen: `voll` schaltet die Notiz zu. Ohne sie bleibt die Karte klein genug, um
+   nicht zu verdecken, worueber sie spricht. */
+function tipZeigen(id, x, y, voll){
   var o = TIPS[id], t = document.getElementById("tip");
   if(!o || !t) return;
   t.innerHTML = '<div class="t-tag">'+esc(o.tag)+'</div>'
     + '<div class="t-wert">'+esc(o.wert)+(o.einheit?'<span class="t-einheit">'+esc(o.einheit)+'</span>':'')+'</div>'
     + (o.sub?'<div class="t-sub">'+esc(o.sub)+'</div>':'')
-    + (o.notiz?'<div class="t-notiz">'+esc(o.notiz)+'</div>':'');
+    + (o.notiz
+        ? (voll ? '<div class="t-notiz">'+esc(o.notiz)+'</div>'
+                : '<div class="t-wink">✎ Notiz — anklicken</div>')
+        : '');
   t.style.display = "block";
   tipStellen(x, y);
 }
@@ -1775,14 +1807,14 @@ function tipStellen(x, y){
 function tipWeg(){ var t=document.getElementById("tip"); if(t) t.style.display="none"; }
 function hitVon(e){ return (e.target && e.target.closest) ? e.target.closest(".hit") : null; }
 
-document.addEventListener("mouseover", function(e){ var h=hitVon(e); if(h) tipZeigen(h.dataset.tip, e.clientX, e.clientY); });
+document.addEventListener("mouseover", function(e){ var h=hitVon(e); if(h) tipZeigen(h.dataset.tip, e.clientX, e.clientY, false); });
 document.addEventListener("mousemove", function(e){ var h=hitVon(e); if(h) tipStellen(e.clientX, e.clientY); });
 document.addEventListener("mouseout",  function(e){ if(hitVon(e)) tipWeg(); });
 document.addEventListener("click", function(e){
   var h = hitVon(e);
   if(h && !h.dataset.nurhover){
     var r = h.getBoundingClientRect();
-    tipZeigen(h.dataset.tip, r.left+r.width/2, r.top+Math.min(60, r.height/3));
+    tipZeigen(h.dataset.tip, r.left+r.width/2, r.top+Math.min(60, r.height/3), true);
     return;
   }
   tipWeg();
