@@ -154,6 +154,26 @@
   .rb h4{margin:4px 0 8px;font-size:16px;font-weight:620}
   .rb .txt{font-size:14px;color:var(--muted)}
   .rb .txt b{color:var(--ink)} .rb .txt ul{margin:6px 0;padding-left:20px}
+  .ts{display:flex;flex-wrap:wrap;gap:24px;margin-top:20px;align-items:flex-start}
+  .ts-links{flex:1 1 420px;min-width:0}
+  .ts-rechts{flex:1 1 240px;max-width:300px;min-width:0}
+  .liste-kopf{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--faint);padding-bottom:9px;border-bottom:1px solid var(--line)}
+  .liste-roll{max-height:560px;overflow-y:auto}
+  .lz{display:flex;justify-content:space-between;align-items:baseline;gap:10px;width:100%;text-align:left;
+    background:none;border:none;border-bottom:1px solid var(--line2);border-left:2px solid transparent;
+    padding:11px 12px;cursor:pointer;font-size:14px;color:var(--muted)}
+  .lz:hover{background:var(--surface2)}
+  .lz.an{background:var(--surface2);border-left-color:var(--akzent);color:var(--ink)}
+  .lz i{font-family:var(--mono);font-size:10.5px;color:var(--faint);flex:0 0 auto;font-style:normal}
+  .blatt{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:13px;overflow:hidden}
+  .bz-row{display:grid;grid-template-columns:1fr auto 92px;gap:12px;align-items:baseline;padding:11px 16px;
+    border-bottom:1px solid var(--line2)}
+  .bz-row.grp{background:var(--surface2);font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint)}
+  .bz-row .w{font-size:16px;font-weight:620}
+  .bz-row .r{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
+  .docs{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:15px 18px;background:var(--surface2)}
   /* Modale */
   .modal-bg{position:fixed;inset:0;background:rgba(8,10,13,.72);display:flex;align-items:center;
     justify-content:center;padding:24px;z-index:40}
@@ -223,7 +243,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
   history:{events:[]}, meds:{liste:[]}, review:[], termine:[] };
 /*STATE-ENDE*/
 
-var UI = { seite:"wand", kz:null, bzView:"verlauf", reihe:"sleep", akte:"labor",
+var UI = { seite:"wand", kz:null, bzView:"verlauf", reihe:"sleep", akte:null, blatt:0, sicht:null, wahl:null,
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:""}], erfMeldung:null };
 
 var FROZEN = false;   // wird in der Arztkopie auf true gesetzt
@@ -364,13 +384,14 @@ function periode(){ return (STATE.domain&&STATE.domain.from) ? tage(STATE.domain
    Absicht: der blosse Median bestraft jeden Kadenzwechsel - als im Juni wochentlich
    und im August taeglich gewogen wurde, sank er auf drei Tage und machte die voellig
    regelmaessige Wochenwaegung nachtraeglich zur Luecke. */
-function segmente(reihe, XY){
+function segmente(reihe, XY, schwellen){
   var pts = (reihe||[]).filter(function(x){ return x && x.v!=null; });
   if(!pts.length) return [];
   if(pts.length===1) return [{p:stummel(XY(pts[0])), strich:null}];
   var iv=[]; for(var i=1;i<pts.length;i++) iv.push((ms(pts[i].iso)-ms(pts[i-1].iso))/86400000);
   var s = iv.slice().sort(function(a,b){return a-b;}), med = s[Math.floor(s.length/2)]||1;
-  var voll = Math.max(8, 2*med), bruecke = Math.max(15, 4*med);
+  var voll = (schwellen&&schwellen.voll) || Math.max(8, 2*med);
+  var bruecke = (schwellen&&schwellen.bruecke) || Math.max(15, 4*med);
   var out=[], enden={}, lauf=[XY(pts[0])];
   function schliesse(){ if(lauf.length>1) out.push({p:lauf.join(" "), strich:null});
     else if(lauf.length===1) out.push({p:stummel(lauf[0]), strich:null, allein:lauf[0]}); }
@@ -437,7 +458,7 @@ function bild(reihen, opt){
   var bruecken=0, volle=0;
   reihen.forEach(function(r){
     function XY(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }
-    segmente(r.pts, XY).forEach(function(s){
+    segmente(r.pts, XY, opt.schwellen).forEach(function(s){
       if(s.strich) bruecken++; else volle++;
       h += '<polyline points="'+s.p+'" fill="none" stroke="'+r.farbe+'" stroke-width="'+(s.strich?1.2:(r.dick||2))+'"'
         + (s.strich?' stroke-dasharray="'+s.strich+'"':'') + ' stroke-linejoin="round"></polyline>';
@@ -752,140 +773,266 @@ function wochentafel(BF, dims){
    Hier ist Vollstaendigkeit der Zweck. Sechs Abschnitte, links der Inhalt, rechts
    die Auswahl - man geht selten hin und liest dann lange. */
 var AKTEN = [ {k:"labor",t:"Labor"}, {k:"history",t:"Krankengeschichte"}, {k:"meds",t:"Medikation"},
-  {k:"diag",t:"Diagnosen"}, {k:"review",t:"Rückblick"}, {k:"roh",t:"Rohdaten"} ];
+  {k:"review",t:"Rückblick"}, {k:"roh",t:"Rohdaten"} ];
 
-function docLinks(docs){
+function zeigeDocs(){ return !(STATE.__export && STATE.__export.docPaths===false); }
+function docsBlock(docs){
+  if(!docs || !docs.length || !zeigeDocs()) return "";
+  return '<div class="docs"><div class="liste-kopf" style="border:none;padding:0 0 10px">Dokumente zu diesem Blatt</div>'
+    + docs.map(function(d){
+        return '<div style="margin-bottom:8px">'
+          + (d.url ? '<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+esc(d.title||"Dokument")+'</a>'
+                   : esc(d.title||"Dokument"))
+          + (d.desc?'<div style="font-size:13px;color:var(--faint);margin-top:2px">'+esc(d.desc)+'</div>':'')
+          + '</div>'; }).join("")
+    + '</div>';
+}
+function docsAm(docs){
   if(!docs || !docs.length || !zeigeDocs()) return "";
   return '<div style="margin-top:6px;font-size:13px">'+docs.map(function(d){
     return d.url ? '<a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+esc(d.title||"Dokument")+'</a>' : esc(d.title||"");
   }).join(" · ")+'</div>';
 }
-function zeigeDocs(){ return !(STATE.__export && STATE.__export.docPaths===false); }
+function docLinks(docs){ return docsAm(docs); }
 
-function zeichneAkten(){
-  var inhalt = "";
-  if(UI.akte==="labor") inhalt = akteLabor();
-  if(UI.akte==="history") inhalt = akteHistory();
-  if(UI.akte==="meds") inhalt = akteMeds();
-  if(UI.akte==="diag") inhalt = akteDiag();
-  if(UI.akte==="review") inhalt = akteReview();
-  if(UI.akte==="roh") inhalt = akteRoh();
+/* Erst die Kacheln: was liegt hier und wie viel. Kein Inhalt, bevor gewaehlt ist. */
+function aktenUebersicht(){
+  var PA = (STATE.lab.panels||[]), EV = (STATE.history.events||[]);
+  var jahre = PA.map(function(p){ return String(p.date||"").slice(0,4); }).filter(Boolean).sort();
+  var evJ = EV.map(function(e){ return String(e.date||"").slice(0,4); }).filter(Boolean).sort();
+  var meds = (STATE.meds&&STATE.meds.liste)||[], rb = STATE.review||[];
+  var K = [
+    {k:"labor", n:"Labor", z:PA.length+" Blätter",
+      t:((STATE.lab.params)||[]).length+" Parameter, ein Blatt je Termin — mit den Dokumenten daran.",
+      s:jahre.length?jahre[0]+"–"+jahre[jahre.length-1]:""},
+    {k:"history", n:"Krankengeschichte", z:EV.length+" Einträge",
+      t:"Diagnosen, Eingriffe und Befunde, ein Jahr auf einmal.",
+      s:evJ.length?evJ[0]+"–"+evJ[evJ.length-1]:""},
+    {k:"meds", n:"Medikation", z:zahl(meds.length,"Präparat","Präparate"),
+      t:"Der eMediplan als eine Tafel — kurz genug für einen Blick.",
+      s:(STATE.meds&&STATE.meds.stand)?"Stand "+dmy(STATE.meds.stand):""},
+    {k:"review", n:"Rückblick", z:zahl(rb.length,"Woche","Wochen"),
+      t:"Deine Wochennotizen, eine Woche auf einmal statt alle am Stück.",
+      s:rb.length?"seit "+(rb[rb.length-1].kw||""):""},
+    {k:"roh", n:"Rohdaten", z:"alle Messtage",
+      t:"Jeder erfasste Wert als Tabelle, dazu der CSV-Export.",
+      s:"Gewicht · Blutzucker · Blutdruck · Befinden"}
+  ];
   return '<div class="buehne">'
     + '<div class="b-kopf"><div><div class="k-name">Akten</div>'
-    +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">'
-    +   esc((AKTEN.filter(function(a){return a.k===UI.akte;})[0]||{}).t)+'</div></div>'
+    +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">Was liegt hier</div></div>'
     + '<button class="btn rund no-print" data-zu="1">×</button></div>'
-    + '<div class="akten-liste no-print">'+AKTEN.map(function(a){
-        return '<button class="sch'+(a.k===UI.akte?" an":"")+'" data-akte="'+a.k+'">'+esc(a.t)+'</button>'; }).join("")+'</div>'
-    + inhalt + '</div>';
+    + '<div class="kacheln" style="margin-top:20px">'
+    + K.map(function(x){
+        return '<button class="kachel" data-akte="'+x.k+'" style="background:var(--surface2);border-color:var(--line2)">'
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'
+          +   '<div style="font-size:16.5px;font-weight:620">'+esc(x.n)+'</div>'
+          +   '<div class="mono" style="font-size:11px;color:var(--akzent)">'+esc(x.z)+'</div></div>'
+          + '<div style="font-size:13.5px;color:var(--faint);margin-top:6px">'+esc(x.t)+'</div>'
+          + '<div class="k-meta">'+esc(x.s)+'</div></button>'; }).join("")
+    + '</div></div>';
+}
+
+/* Der Rahmen: Inhalt links, Auswahl rechts — und rechts stehen die BLÄTTER, nicht die
+   Bereiche. Ein Laborblatt, ein Jahr, eine Woche. Darum haengen die Dokumente am Blatt. */
+function aktenRahmen(o){
+  return '<div class="buehne">'
+    + '<div class="b-kopf"><div style="min-width:0;flex:1 1 260px">'
+    +   '<div class="k-name">Akten · '+esc(o.bereich)+'</div>'
+    +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">'+esc(o.titel)+'</div>'
+    +   (o.untertitel?'<div style="font-size:13.5px;color:var(--faint);margin-top:4px">'+esc(o.untertitel)+'</div>':'')
+    + '</div><div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">'+(o.aktion||"")
+    +   '<button class="btn rund" data-zu="akten">×</button></div></div>'
+    + (o.ansichten||"")
+    + '<div class="ts"><div class="ts-links">'+o.links+'</div>'
+    + (o.liste ? '<div class="ts-rechts no-print"><div class="liste-kopf">'+esc(o.listeKopf||"")+'</div>'
+        + '<div class="liste-roll">'+o.liste+'</div></div>' : '')
+    + '</div></div>';
+}
+function lz(label, sub, an, attr){
+  return '<button class="lz'+(an?" an":"")+'" '+attr+'><span>'+esc(label)+'</span><i>'+esc(sub||"")+'</i></button>';
+}
+function schalter(items){
+  return '<div class="akten-liste no-print">'+items.map(function(s){
+    return '<button class="sch'+(s.an?" an":"")+'" data-sicht="'+s.k+'">'+esc(s.t)+'</button>'; }).join("")+'</div>';
+}
+
+function zeichneAkten(){
+  if(!UI.akte) return aktenUebersicht();
+  if(UI.akte==="labor")   return akteLabor();
+  if(UI.akte==="history") return akteHistory();
+  if(UI.akte==="meds")    return akteMeds();
+  if(UI.akte==="review")  return akteReview();
+  if(UI.akte==="roh")     return akteRoh();
+  return aktenUebersicht();
 }
 
 function akteLabor(){
-  var P = STATE.lab.params||[], PA = (STATE.lab.panels||[]).slice()
-    .sort(function(a,b){ return a.date<b.date?1:-1; }).slice(0,8);
-  if(!PA.length) return '<p class="satz">Noch keine Laborblätter erfasst.</p>';
-  var grp = {};
-  P.forEach(function(p){ (grp[p.group||"Übrige"] = grp[p.group||"Übrige"]||[]).push(p); });
-  var h = '<p class="satz">'+PA.length+' der '+(STATE.lab.panels||[]).length+' Laborblätter, das neueste links. '
-    + P.length+' Parameter, gruppiert. Ein Wert ausserhalb des Referenzbereichs ist farbig.</p>'
-    + '<div class="scroll"><table class="akten-tabelle"><thead><tr><th>Parameter</th><th>Referenz</th>'
-    + PA.map(function(p){ return '<th>'+dmy(p.date)+'</th>'; }).join("")+'</tr></thead><tbody>';
-  Object.keys(grp).forEach(function(g){
-    var zeilen = grp[g].filter(function(p){ return PA.some(function(pa){ return pa.values && pa.values[p.key]!=null; }); });
-    if(!zeilen.length) return;
-    h += '<tr class="grp"><td colspan="'+(PA.length+2)+'">'+esc(g)+'</td></tr>';
-    zeilen.forEach(function(p){
-      h += '<tr><td>'+esc(p.label)+' <span style="color:var(--faint)">'+esc(p.unit||"")+'</span></td>'
-        + '<td style="color:var(--faint)">'+(p.ref?nf(p.ref[0],1)+"–"+nf(p.ref[1],1):"—")+'</td>'
-        + PA.map(function(pa){
-            var v = pa.values && pa.values[p.key];
-            if(v==null) return '<td style="color:var(--line)">·</td>';
-            var ref = (pa.refs && pa.refs[p.key]) || p.ref;
-            var kl = "";
-            if(ref){ kl = v>ref[1] ? " class=\"hoch\"" : (v<ref[0] ? " class=\"tief\"" : ""); }
-            return '<td'+kl+'>'+nf(v, Math.abs(v)>=100?0:1)+'</td>';
-          }).join("")+'</tr>';
+  var P = STATE.lab.params||[];
+  var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
+  if(!PA.length) return aktenRahmen({bereich:"Labor", titel:"Noch keine Laborblätter", links:'<p class="satz">Sobald ein Blatt erfasst ist, steht es hier.</p>'});
+  var sicht = UI.sicht || "blatt";
+  var ans = schalter([ {k:"blatt", t:"Ein Blatt", an:sicht==="blatt"},
+    {k:"verlauf", t:"Ein Wert über die Jahre", an:sicht==="verlauf"} ]);
+
+  if(sicht==="blatt"){
+    var i = Math.min(UI.blatt||0, PA.length-1), p = PA[i]||{}, vals = p.values||{}, refs = p.refs||{};
+    var grp = {};
+    P.forEach(function(pa){ if(vals[pa.key]==null) return;
+      (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
+    var links = '<div class="blatt">';
+    Object.keys(grp).forEach(function(g){
+      links += '<div class="bz-row grp"><div>'+esc(g)+'</div><div></div><div></div></div>';
+      grp[g].forEach(function(pa){
+        var v = vals[pa.key], ref = refs[pa.key] || pa.ref;
+        var kl = ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
+        links += '<div class="bz-row"><div>'+esc(pa.label)
+          + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'')+'</div>'
+          + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
+          + '<div class="r">'+(ref?nf(ref[0],1)+"–"+nf(ref[1],1):"—")+'</div></div>';
+      });
     });
-  });
-  h += '</tbody></table></div>';
-  var mitDocs = PA.filter(function(p){ return p.docs && p.docs.length; });
-  if(mitDocs.length && zeigeDocs()){
-    h += '<div style="margin-top:16px">'+mitDocs.map(function(p){
-      return '<div class="ev"><div class="d">'+dmy(p.date)+'</div><div><h4>'+esc(p.source||"Laborblatt")+'</h4>'
-        + docLinks(p.docs)+'</div></div>'; }).join("")+'</div>';
+    links += '</div><div class="bildtext">Rot heisst über dem Referenzbereich dieses Blattes, blau darunter. '
+      + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.</div>'
+      + docsBlock(p.docs);
+    return aktenRahmen({ bereich:"Labor", titel:"Laborblatt "+dmy(p.date),
+      untertitel:(p.source||"Quelle nicht vermerkt")+" · "+zahl(Object.keys(vals).length,"Wert","Werte"),
+      ansichten:ans, links:links, listeKopf:PA.length+" Laborblätter",
+      liste:PA.map(function(x,n){
+        return lz(dmy(x.date), (x.docs&&x.docs.length?"PDF ":"")+Object.keys(x.values||{}).length,
+          n===i, 'data-blatt="'+n+'"'); }).join("") });
   }
-  if(STATE.lab.note) h += '<p class="satz" style="font-size:13.5px">'+esc(STATE.lab.note)+'</p>';
-  return h;
+
+  /* Ein Wert über die Jahre — die Frage, für die ein Laborarchiv da ist. Ueber 400 Tage
+     ohne Messung bricht die Linie: zwischen zwei Blättern liegen Jahre. */
+  var mit = P.map(function(pa){
+    var pts = PA.filter(function(p){ return p.values && p.values[pa.key]!=null; })
+      .map(function(p){ return {iso:p.date, v:+p.values[pa.key], ref:(p.refs&&p.refs[pa.key])||pa.ref}; })
+      .sort(function(a,b){ return a.iso<b.iso?-1:1; });
+    return {pa:pa, pts:pts};
+  }).filter(function(x){ return x.pts.length>=3; });
+  if(!mit.length) return aktenRahmen({bereich:"Labor", titel:"Kein Wert mit genug Messungen",
+    ansichten:ans, links:'<p class="satz">Für einen Verlauf braucht es denselben Wert auf mindestens drei Blättern.</p>'});
+  var aktiv = UI.wahl || mit[0].pa.key;
+  var cur = mit.filter(function(x){ return x.pa.key===aktiv; })[0] || mit[0];
+  var pts = cur.pts, ref = pts[pts.length-1].ref, le = pts[pts.length-1];
+  var chips = '<div class="akten-liste no-print">'+mit.map(function(x){
+      return '<button class="sch'+(x.pa.key===cur.pa.key?" an":"")+'" data-wahl="'+x.pa.key+'" '
+        + 'style="font-size:12.5px;padding:6px 11px">'+esc(x.pa.label)+'</button>'; }).join("")+'</div>';
+  return aktenRahmen({ bereich:"Labor", titel:cur.pa.label+" über "+pts.length+" Blätter",
+    untertitel:dmy(pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
+    ansichten:ans,
+    links: chips + bild([{pts:pts, farbe:"var(--akzent)", r:3}],
+      {dez:1, zone:ref, schwellen:{voll:400, bruecke:1200},
+       text:"Das grüne Band ist der Referenzbereich. Zuletzt "+nf(le.v,1)+(cur.pa.unit?" "+cur.pa.unit:"")+" am "+dmy(le.iso)+"."}) });
 }
 
 function akteHistory(){
   var E = (STATE.history.events||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
   var KIND = {op:"Eingriff", labor:"Labor", diag:"Diagnose", ereignis:"Ereignis", befund:"Befund", start:"Start"};
-  return '<p class="satz">'+E.length+' Einträge, das Neueste zuerst.</p>'
-    + E.map(function(e){
+  var jahre = [];
+  E.forEach(function(e){ var j=String(e.date||"").slice(0,4); if(j && jahre.indexOf(j)<0) jahre.push(j); });
+  var j = UI.wahl || jahre[0];
+  var drin = E.filter(function(e){ return String(e.date||"").slice(0,4)===j; });
+  return aktenRahmen({ bereich:"Krankengeschichte", titel:j||"—",
+    untertitel:zahl(drin.length,"Eintrag","Einträge")+" in diesem Jahr",
+    links: drin.map(function(e){
       return '<div class="ev"'+(e.mark?' style="background:var(--surface2)"':'')+'>'
         + '<div class="d">'+dmy(e.date)+'</div><div>'
-        + '<h4>'+esc(e.title)+(e.kind&&KIND[e.kind]?'<span class="kind">'+esc(KIND[e.kind])+'</span>':'')+'</h4>'
+        + '<h4>'+esc(e.title)+'<span class="kind">'+esc((e.kind&&KIND[e.kind])||"Eintrag")+'</span></h4>'
         + (e.note?'<p>'+esc(e.note)+'</p>':'')
         + (e.learning?'<div class="lern">'+esc(e.learning)+'</div>':'')
-        + docLinks(e.docs)+'</div></div>'; }).join("");
+        + docsAm(e.docs)+'</div></div>'; }).join(""),
+    listeKopf:zahl(jahre.length,"Jahr","Jahre"),
+    liste: jahre.map(function(x){
+      return lz(x, String(E.filter(function(e){ return String(e.date||"").slice(0,4)===x; }).length),
+        x===j, 'data-wahl="'+x+'"'); }).join("") });
 }
 
 function akteMeds(){
   var M = STATE.meds||{}, L = M.liste||[];
-  if(!L.length) return '<p class="satz">Kein Medikationsplan erfasst.</p>';
-  return '<p class="satz">'+zahl(L.length,"Präparat","Präparate")
-    + (M.stand?", Stand "+dmy(M.stand):"")+'. '+esc(M.quelle||"")+'</p>'
-    + '<div class="scroll"><table class="akten-tabelle"><thead><tr><th>Präparat</th><th>Wirkstoff</th>'
-    + '<th>Dosis M–Mi–A–N</th><th>Verordnung</th></tr></thead><tbody>'
-    + L.map(function(m){ return '<tr><td>'+esc(m.name)+'</td><td style="text-align:left;color:var(--muted)">'+esc(m.wirkstoff||"")+'</td>'
-        + '<td class="mono">'+esc(m.dosis||"")+'</td><td style="color:var(--faint)">'+esc(m.verordner||"")+'</td></tr>'; }).join("")
-    + '</tbody></table></div>';
-}
-
-function akteDiag(){
-  var p = STATE.patient||{};
-  return '<div style="margin-top:16px"><div style="font-size:20px;font-weight:640">'+esc(p.name||"")+'</div>'
-    + '<div style="font-size:14px;color:var(--faint);margin-top:4px">'
-    + [(p.geboren?"geboren "+dmy(p.geboren):""), p.adresse||""].filter(Boolean).map(esc).join(" · ")+'</div>'
-    + '<div class="diag">'+(p.diagnosen||[]).map(function(d){ return '<span>'+esc(d)+'</span>'; }).join("")+'</div></div>';
+  if(!L.length) return aktenRahmen({bereich:"Medikation", titel:"Kein Plan erfasst", links:'<p class="satz">Sobald ein eMediplan erfasst ist, steht er hier.</p>'});
+  return aktenRahmen({ bereich:"Medikation", titel:zahl(L.length,"Präparat","Präparate"),
+    untertitel:(M.stand?"Stand "+dmy(M.stand)+" · ":"")+(M.quelle||""),
+    links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
+      + '<th>Präparat</th><th style="text-align:left">Wirkstoff</th><th>M–Mi–A–N</th><th>Verordnung</th>'
+      + '</tr></thead><tbody>'
+      + L.map(function(m){ return '<tr><td>'+esc(m.name)+'</td>'
+          + '<td style="text-align:left;color:var(--muted)">'+esc(m.wirkstoff||"")+'</td>'
+          + '<td class="mono" style="color:var(--akzent)">'+esc(m.dosis||"")+'</td>'
+          + '<td style="color:var(--faint)">'+esc(m.verordner||"")+'</td></tr>'; }).join("")
+      + '</tbody></table></div>' });
 }
 
 function akteReview(){
-  var R = (STATE.review||[]);
+  var R = STATE.review||[];
+  if(!R.length) return aktenRahmen({bereich:"Rückblick", titel:"Noch kein Rückblick", links:'<p class="satz">Sobald eine Woche erfasst ist, steht sie hier.</p>'});
+  var i = Math.min(UI.blatt||0, R.length-1), r = R[i]||{};
+  /* Ein ganzzeiliges **X** ist eine Ueberschrift — daran haengt die Gliederung der
+     Wochenziele. Nur die Sternchen zu streichen macht aus einer Struktur eine Textwand. */
   function md(t){
-    return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")
-      .split("\n").map(function(z){ return z.trim(); })
-      .map(function(z){ return z.indexOf("- ")===0 ? "<li>"+z.slice(2)+"</li>" : (z?"<p>"+z+"</p>":""); })
-      .join("").replace(/(<li>.*?<\/li>)(?!<li>)/g,"<ul>$1</ul>").replace(/<\/ul><ul>/g,"");
+    return String(t||"").split("\n").map(function(z){ return z.trim(); })
+      .filter(function(z){ return z!==""; })
+      .map(function(z){
+        var k = /^\*\*(.+?)\*\*:?$/.exec(z);
+        if(k) return '<h4 style="margin:16px 0 4px;font-size:15px;font-weight:660">'+esc(k[1])+'</h4>';
+        if(z.indexOf("- ")===0) return '<div style="display:flex;gap:9px;padding:2px 0 2px 4px">'
+          + '<span style="color:var(--akzent)">·</span><span>'+esc(z.slice(2).replace(/\*\*/g,""))+'</span></div>';
+        return '<p style="margin:8px 0 0">'+esc(z.replace(/\*\*/g,""))+'</p>';
+      }).join("");
   }
-  return '<p class="satz">'+zahl(R.length,"Woche","Wochen")+' Rückblick, das Neueste zuerst.</p>'
-    + R.map(function(r){
-      return '<div class="rb"><div class="kw">'+esc(r.kw)+' · '+"★".repeat(r.stars||0)+"☆".repeat(5-(r.stars||0))+'</div>'
-        + '<h4>'+esc(r.headline||"")+'</h4>'
-        + '<div class="txt">'+md(r.desc||"")+'</div>'
-        + (r.analyse?'<div class="txt" style="margin-top:10px;color:var(--faint)">'+md(r.analyse)+'</div>':'')
-        + '</div>'; }).join("");
+  return aktenRahmen({ bereich:"Rückblick", titel:r.headline||("Woche "+(r.kw||"")),
+    untertitel:(r.kw||"")+" · "+"★".repeat(r.stars||0)+"☆".repeat(5-(r.stars||0)),
+    links:'<div class="rb-txt" style="font-size:14.5px;color:var(--muted)">'+md(r.desc)
+      + (r.analyse?'<h4 style="margin:22px 0 4px;font-size:15px;font-weight:660">Analyse</h4>'+md(r.analyse):'')+'</div>',
+    listeKopf:zahl(R.length,"Woche","Wochen"),
+    liste:R.map(function(x,n){ return lz(x.kw||"—", "★".repeat(x.stars||0), n===i, 'data-blatt="'+n+'"'); }).join("") });
+}
+
+function rohTage(){
+  var T = {};
+  function merk(iso){ return T[iso] = T[iso] || {iso:iso}; }
+  rGewicht().forEach(function(x){ merk(x.iso).gw = x.v; });
+  rBzTage().forEach(function(x){ merk(x.iso).bz = x.v; merk(x.iso).bzn = x.n; });
+  rBp().forEach(function(x){ var z=merk(x.iso); (z.bp = z.bp||[]).push(Math.round(x.v)+"/"+Math.round(x.dia)); });
+  rBefinden().forEach(function(x){ merk(x.iso).bf = x.idx; });
+  return Object.keys(T).sort().reverse().map(function(k){ return T[k]; });
+}
+
+/* CSV, nicht JSON: die Rohdaten sind der Ort, an dem man die Zahlen in etwas anderes
+   tragen will. Semikolon und Komma als Dezimaltrennzeichen samt BOM, damit Excel auf
+   einem deutschen System nicht jede Zahl als Datum liest. */
+function csvExport(){
+  var alle = rohTage(), liste = (UI.wahl==="14") ? alle.slice(0,14) : alle;
+  var kopf = ["Tag","Gewicht kg","Blutzucker Mittel","Messungen","Blutdruck","Befinden"];
+  var zeilen = liste.map(function(z){
+    return [z.iso, z.gw!=null?nf(z.gw,1):"", z.bz!=null?nf(z.bz,1):"", z.bzn||"",
+      z.bp?z.bp.join(" "):"", z.bf!=null?nf(z.bf,1):""].join(";"); });
+  var txt = "\ufeff"+kopf.join(";")+"\r\n"+zeilen.join("\r\n")+"\r\n";
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([txt], {type:"text/csv;charset=utf-8"}));
+  a.download = "Monitoring_Rohdaten_"+isoVon(new Date(heuteMs()))+".csv";
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 function akteRoh(){
-  var G=rGewicht(), BZT=rBzTage(), BP=rBp(), BF=rBefinden();
-  var tage2 = {};
-  function merk(iso){ return tage2[iso] = tage2[iso] || {iso:iso}; }
-  G.forEach(function(x){ merk(x.iso).gw = x.v; });
-  BZT.forEach(function(x){ merk(x.iso).bz = x.v; merk(x.iso).bzn = x.n; });
-  BP.forEach(function(x){ var z=merk(x.iso); (z.bp = z.bp||[]).push(Math.round(x.v)+"/"+Math.round(x.dia)); });
-  BF.forEach(function(x){ merk(x.iso).bf = x.idx; });
-  var liste = Object.keys(tage2).sort().reverse().map(function(k){ return tage2[k]; });
-  return '<p class="satz">Jeder erfasste Tag als Zeile, der neueste oben — '+liste.length+' Tage. '
-    + 'Wochenwerte (Fitbit, Trinkmenge, Verdauung) stehen in ihren Kennzahlen, nicht hier.</p>'
-    + '<div class="scroll"><table class="akten-tabelle"><thead><tr><th>Tag</th><th>Gewicht kg</th>'
-    + '<th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th><th>Befinden</th></tr></thead><tbody>'
-    + liste.map(function(z){
-        return '<tr><td>'+dmy(z.iso)+'</td><td>'+(z.gw!=null?nf(z.gw,1):"·")+'</td>'
-          + '<td>'+(z.bz!=null?nf(z.bz,1):"·")+'</td><td style="color:var(--faint)">'+(z.bzn||"·")+'</td>'
-          + '<td>'+(z.bp?z.bp.join(" · "):"·")+'</td><td>'+(z.bf!=null?nf(z.bf,1):"·")+'</td></tr>'; }).join("")
-    + '</tbody></table></div>';
+  var alle = rohTage(), nur14 = (UI.wahl==="14"), liste = nur14 ? alle.slice(0,14) : alle;
+  return aktenRahmen({ bereich:"Rohdaten", titel:zahl(liste.length,"Messtag","Messtage"),
+    untertitel:"Wochenwerte stehen in ihren Kennzahlen, nicht hier.",
+    aktion:'<button class="btn" id="btnCsv" style="color:var(--akzent)">↓ CSV</button>',
+    links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
+      + '<th>Tag</th><th>Gewicht kg</th><th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th><th>Befinden</th>'
+      + '</tr></thead><tbody>'
+      + liste.map(function(z){
+          return '<tr><td>'+dmy(z.iso)+'</td><td>'+(z.gw!=null?nf(z.gw,1):"·")+'</td>'
+            + '<td>'+(z.bz!=null?nf(z.bz,1):"·")+'</td>'
+            + '<td style="color:var(--faint)">'+(z.bzn||"·")+'</td>'
+            + '<td>'+(z.bp?z.bp.join(" · "):"·")+'</td>'
+            + '<td>'+(z.bf!=null?nf(z.bf,1):"·")+'</td></tr>'; }).join("")
+      + '</tbody></table></div>',
+    listeKopf:"Ausschnitt",
+    liste: lz("Letzte 14 Tage", "14", nur14, 'data-wahl="14"')
+      + lz("Alle Messtage", String(alle.length), !nur14, 'data-wahl="alle"') });
 }
 
 /* ══ Erfassen ═══════════════════════════════════════════════════════════════════
@@ -969,10 +1116,14 @@ function zeichneErf(){
     + '</div><div class="bildtext">Ein Index entsteht nur aus allen '+dims.length+' Skalen.</div></div>';
 
   h += '<div class="abschnitt">'+(wochenende?"Woche zum "+dm(iso)+" · jetzt fällig":"Woche · fällig am Sonntag")+'</div>';
-  var wNeu = ["trinken","verdauung"].filter(function(k){ return UI.erfWerte[k]!=null; }).length;
-  h += zeile("woche","Trinken und Verdauung", "", wochenende&&wNeu?zahl(wNeu,"Wert neu","Werte neu"):"", wochenende?"":"ab Sonntag");
+  var wNeu = ["trinken","verdauung","schlaf","schritte","rhr"].filter(function(k){ return UI.erfWerte[k]!=null && String(UI.erfWerte[k]).trim()!==""; }).length;
+  /* «ab Sonntag» nur, solange nichts getippt ist. Sonst leugnet die Zeile einen Wert,
+     den die Fusszeile zaehlt und speichern() schreibt - die Felder sind offen, das
+     Speichern funktioniert, und zwei Anzeigen auf demselben Schirm widersprechen sich. */
+  h += zeile("woche","Trinken, Verdauung, Fitbit", "", wNeu?zahl(wNeu,"Wert neu","Werte neu"):"",
+    (wochenende||wNeu)?"":"ab Sonntag");
   if(auf==="woche") h += '<div class="koerper">'
-    + (wochenende?"":'<div style="font-size:13.5px;color:var(--faint);margin-bottom:12px">Trinken und Verdauung werden für die ganze Woche erfasst, nicht je Tag — darum stehen sie sonntags offen.</div>')
+    + (wochenende?"":'<div style="font-size:13.5px;color:var(--faint);margin-bottom:12px">Diese Werte gelten für die ganze Woche, nicht für einen Tag — darum stehen sie sonntags offen.</div>')
     + '<div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center">'
     +   '<div style="display:flex;align-items:center;gap:11px"><div style="font-size:14.5px;color:var(--muted)">Trinken Ø 3 l</div>'
     +     '<button class="schieber'+(UI.erfWerte.trinken===1?" an":"")+'" id="btnTrinken"><span class="knopf"></span></button>'
@@ -981,13 +1132,17 @@ function zeichneErf(){
     +     '<div style="display:flex;gap:4px">'+[1,2,3,4,5].map(function(n){
             return '<button class="stern'+((+UI.erfWerte.verdauung>=n)?" an":"")+'" data-stern="'+n+'">'
               + ((+UI.erfWerte.verdauung>=n)?"★":"☆")+'</button>'; }).join("")+'</div></div>'
+    + '</div>'
+    /* Schlaf, Schritte und Ruhepuls sind Wochenwerte und gehören hierher, nicht unter
+       «selten»: Fitbit liefert sie, aber wenn ein Wert fehlt, wird er sonntags nachgetragen. */
+    + '<div class="felder" style="margin-top:16px">'
+    +   feld("schlaf","Schlaf h")+feld("schritte","Schritte Ø/Tag")+feld("rhr","Ruhepuls")
     + '</div></div>';
 
   h += '<div class="abschnitt">Selten · nur bei Bedarf</div>'
-    + zeile("selten","Körpermasse und Fitbit","","","alle vier Wochen");
+    + zeile("selten","Körpermasse","","","alle vier Wochen");
   if(auf==="selten") h += '<div class="koerper"><div class="felder">'
     + feld("brust","Brust cm")+feld("taille","Taille cm")+feld("huefte","Hüfte cm")
-    + feld("schlaf","Schlaf h")+feld("schritte","Schritte")+feld("rhr","Ruhepuls")
     + '</div></div>';
 
   var anzahl = Object.keys(UI.erfWerte).filter(function(k){ return String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu;
@@ -1256,9 +1411,16 @@ document.addEventListener("click", function(e){
   if(t.id==="btnExpGo"){ exportErzeugen(); return; }
 
   if(t.dataset.kz){ UI.kz = t.dataset.kz; UI.seite = "voll"; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.zu){ UI.seite = "wand"; UI.erfMeldung = null; zeichne(); return; }
-  if(t.id==="btnAkten"){ UI.seite = "akten"; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.akte){ UI.akte = t.dataset.akte; zeichne(); return; }
+  /* × heisst überall dasselbe: eine Ebene hoch. Im Akten-Detail zurück zu den Kacheln,
+     in der Kachelübersicht zurück zu «Heute». */
+  if(t.dataset.zu==="akten"){ UI.akte = null; UI.blatt = 0; UI.sicht = null; UI.wahl = null; zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; zeichne(); return; }
+  if(t.id==="btnAkten"){ UI.seite = "akten"; UI.akte = null; zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.akte){ UI.akte = t.dataset.akte; UI.blatt = 0; UI.sicht = null; UI.wahl = null; zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.blatt!==undefined){ UI.blatt = +t.dataset.blatt; zeichne(); return; }
+  if(t.dataset.sicht){ UI.sicht = t.dataset.sicht; UI.wahl = null; zeichne(); return; }
+  if(t.dataset.wahl){ UI.wahl = t.dataset.wahl; zeichne(); return; }
+  if(t.id==="btnCsv"){ csvExport(); return; }
   if(t.dataset.sch){ if(UI.kz==="bz") UI.bzView = t.dataset.sch; else UI.reihe = t.dataset.sch; zeichne(); return; }
   if(t.id==="btnErf" || t.id==="btnErf2"){ UI.seite = "erf"; UI.erfMeldung = null; zeichne(); window.scrollTo(0,0); return; }
 
