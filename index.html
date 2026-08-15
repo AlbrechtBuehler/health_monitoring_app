@@ -192,6 +192,13 @@
   #tip .t-notiz{font-size:12.5px;color:var(--warn);margin-top:6px;padding-top:6px;border-top:1px solid var(--line);
     line-height:1.4}
   .notizpunkt{fill:var(--warn)}
+  .nachknopf{background:none;border:none;padding:0;text-align:left;color:var(--warn);font-size:14.5px;
+    cursor:pointer;font-family:inherit}
+  .nachknopf span{color:var(--akzent);border-bottom:1px solid var(--line);margin-left:4px;white-space:nowrap}
+  .nachknopf:hover span{border-bottom-color:var(--akzent)}
+  .roh-edit{width:30px;height:30px;padding:0;font-size:13px;border:1px solid var(--line);background:var(--surface2);
+    border-radius:8px;color:var(--faint);cursor:pointer}
+  .roh-edit:hover{border-color:var(--akzent);color:var(--akzent)}
   /* Erfassen als Kachelwand */
   .ek{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
     padding:18px 20px;cursor:pointer;display:block;width:100%;min-width:0}
@@ -284,7 +291,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
   history:{events:[]}, meds:{liste:[]}, review:[], termine:[] };
 /*STATE-ENDE*/
 
-var UI = { seite:"wand", kz:null, bzView:"verlauf", reihe:"sleep", akte:null, blatt:0, sicht:null, wahl:null,
+var UI = { seite:"wand", kz:null, bzView:"verlauf", bzZeit:"14", reihe:"sleep", akte:null, blatt:0, sicht:null, wahl:null,
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:"",note:""}], erfKuerzel:{}, erfMeldung:null,
   medEdit:false, medListe:null, medKopf:null };
 
@@ -464,6 +471,15 @@ function letzteWoche(liste, feld){ var a=(liste||[]).filter(function(w){ return 
   .sort(function(x,y){ return x.weekStart<y.weekStart?-1:1; }); return a.length?a[a.length-1]:null; }
 function rKoerper(){ return (STATE.body.points||[]).filter(function(p){ return p.waist&&p.hip; })
   .sort(function(a,b){ return a.date<b.date?-1:1; }); }
+/* HbA1c ist eine Laborreihe, keine Tagesreihe - aber die einzige Laborzahl, die auf
+   «Heute» gehoert: sie ist der Wert, nach dem in der Praxis gefragt wird, und ihr ALTER
+   ist selbst eine Aussage. Vier Monate sind der uebliche Abstand bei behandeltem Diabetes. */
+function rHba1c(){ return (STATE.lab.panels||[]).filter(function(p){ return p.values && p.values.hba1c!=null; })
+  .map(function(p){ return {iso:p.date, v:+p.values.hba1c, quelle:p.source||""}; })
+  .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
+function hba1cAlter(iso){ return Math.round(tage(iso)/30.44); }
+function hba1cFarbe(iso){ var m = hba1cAlter(iso);
+  return m>12 ? "var(--high)" : (m>4 ? "var(--warn)" : "var(--good)"); }
 function periode(){ return (STATE.domain&&STATE.domain.from) ? tage(STATE.domain.from)+1 : null; }
 
 /* ══ Linien ═════════════════════════════════════════════════════════════════════
@@ -647,7 +663,9 @@ function KZ(){
   var SL=rFitbit("sleep"), BF=rBefinden();
   var th=STATE.glucose.th||{}, ty=STATE.glucose.slotType||{};
   var bz14 = BZ.filter(function(x){ return ms(x.iso)>=heuteMs()-14*86400000; });
+  var bz14T = Object.keys(bz14.reduce(function(m,x){ m[x.iso]=1; return m; },{}));
   var bzOe = mittel((bz14.length?bz14:BZ).map(function(x){return x.v;}));
+  var HB = rHba1c(), hbL = HB.length?HB[HB.length-1]:null;
   var imSoll = BZ.filter(function(x){ return ty[x.slot]==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
   var pSoll = BZ.length ? Math.round(100*imSoll.length/BZ.length) : null;
   var bpL = BP.length?BP[BP.length-1]:null;
@@ -664,7 +682,15 @@ function KZ(){
     bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:nf(bzOe,1), zustand:ampelFarbe(pSoll>=90, pSoll<75),
-      unter:"Ø 14 Tage · "+(pSoll!=null?pSoll+" % im Soll":"—"),
+      /* Zwei Zeitraeume in einer Zeile sind eine Falle: die Zahl oben sind 14 Messtage,
+         die Prozente alle Messungen der Periode. Beides steht jetzt dabei. */
+      unter:"Ø der letzten "+Math.min(14,bz14T.length)+" Messtage · im Soll: "
+        + (pSoll!=null?pSoll+" % aller "+BZ.length+" Messungen":"—"),
+      unter2: hbL
+        ? '<span style="color:var(--faint)">HbA1c</span> <b style="font-weight:640;color:'+hba1cFarbe(hbL.iso)+'">'
+          + nf(hbL.v,1)+' %</b> <span style="color:var(--faint)">vom '+dmy(hbL.iso)+' — '
+          + zahl(hba1cAlter(hbL.iso),"Monat","Monate")+' alt</span>'
+        : '<span style="color:var(--faint)">Kein HbA1c im Labor erfasst.</span>',
       meta:BZ.length+" Messungen · "+BZT.length+" Tage" },
     bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BP, farbe:"var(--akzent)", dez:0,
       sub:function(p){ return [p.dia!=null?"diastolisch "+Math.round(p.dia):"",
@@ -688,9 +714,10 @@ function KZ(){
 /* ══ Ebene 1 · Heute ════════════════════════════════════════════════════════════ */
 function zeichneStatus(){
   var G=rGewicht(), BZT=rBzTage(), BP=rBp(), BF=rBefinden();
-  var letzte = [ {n:"Gewicht", r:G}, {n:"Blutzucker", r:BZT}, {n:"Blutdruck", r:BP}, {n:"Befinden", r:BF} ]
+  var letzte = [ {n:"Gewicht", k:"gw", r:G}, {n:"Blutzucker", k:"bz", r:BZT},
+      {n:"Blutdruck", k:"bd", r:BP}, {n:"Befinden", k:"bf", r:BF} ]
     .filter(function(x){ return x.r.length; })
-    .map(function(x){ return {n:x.n, iso:x.r[x.r.length-1].iso}; });
+    .map(function(x){ return {n:x.n, k:x.k, iso:x.r[x.r.length-1].iso}; });
   var alt = letzte.filter(function(x){ return tage(x.iso)>=3; }).sort(function(a,b){ return tage(b.iso)-tage(a.iso); });
   var luecke = alt.length
     ? alt.map(function(x){return x.n;}).join(" und ")+" zuletzt am "+dm(alt[0].iso)+" — "+tage(alt[0].iso)+" Tage her."
@@ -698,8 +725,14 @@ function zeichneStatus(){
   var t = (STATE.termine||[]).filter(function(x){ return x.date && ms(x.date)>heuteMs(); })
     .sort(function(a,b){ return a.date<b.date?-1:1; })[0];
   var termin = t ? (t.wer||"Termin")+" am "+dm(t.date)+", in "+Math.abs(tage(t.date))+" Tagen." : "";
+  /* Eine Mahnung, die nirgendhin fuehrt, ist eine Mahnung zu viel: der Satz ist ein Knopf.
+     Er springt auf HEUTE und oeffnet die Kachel, die am laengsten leer steht - nicht auf
+     den genannten Tag, denn dort STEHT der Wert ja; er fehlt seither. */
   document.getElementById("status").innerHTML =
-    '<div style="color:var(--warn)">'+esc(luecke)+'</div><div style="color:var(--faint)">'+esc(termin)+'</div>';
+    (alt.length && !FROZEN
+      ? '<button class="nachknopf" data-luecke="'+alt[0].k+'">'+esc(luecke)+' <span>jetzt erfassen ›</span></button>'
+      : '<div style="color:var(--warn)">'+esc(luecke)+'</div>')
+    + '<div style="color:var(--faint)">'+esc(termin)+'</div>';
 }
 
 function kachelHtml(d, leit){
@@ -725,6 +758,7 @@ function kachelHtml(d, leit){
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
     + '<div class="k-unter">'+esc(d.unter||"")+'</div>'
+    + (d.unter2?'<div class="k-unter" style="margin-top:2px">'+d.unter2+'</div>':'')
     + funkeSvg(f, w, hh, hits)
     + (leit?'':'<div class="k-meta">'+esc(d.meta)+'</div>')
     + '</button>';
@@ -776,7 +810,7 @@ function schalterHtml(items){
 
 function zeichneVoll(){
   var k = UI.kz, kz = KZ()[k], h = "";
-  var kopfWert = kz.wert, kopfEinheit = kz.einheit, satz = "", inhalt = "", neben = [], schalter = null;
+  var kopfWert = kz.wert, kopfEinheit = kz.einheit, satz = "", inhalt = "", neben = [], schalter = null, zeitschalter = null;
   var th = STATE.glucose.th||{}, ty = STATE.glucose.slotType||{};
 
   if(k==="gewicht"){
@@ -800,35 +834,51 @@ function zeichneVoll(){
   }
 
   if(k==="bz"){
-    var BZ=rBzAlle(), BZT=rBzTage();
+    var BZalle=rBzAlle(), BZTalle=rBzTage();
+    /* Der Zeitraum ist jetzt ein Schalter, nicht eine stille Annahme. Vorher stand die
+       Zahl fuer 14 Tage und die Prozente fuer alles - in derselben Zeile. */
+    var n14 = UI.bzZeit==="14";
+    var grenze = heuteMs()-14*86400000;
+    var BZ = n14 ? BZalle.filter(function(x){ return ms(x.iso)>=grenze; }) : BZalle;
+    var BZT = n14 ? BZTalle.filter(function(x){ return ms(x.iso)>=grenze; }) : BZTalle;
+    if(!BZ.length){ BZ = BZalle; BZT = BZTalle; n14 = false; }
     var imSoll = BZ.filter(function(x){ return ty[x.slot]==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
     var pSoll = BZ.length?Math.round(100*imSoll.length/BZ.length):null;
     var unterNorm = BZ.filter(function(x){ return x.v < normFuer(x.slot); });
     var pNorm = BZ.length?Math.round(100*unterNorm.length/BZ.length):null;
     var nue = BZ.filter(function(x){ return x.g3==="nüchtern"; });
     var post = BZ.filter(function(x){ return x.g3==="nach Essen"; });
-    kopfEinheit = "mmol/l · Ø der letzten 14 Messtage";
-    satz = pSoll+" % der "+BZ.length+" Messungen liegen im Soll Deiner Therapiegrenzen — vor dem Essen ≤ "
-      + nf(th.preHigh,1)+", danach ≤ "+nf(th.postHigh,1)+" mmol/l. Die Fläche im Bild ist der Korridor "
-      + nf(th.critLow,1)+" bis "+nf(th.postHigh,1)+", in dem ein Wert unbedenklich ist; die gestrichelten Linien sind der "
-      + "Massstab eines Nicht-Diabetikers — "+nf(NORM.pre,1)+" nüchtern und vor dem Essen, "+nf(NORM.post,1)
-      + " zwei Stunden danach. Gemessen an "+BZT.length+" von "+periode()+" Tagen.";
+    var bl = STATE.glucose.baseline, jetztOe = mittel(BZ.map(function(x){return x.v;}));
+    kopfWert = nf(jetztOe,1);
+    kopfEinheit = "mmol/l · " + (n14 ? "Ø der letzten "+zahl(BZT.length,"Messtag","Messtage") : "Ø aller "+BZ.length+" Messungen");
+    satz = pSoll+" % dieser "+BZ.length+" Messungen liegen im Soll Deiner Therapiegrenzen — vor dem Essen ≤ "
+      + nf(th.preHigh,1)+", danach ≤ "+nf(th.postHigh,1)+" mmol/l; "+pNorm+" % liegen sogar unter dem Massstab "
+      + "eines Nicht-Diabetikers. Die Fläche im Bild ist der Korridor "+nf(th.critLow,1)+" bis "+nf(th.postHigh,1)
+      + ", in dem ein Wert unbedenklich ist; die gestrichelten Linien sind "+nf(NORM.pre,1)+" nüchtern und vor dem "
+      + "Essen, "+nf(NORM.post,1)+" zwei Stunden danach. "
+      + (n14 ? "Gezeigt sind die letzten 14 Tage — der Schalter stellt auf die ganze Periode um."
+             : "Gezeigt ist die ganze Periode von "+periode()+" Tagen mit "+BZT.length+" Messtagen.");
     schalter = [{k:"verlauf", t:"Verlauf", an:UI.bzView==="verlauf"}, {k:"muster", t:"Tagesmuster", an:UI.bzView==="muster"}];
+    zeitschalter = [{k:"14", t:"14 Tage", an:n14}, {k:"alle", t:"ganze Periode", an:!n14}];
     inhalt = UI.bzView==="verlauf"
       ? bild([{pts:BZT, farbe:"var(--akzent)", name:"Ø"}], {dez:1, einheit:"mmol/l",
           zone:[th.critLow, th.postHigh],
           linien:[{v:NORM.pre, label:nf(NORM.pre,1)}, {v:NORM.post, label:nf(NORM.post,1), blass:true}],
           sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
-          text:"Tagesmittel über alle "+BZT.length+" Messtage. Die Fläche ist der Korridor, die Kanten sind seine Grenzen."})
-      : tagesmuster(BZ, th, ty);
-    var bl = STATE.glucose.baseline;
+          text:"Tagesmittel über "+zahl(BZT.length,"Messtag","Messtage")+". Die Fläche ist der Korridor, die Kanten sind seine Grenzen."})
+      : tagesmuster(BZ, th);
     neben = [ {l:"nüchtern Ø", w:nf(mittel(nue.map(function(x){return x.v;})),1), u:zahl(nue.length,"Messung","Messungen"),
         f:mittel(nue.map(function(x){return x.v;}))<NORM.pre?"var(--good)":"var(--warn)"},
       {l:"nach dem Essen Ø", w:nf(mittel(post.map(function(x){return x.v;})),1), u:zahl(post.length,"Messung","Messungen"),
         f:mittel(post.map(function(x){return x.v;}))<NORM.post?"var(--good)":"var(--warn)"},
       {l:"im Soll der Therapie", w:pSoll+" %", u:imSoll.length+" von "+BZ.length, f:"var(--good)"},
       {l:"unter Nicht-Diabetiker", w:pNorm+" %", u:unterNorm.length+" von "+BZ.length,
-        f:pNorm>=70?"var(--good)":"var(--warn)"} ];
+        f:pNorm>=70?"var(--good)":"var(--warn)"},
+      /* Die Vorperiode ist der Beleg, dass sich etwas geaendert hat - ohne sie ist jede
+         Zahl hier nur ein Zustand, kein Weg. */
+      {l:"Vorperiode", w:bl?nf(bl.avg,1):"—",
+        u:bl?(bl.label?bl.label.replace(/^Vorperiode\s*/,""):"früher")+" · heute "+nf(jetztOe,1):"kein Vergleichswert",
+        f:(bl&&jetztOe<bl.avg)?"var(--good)":"var(--faint)"} ];
   }
 
   if(k==="bd"){
@@ -894,6 +944,8 @@ function zeichneVoll(){
     +   (FROZEN?'':'<button class="btn stark" id="btnErf2">✎ Erfassen</button>')
     +   '<button class="btn rund" data-zu="1">×</button></div></div>'
     + '<p class="satz">'+esc(satz)+'</p>'
+    + (zeitschalter?'<div class="schalter">'+zeitschalter.map(function(s){
+        return '<button class="sch'+(s.an?" an":"")+'" data-zeit="'+s.k+'">'+esc(s.t)+'</button>'; }).join("")+'</div>':"")
     + (schalter?schalterHtml(schalter):"")
     + inhalt
     + nebenHtml(neben)
@@ -1373,11 +1425,11 @@ function csvExport(){
 function akteRoh(){
   var alle = rohTage(), nur14 = (UI.wahl==="14"), liste = nur14 ? alle.slice(0,14) : alle;
   return aktenRahmen({ bereich:"Rohdaten", titel:zahl(liste.length,"Messtag","Messtage"),
-    untertitel:"Wochenwerte stehen in ihren Kennzahlen, nicht hier. Notizen stehen ganz rechts — vollständig im CSV.",
+    untertitel:"Wochenwerte stehen in ihren Kennzahlen, nicht hier. Das ✎ springt ins Erfassen dieses Tages — dort lässt sich die Notiz berichtigen.",
     aktion:'<button class="btn" id="btnCsv" style="color:var(--akzent)">↓ CSV</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
       + '<th>Tag</th><th>Gewicht kg</th><th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th><th>Befinden</th>'
-      + '<th style="text-align:left">Notiz</th>'
+      + '<th style="text-align:left">Notiz</th>'+(FROZEN?'':'<th></th>')
       + '</tr></thead><tbody>'
       + liste.map(function(z){
           return '<tr><td>'+dmy(z.iso)+'</td><td>'+(z.gw!=null?nf(z.gw,1):"·")+'</td>'
@@ -1386,7 +1438,10 @@ function akteRoh(){
             + '<td>'+(z.bp?z.bp.join(" · "):"·")+'</td>'
             + '<td>'+(z.bf!=null?nf(z.bf,1):"·")+'</td>'
             + '<td style="text-align:left;color:var(--warn);max-width:280px;overflow:hidden;text-overflow:ellipsis" '
-            + 'title="'+esc(z.notiz||"")+'">'+esc(z.notiz||"")+'</td></tr>'; }).join("")
+            + 'title="'+esc(z.notiz||"")+'">'+esc(z.notiz||"")+'</td>'
+            + (FROZEN?'':'<td class="no-print"><button class="roh-edit" data-nach="'+z.iso+'" '
+              + 'title="diesen Tag bearbeiten">✎</button></td>')
+            + '</tr>'; }).join("")
       + '</tbody></table></div>',
     listeKopf:"Ausschnitt",
     liste: lz("Letzte 14 Tage", "14", nur14, 'data-wahl="14"')
@@ -1402,20 +1457,60 @@ function erfHat(reihe){ var iso=erfIso(); return reihe.some(function(x){ return 
 function tv(k){ var v=UI.erfWerte[k]; return v==null?"":String(v); }
 function num(s){ if(s==null) return null; s=String(s).trim().replace(",","."); return s===""?null:(isFinite(+s)?+s:null); }
 
+/* Auf einen Tag springen - aus der Statuszeile oder aus den Rohdaten. Der Entwurf wird
+   geleert (er gehoert zu EINEM Tag), die BESTEHENDEN Notizen dieses Tages werden aber in
+   die Felder gelegt: sonst kann man eine Notiz nur ergaenzen, nicht berichtigen. */
+function erfTagSetzen(n, oeffneNotiz){
+  UI.erfTag = Math.max(0, n|0);
+  UI.erfAuf = "auto"; UI.erfMeldung = null; UI.erfKuerzel = {};
+  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}];
+  var iso = erfIso(), zuerst = null;
+  var g = rGewicht().filter(function(x){ return x.iso===iso; })[0];
+  if(g && g.note){ UI.erfWerte.note_gw = g.note; zuerst = zuerst||"gw"; }
+  var d = (STATE.glucose.days||[]).filter(function(x){ return x.iso===iso; })[0];
+  if(d && d.note){ UI.erfWerte.note_bz = d.note; zuerst = zuerst||"bz"; }
+  var bf = (STATE.befinden.entries||[]).filter(function(x){ return x.iso===iso; })[0];
+  if(bf && bf.note){ UI.erfWerte.note_bf = bf.note; zuerst = zuerst||"bf"; }
+  /* Wer aus den Rohdaten kommt, will die Notiz berichtigen - dann muss die Kachel offen
+     stehen, in der sie liegt. Wer aus der Statuszeile kommt, will einen Wert nachtragen;
+     dort bleibt die uebliche Wahl (die erste Luecke des Tages). */
+  if(oeffneNotiz && zuerst) UI.erfAuf = zuerst;
+}
+function notizStand(k){
+  var iso = erfIso();
+  if(k==="gw"){ var g=rGewicht().filter(function(x){return x.iso===iso;})[0]; return (g&&g.note)||""; }
+  if(k==="bz"){ var d=(STATE.glucose.days||[]).filter(function(x){return x.iso===iso;})[0]; return (d&&d.note)||""; }
+  if(k==="bf"){ var b=(STATE.befinden.entries||[]).filter(function(x){return x.iso===iso;})[0]; return (b&&b.note)||""; }
+  return "";
+}
 /* Notiz einer Kachel: Kuerzel und Freitext ergeben EINEN Text. Was gespeichert wird, ist
-   das, was hier herauskommt - es gibt keine zweite Fassung, die auseinanderlaufen koennte. */
+   das, was hier herauskommt - es gibt keine zweite Fassung, die auseinanderlaufen koennte.
+   Ein Kuerzel, das im Freitext schon woertlich steht, wird nicht doppelt gesetzt: beim
+   Berichtigen liegt der alte Text samt Kuerzeln im Feld. */
 function kuerzelAn(k){ return UI.erfKuerzel[k]||[]; }
 function notizText(k){
-  return [kuerzelAn(k).join(" · "), String(UI.erfWerte["note_"+k]||"").trim()].filter(Boolean).join(" · ");
+  var frei = String(UI.erfWerte["note_"+k]||"").trim();
+  var kw = kuerzelAn(k).filter(function(x){ return frei.indexOf(x)<0; });
+  return [kw.join(" · "), frei].filter(Boolean).join(" · ");
+}
+/* Geaendert heisst: anders als das, was in der Datei steht. Nur dann ist Speichern noetig -
+   und nur dann darf eine Notiz allein, ohne Messwert, ein Schreiben ausloesen. */
+function notizGeaendert(k){
+  if(UI.erfWerte["note_"+k]===undefined && !kuerzelAn(k).length) return false;
+  return notizText(k) !== notizStand(k);
 }
 function notizBlock(k){
-  return '<div class="lbl" style="margin-top:16px">Notiz</div>'
+  var alt = notizStand(k);
+  return '<div class="lbl" style="margin-top:16px">Notiz'
+    + (alt?'<span style="text-transform:none;letter-spacing:0;color:var(--akzent);margin-left:8px">wird berichtigt</span>':'')
+    + '</div>'
     + '<div class="kuerzel">'+(KUERZEL[k]||[]).map(function(x){
         var an = kuerzelAn(k).indexOf(x)>=0;
         return '<button class="kz-knopf'+(an?" an":"")+'" data-kuerzel="'+k+'" data-kw="'+esc(x)+'">'+esc(x)+(an?" ✓":"")+'</button>'; }).join("")
     + '</div>'
     + '<textarea class="notiz" data-w="note_'+k+'" placeholder="und was Du sonst festhalten willst…" '
-    + 'style="margin-top:9px">'+esc(UI.erfWerte["note_"+k]||"")+'</textarea>';
+    + 'style="margin-top:9px">'+esc(UI.erfWerte["note_"+k]||"")+'</textarea>'
+    + (alt?'<div class="bildtext">Der bestehende Text steht im Feld — was Du hier stehen lässt, ersetzt ihn. Leer heisst: Notiz entfernen.</div>':'');
 }
 
 function zeichneErf(){
@@ -1562,7 +1657,8 @@ function zeichneErf(){
   h += '</div>';
 
   var anzahl = Object.keys(UI.erfWerte).filter(function(k){
-    return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu;
+    return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu
+    + ["gw","bz","bf"].filter(notizGeaendert).length;
   h += '<div class="fuss-erf"><div>'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
     + esc((CFG&&CFG.file)||"monitoring.json")+'</div><div style="display:flex;gap:9px">'
     + '<button class="btn" data-zu="1">Abbrechen</button>'
@@ -1607,6 +1703,11 @@ async function speichern(){
 
   var g = num(W.gewicht), nGw = notizText("gw");
   if(g!=null){ punktSetzen(N.weight.points, "date", iso, {value:g, note:nGw||null}); geschrieben++; }
+  else if(notizGeaendert("gw")){
+    /* Notiz ohne Messwert: nur berichtigen, nie einen leeren Punkt anlegen. */
+    var gp = N.weight.points.filter(function(p){ return p.date===iso; })[0];
+    if(gp){ if(nGw) gp.note = nGw; else delete gp.note; geschrieben++; }
+  }
 
   /* Drei Messpunkte. Die alten Namen bleiben in der Datei stehen - was einmal als
      «nach Frühstück» erfasst wurde, heisst dort weiter so; nur Neues kommt in die drei.
@@ -1625,12 +1726,17 @@ async function speichern(){
     if(!tag){ tag={iso:iso, date:dm(iso), rows:[]}; N.glucose.days.push(tag);
       N.glucose.days.sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
     tag.rows = tag.rows||[];
-    if(nBz) tag.note = [tag.note, nBz].filter(Boolean).join(" · ");
+    /* ERSETZEN, nicht anhaengen: das Feld traegt beim Oeffnen den bestehenden Text, also
+       ist das, was darin steht, die ganze Notiz dieses Tages. */
+    if(notizGeaendert("bz")){ if(nBz) tag.note = nBz; else delete tag.note; }
     neueRows.forEach(function(nr){
       var r = tag.rows.filter(function(x){ return x.slot===nr.slot; })[0];
       if(r){ r.values = (r.values||[]).concat(nr.values); } else { tag.rows.push(nr); }
       geschrieben++;
     });
+  } else if(notizGeaendert("bz")){
+    var tg = N.glucose.days.filter(function(d){ return d.iso===iso; })[0];
+    if(tg){ if(nBz) tg.note = nBz; else delete tg.note; geschrieben++; }
   }
 
   var nBdKuerzel = kuerzelAn("bd").join(" · ");
@@ -1653,8 +1759,13 @@ async function speichern(){
   dims.forEach(function(d){ if(W["bf_"+d.key]!=null) bfFelder[d.key] = W["bf_"+d.key]; });
   var nBf = notizText("bf");
   if(Object.keys(bfFelder).length){
-    if(nBf) bfFelder.note = nBf;
-    punktSetzen(N.befinden.entries, "iso", iso, bfFelder); geschrieben++;
+    if(notizGeaendert("bf")) bfFelder.note = nBf || null;
+    var bp2 = punktSetzen(N.befinden.entries, "iso", iso, bfFelder);
+    if(notizGeaendert("bf") && !nBf) delete bp2.note;
+    geschrieben++;
+  } else if(notizGeaendert("bf")){
+    var be = N.befinden.entries.filter(function(e){ return e.iso===iso; })[0];
+    if(be){ if(nBf) be.note = nBf; else delete be.note; geschrieben++; }
   }
 
   var kf = {chest:num(W.brust), waist:num(W.taille), hip:num(W.huefte)};
@@ -1695,6 +1806,10 @@ var EXP_BEREICHE = [ {k:"gewicht",t:"Gewicht"}, {k:"bz",t:"Blutzucker"}, {k:"bd"
 var EXP_AN = {};
 EXP_BEREICHE.forEach(function(b){ EXP_AN[b.k]=true; });
 var EXP_DOCS = false;
+/* Notizen gehen NICHT mit (Entscheid Albrecht vom 15.08.2026: «die Notizen gehen ihn nichts
+   an, er will die Daten sehen»). «auf Arbeit. stress» ist Kontext fuer Dich, nicht Befund
+   fuer die Praxis - und ein Schalter, der standardmaessig AN steht, ist keine Entscheidung. */
+var EXP_NOTIZEN = false;
 
 function exportModal(){
   return '<div class="modal-bg" id="expBg"><div class="modal"><div class="modal-kopf">'
@@ -1704,6 +1819,9 @@ function exportModal(){
     + EXP_BEREICHE.map(function(b){
         return '<div class="exp-zeile" data-exp="'+b.k+'"><div class="exp-name">'+esc(b.t)+'</div>'
           + '<button class="schieber'+(EXP_AN[b.k]?" an":"")+'"><span class="knopf"></span></button></div>'; }).join("")
+    + '<div class="exp-zeile" data-exp="__notizen"><div class="exp-name">Deine Notizen zu den Messungen<br>'
+    +   '<span style="font-size:12px;color:var(--faint)">«nach Kaffee», «auf Arbeit, Stress» — Kontext für Dich, nicht Befund</span></div>'
+    +   '<button class="schieber'+(EXP_NOTIZEN?" an":"")+'"><span class="knopf"></span></button></div>'
     + '<div class="exp-zeile" data-exp="__docs"><div class="exp-name">Dokumentpfade und Links<br>'
     +   '<span style="font-size:12px;color:var(--faint)">zeigen auf Deine private OneDrive</span></div>'
     +   '<button class="schieber'+(EXP_DOCS?" an":"")+'"><span class="knopf"></span></button></div>'
@@ -1724,10 +1842,23 @@ function exportZustand(){
   if(!EXP_AN.meds) S.meds={liste:[]};
   if(!EXP_AN.stamm) S.patient={};
   S.review = EXP_AN.stamm ? S.review : [];
-  S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, bereiche:JSON.parse(JSON.stringify(EXP_AN)) };
+  S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN, bereiche:JSON.parse(JSON.stringify(EXP_AN)) };
   if(!EXP_DOCS){
     var putzen = function(arr){ (arr||[]).forEach(function(x){ if(x.docs) delete x.docs; }); };
     putzen(S.history.events); putzen(S.lab.panels);
+  }
+  /* Notizen aus allen vier Reihen entfernen, nicht bloss aus einer: sie stehen am
+     Gewichtspunkt, am Blutzuckertag UND an dessen Einzelwerten, an jeder Blutdruckmessung,
+     am Befindenseintrag und an den Verdauungseintraegen. */
+  if(!EXP_NOTIZEN){
+    var weg = function(arr){ (arr||[]).forEach(function(x){ if(x.note) delete x.note; }); };
+    weg(S.weight.points); weg(S.bloodpressure.points); weg(S.befinden.entries);
+    weg(S.digestion.entries); weg(S.digestion.weeks); weg(S.body.points);
+    (S.glucose.days||[]).forEach(function(d){
+      if(d.note) delete d.note;
+      (d.rows||[]).forEach(function(r){ if(r.note) delete r.note;
+        (r.values||[]).forEach(function(v){ if(v.note) delete v.note; }); });
+    });
   }
   return S;
 }
@@ -1885,12 +2016,16 @@ document.addEventListener("click", function(e){
     document.getElementById("modale").innerHTML = ""; return; }
 
   if(t.dataset.exp!==undefined){
-    if(t.dataset.exp==="__docs") EXP_DOCS = !EXP_DOCS; else EXP_AN[t.dataset.exp] = !EXP_AN[t.dataset.exp];
+    if(t.dataset.exp==="__docs") EXP_DOCS = !EXP_DOCS;
+    else if(t.dataset.exp==="__notizen") EXP_NOTIZEN = !EXP_NOTIZEN;
+    else EXP_AN[t.dataset.exp] = !EXP_AN[t.dataset.exp];
     document.getElementById("modale").innerHTML = exportModal(); return;
   }
   if(t.closest(".exp-zeile")){
     var z = t.closest(".exp-zeile");
-    if(z.dataset.exp==="__docs") EXP_DOCS = !EXP_DOCS; else EXP_AN[z.dataset.exp] = !EXP_AN[z.dataset.exp];
+    if(z.dataset.exp==="__docs") EXP_DOCS = !EXP_DOCS;
+    else if(z.dataset.exp==="__notizen") EXP_NOTIZEN = !EXP_NOTIZEN;
+    else EXP_AN[z.dataset.exp] = !EXP_AN[z.dataset.exp];
     document.getElementById("modale").innerHTML = exportModal(); return;
   }
   if(t.id==="btnExpGo"){ exportErzeugen(); return; }
@@ -1917,13 +2052,19 @@ document.addEventListener("click", function(e){
   if(t.dataset.medweg!==undefined){ medArbeit().splice(+t.dataset.medweg, 1); zeichne(); return; }
   if(t.id==="medSpeichern"){ medSpeichern(); return; }
   if(t.dataset.sch){ if(UI.kz==="bz") UI.bzView = t.dataset.sch; else UI.reihe = t.dataset.sch; zeichne(); return; }
+  if(t.dataset.zeit){ UI.bzZeit = t.dataset.zeit; zeichne(); return; }
+  /* Ein Sprung auf einen bestimmten Tag - aus der Statuszeile (nachtragen) oder aus den
+     Rohdaten (Notiz berichtigen). Beide brauchen dasselbe, also gibt es einen Weg. */
+  if(t.dataset.nach){ UI.seite = "erf";
+    erfTagSetzen(tage(t.dataset.nach), t.classList.contains("roh-edit"));
+    zeichne(); window.scrollTo(0,0); return; }
+  if(t.dataset.luecke){ UI.seite = "erf"; erfTagSetzen(0); UI.erfAuf = t.dataset.luecke;
+    zeichne(); window.scrollTo(0,0); return; }
   if(t.id==="btnErf" || t.id==="btnErf2"){ UI.seite = "erf"; UI.erfMeldung = null; zeichne(); window.scrollTo(0,0); return; }
 
   /* Der Entwurf gehoert zu EINEM Tag. Wandert er beim Blaettern mit, landet der Wert
      am falschen Datum - darum wird er beim Datumswechsel geleert. */
-  if(t.dataset.tag){ UI.erfTag = Math.max(0, UI.erfTag - (+t.dataset.tag));
-    UI.erfAuf="auto"; UI.erfMeldung=null; UI.erfWerte={}; UI.erfKuerzel={}; UI.erfBp=[{sys:"",dia:"",puls:"",note:""}];
-    zeichne(); return; }
+  if(t.dataset.tag){ erfTagSetzen(UI.erfTag - (+t.dataset.tag)); zeichne(); return; }
   if(t.dataset.erf){ UI.erfAuf = (UI.erfAuf===t.dataset.erf) ? null : t.dataset.erf; UI.erfMeldung=null; zeichne(); return; }
   if(t.dataset.bf){ UI.erfWerte["bf_"+t.dataset.bf] = +t.dataset.v; UI.erfMeldung=null; zeichne(); return; }
   if(t.dataset.kuerzel){
