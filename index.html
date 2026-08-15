@@ -292,7 +292,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
 /*STATE-ENDE*/
 
 var UI = { seite:"wand", kz:null, bzView:"verlauf", bzZeit:"14", reihe:"sleep", akte:null, blatt:0, sicht:null, wahl:null,
-  erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:"",note:""}], erfKuerzel:{}, erfMeldung:null,
+  erfTag:0, erfAuf:"auto", erfWerte:{}, erfBp:[{sys:"",dia:"",puls:"",note:""}], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
   medEdit:false, medListe:null, medKopf:null };
 
 /* Kuerzel: der wiederkehrende Teil einer Notiz als Knopf, der Rest als Freitext. Deine
@@ -1464,6 +1464,7 @@ function erfTagSetzen(n, oeffneNotiz){
   UI.erfTag = Math.max(0, n|0);
   UI.erfAuf = "auto"; UI.erfMeldung = null; UI.erfKuerzel = {};
   UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}];
+  UI.erfBpNote = {};
   var iso = erfIso(), zuerst = null;
   var g = rGewicht().filter(function(x){ return x.iso===iso; })[0];
   if(g && g.note){ UI.erfWerte.note_gw = g.note; zuerst = zuerst||"gw"; }
@@ -1471,10 +1472,46 @@ function erfTagSetzen(n, oeffneNotiz){
   if(d && d.note){ UI.erfWerte.note_bz = d.note; zuerst = zuerst||"bz"; }
   var bf = (STATE.befinden.entries||[]).filter(function(x){ return x.iso===iso; })[0];
   if(bf && bf.note){ UI.erfWerte.note_bf = bf.note; zuerst = zuerst||"bf"; }
+  if(!zuerst && rBp().some(function(p){ return p.iso===iso && p.note; })) zuerst = "bd";
   /* Wer aus den Rohdaten kommt, will die Notiz berichtigen - dann muss die Kachel offen
      stehen, in der sie liegt. Wer aus der Statuszeile kommt, will einen Wert nachtragen;
      dort bleibt die uebliche Wahl (die erste Luecke des Tages). */
   if(oeffneNotiz && zuerst) UI.erfAuf = zuerst;
+}
+/* Bestehende Blutdruckmessungen des Tages. Die Notiz haengt an der MESSUNG, nicht am Tag -
+   am 06.08. steht an einer «auf Arbeit. stress» und an der naechsten «nach der Arbeit,
+   Heimweg zu Fuss». Zu einer Tagesnotiz verschmolzen weiss niemand mehr, welcher Wert
+   wozu gehoert. Darum bekommt jede Messung ihr eigenes Feld.
+   Der Schluessel traegt Zeit UND Werte: allein die Position waere beim naechsten Sortieren
+   eine andere Messung. */
+/* Wie viel steht im Entwurf. Eine Stelle, zwei Aufrufer: das Zeichnen und die Eingabe.
+   Die Eingabe zeichnet NICHT neu (das Feld verloere den Fokus), sie frischt nur die
+   Fusszeile auf - sonst bleibt Speichern grau, obwohl eine Notiz geaendert wurde. */
+function erfAnzahl(){
+  var bpNeu = UI.erfBp.filter(function(r){ return String(r.sys).trim()!=="" || String(r.dia).trim()!==""; }).length;
+  return Object.keys(UI.erfWerte).filter(function(k){
+      return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length
+    + bpNeu + ["gw","bz","bf"].filter(notizGeaendert).length + bpNotizGeaendert();
+}
+function fussAuffrischen(){
+  var b = document.getElementById("btnSpeichern"), z = document.getElementById("erfZaehler");
+  if(!b || !z) return;
+  var n = erfAnzahl();
+  b.disabled = !n;
+  z.textContent = zahl(n,"Wert","Werte")+" eingetippt · geschrieben wird direkt in die "
+    + ((CFG&&CFG.file)||"monitoring.json");
+}
+function bpSchluessel(p){ return p.iso+"|"+(p.time||"")+"|"+p.v+"|"+p.dia; }
+function bpAlt(){
+  var iso = erfIso();
+  return rBp().filter(function(x){ return x.iso===iso; }).map(function(p){
+    var s = bpSchluessel(p);
+    return { s:s, time:p.time||"", sys:p.v, dia:p.dia, pulse:p.pulse,
+      alt:p.note||"", note:(UI.erfBpNote[s]!==undefined ? UI.erfBpNote[s] : (p.note||"")) };
+  });
+}
+function bpNotizGeaendert(){
+  return bpAlt().filter(function(p){ return UI.erfBpNote[p.s]!==undefined && p.note.trim()!==p.alt; }).length;
 }
 function notizStand(k){
   var iso = erfIso();
@@ -1597,19 +1634,38 @@ function zeichneErf(){
     !!bpT.length && !bpNeu,
     bpT.length ? zahl(bpT.length,"Messung","Messungen")+" heute"
       : (BP.length?"zuletzt "+dmy(BP[BP.length-1].iso)+" · "+Math.round(BP[BP.length-1].v)+"/"+Math.round(BP[BP.length-1].dia):""),
-    '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">'
-    + UI.erfBp.map(function(r,i){
-        return '<div><div class="bp-zeile"><div class="lbl">Messung '+(i+1)+'</div>'
-          + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="sys" value="'+esc(r.sys)+'" placeholder="sys">'
-          + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="dia" value="'+esc(r.dia)+'" placeholder="dia">'
-          + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="puls" value="'+esc(r.puls)+'" placeholder="Puls"></div>'
-          + '<input type="text" data-bp="'+i+'" data-f="note" value="'+esc(r.note||"")+'" placeholder="Notiz zu dieser Messung" style="margin-top:7px"></div>'; }).join("")
-    + '<button class="btn" id="btnBpPlus" style="align-self:flex-start;color:var(--akzent)">+ weitere Messung</button>'
-    + '</div>'
-    + '<div class="kuerzel">'+(KUERZEL.bd||[]).map(function(x){
-        var an = kuerzelAn("bd").indexOf(x)>=0;
-        return '<button class="kz-knopf'+(an?" an":"")+'" data-kuerzel="bd" data-kw="'+esc(x)+'">'+esc(x)+(an?" ✓":"")+'</button>'; }).join("")
-    + '</div><div class="bildtext">Gewählte Kürzel stehen vor jeder Notiz dieser Erfassung.</div>');
+    (function(){
+      var A = bpAlt();
+      return (A.length
+        ? '<div class="lbl" style="margin-top:12px">An diesem Tag schon erfasst</div>'
+          + '<div style="display:flex;flex-direction:column;gap:9px;margin-top:8px">'
+          + A.map(function(p){
+              return '<div style="display:grid;grid-template-columns:92px 1fr;gap:9px;align-items:center">'
+                + '<div style="font-size:14px;color:var(--muted)">'
+                +   '<b style="font-weight:620;color:var(--ink)">'+Math.round(p.sys)+'/'+Math.round(p.dia)+'</b>'
+                +   (p.time?'<div class="mono" style="font-size:11px;color:var(--faint)">'+esc(p.time)+'</div>':'')
+                + '</div>'
+                + '<input type="text" data-bpalt="'+esc(p.s)+'" value="'+esc(p.note)+'" '
+                +   'placeholder="Notiz zu dieser Messung" style="height:42px;font-size:14.5px'
+                +   (p.note.trim()!==p.alt?';border-color:var(--akzent)':'')+'">'
+                + '</div>'; }).join("")
+          + '</div><div class="bildtext">Hier steht, was schon in der Datei liegt — die Notiz lässt sich ändern, leeren entfernt sie. Die Werte selbst bleiben, wie gemessen wurde.</div>'
+          + '<div class="lbl" style="margin-top:18px">Neue Messung</div>'
+        : '')
+      + '<div style="display:flex;flex-direction:column;gap:12px;margin-top:'+(A.length?8:12)+'px">'
+      + UI.erfBp.map(function(r,i){
+          return '<div><div class="bp-zeile"><div class="lbl">Messung '+(i+1)+'</div>'
+            + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="sys" value="'+esc(r.sys)+'" placeholder="sys">'
+            + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="dia" value="'+esc(r.dia)+'" placeholder="dia">'
+            + '<input type="text" inputmode="numeric" data-bp="'+i+'" data-f="puls" value="'+esc(r.puls)+'" placeholder="Puls"></div>'
+            + '<input type="text" data-bp="'+i+'" data-f="note" value="'+esc(r.note||"")+'" placeholder="Notiz zu dieser Messung" style="margin-top:7px"></div>'; }).join("")
+      + '<button class="btn" id="btnBpPlus" style="align-self:flex-start;color:var(--akzent)">+ weitere Messung</button>'
+      + '</div>'
+      + '<div class="kuerzel">'+(KUERZEL.bd||[]).map(function(x){
+          var an = kuerzelAn("bd").indexOf(x)>=0;
+          return '<button class="kz-knopf'+(an?" an":"")+'" data-kuerzel="bd" data-kw="'+esc(x)+'">'+esc(x)+(an?" ✓":"")+'</button>'; }).join("")
+      + '</div><div class="bildtext">Gewählte Kürzel stehen vor der Notiz jeder NEUEN Messung.</div>';
+    })());
 
   h += kachel("bf", "Befinden",
     bfNeu ? bfNeu+" von "+dims.length : (bfE?nf(bfE.idx,1):""),
@@ -1656,10 +1712,8 @@ function zeichneErf(){
 
   h += '</div>';
 
-  var anzahl = Object.keys(UI.erfWerte).filter(function(k){
-    return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length + bpNeu
-    + ["gw","bz","bf"].filter(notizGeaendert).length;
-  h += '<div class="fuss-erf"><div>'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
+  var anzahl = erfAnzahl();
+  h += '<div class="fuss-erf"><div id="erfZaehler">'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
     + esc((CFG&&CFG.file)||"monitoring.json")+'</div><div style="display:flex;gap:9px">'
     + '<button class="btn" data-zu="1">Abbrechen</button>'
     + '<button class="btn stark" id="btnSpeichern"'+(anzahl?"":" disabled")+'>Speichern</button></div></div>';
@@ -1740,6 +1794,24 @@ async function speichern(){
   }
 
   var nBdKuerzel = kuerzelAn("bd").join(" · ");
+  /* Notizen an BESTEHENDEN Messungen berichtigen. Gesucht wird ueber Zeit und Werte, nicht
+     ueber die Position - und jede Fundstelle nur einmal, sonst bekaeme bei zwei gleichen
+     Messungen am selben Tag die erste beide Notizen. */
+  var benutzt = {};
+  Object.keys(UI.erfBpNote).forEach(function(s){
+    var teile = s.split("|"), txt = String(UI.erfBpNote[s]||"").trim();
+    for(var i=0;i<N.bloodpressure.points.length;i++){
+      var p = N.bloodpressure.points[i];
+      if(benutzt[i]) continue;
+      if(p.iso!==teile[0] || String(p.time||"")!==teile[1]) continue;
+      if(String(+p.sys)!==teile[2] || String(+p.dia)!==teile[3]) continue;
+      benutzt[i] = 1;
+      if(txt === String(p.note||"")) break;
+      if(txt) p.note = txt; else delete p.note;
+      geschrieben++;
+      break;
+    }
+  });
   UI.erfBp.forEach(function(r){
     var sys=num(r.sys), dia=num(r.dia);
     if(sys==null || dia==null) return;
@@ -1789,7 +1861,7 @@ async function speichern(){
   try{ ok = await ghSchreiben(N, false); }
   catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
   if(ok!==true) return false;   // STATE bleibt unangetastet, der Entwurf steht noch da
-  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}]; UI.erfAuf = "auto"; UI.erfKuerzel = {};
+  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}]; UI.erfAuf = "auto"; UI.erfKuerzel = {}; UI.erfBpNote = {};
   zustandSetzen(N);
   return meldung(zahl(geschrieben,"Eintrag","Einträge")+" unter dem "+dmy(iso)+" gespeichert.");
 }
@@ -2084,8 +2156,9 @@ document.addEventListener("click", function(e){
    andere Zeile darf nichts verlieren. */
 document.addEventListener("input", function(e){
   var i = e.target;
-  if(i.dataset.w){ UI.erfWerte[i.dataset.w] = i.value; return; }
-  if(i.dataset.bp!==undefined){ UI.erfBp[+i.dataset.bp][i.dataset.f] = i.value; return; }
+  if(i.dataset.w){ UI.erfWerte[i.dataset.w] = i.value; fussAuffrischen(); return; }
+  if(i.dataset.bp!==undefined){ UI.erfBp[+i.dataset.bp][i.dataset.f] = i.value; fussAuffrischen(); return; }
+  if(i.dataset.bpalt!==undefined){ UI.erfBpNote[i.dataset.bpalt] = i.value; fussAuffrischen(); return; }
   /* Die Medikationsfelder schreiben in die Arbeitskopie, nicht in STATE - und ohne
      Neuzeichnen, sonst verliert das Feld bei jedem Zeichen den Fokus. */
   if(i.dataset.med!==undefined){ medArbeit()[+i.dataset.med][i.dataset.f] = i.value; return; }
