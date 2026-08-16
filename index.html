@@ -386,6 +386,7 @@ async function ghSchreiben(obj, nochmal){
 function meldung(t, fehler){ UI.erfMeldung = {text:t, fehler:!!fehler}; zeichne(); return !fehler; }
 
 function zustandSetzen(o){
+  UI.erfStandIso = null;
   for(var k in STATE) delete STATE[k];
   for(var k2 in o) STATE[k2] = o[k2];
   zeichne();
@@ -1453,6 +1454,47 @@ function akteRoh(){
    die an diesem Tag noch fehlt. Tag und Woche sind zwei Abschnitte: Trinken und
    Verdauung gelten fuer die ganze Woche und stehen darum erst am Sonntag offen. */
 function erfIso(){ return isoVon(new Date(heuteMs() - UI.erfTag*86400000)); }
+/* Was am gewaehlten Tag schon in der Datei steht, gehoert IN die Maske. Sonst laesst sich
+   ein einmal falsch eingetippter Wert nie mehr berichtigen - gemeldet am 16.08.2026 an
+   einem unsinnigen Taille-Wert, an den die Erfassung nicht mehr herankam.
+   UI.erfStand haelt daneben den Dateistand: geschrieben wird nur, was davon abweicht,
+   ein geleertes Feld entfernt den Wert. So ist die Maske Anzeige UND Korrektur. */
+function standVom(iso){
+  var S = {};
+  var g = ((STATE.weight&&STATE.weight.points)||[]).filter(function(p){ return p.date===iso; })[0];
+  if(g && g.value!=null) S.gewicht = nf(g.value,1);
+  var d = ((STATE.glucose&&STATE.glucose.days)||[]).filter(function(x){ return x.iso===iso; })[0];
+  if(d) SLOT3.forEach(function(s,i){
+    var r = (d.rows||[]).filter(function(x){ return x.slot===s.k; })[0];
+    /* Nur ein einzelner Wert je Messpunkt kommt ins Feld - bei zweien waere unklar,
+       welchen das Feld berichtigt; die bleiben stehen und das Feld haengt an. */
+    if(r && (r.values||[]).length===1 && r.values[0].v!=null) S["bz"+i] = nf(r.values[0].v,1);
+  });
+  var bf = ((STATE.befinden&&STATE.befinden.entries)||[]).filter(function(x){ return x.iso===iso; })[0];
+  if(bf) befDims().forEach(function(dd){ if(bf[dd.key]!=null) S["bf_"+dd.key] = +bf[dd.key]; });
+  var b = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
+  if(b){ if(b.chest!=null) S.brust = String(Math.round(b.chest));
+         if(b.waist!=null) S.taille = String(Math.round(b.waist));
+         if(b.hip!=null) S.huefte = String(Math.round(b.hip)); }
+  var WS = wocheStandVon(iso);
+  if(WS.trinken!=null) S.trinken = WS.trinken;
+  if(WS.verdauung!=null) S.verdauung = WS.verdauung;
+  if(WS.schlaf!=null) S.schlaf = nf(WS.schlaf,1);
+  if(WS.schritte!=null) S.schritte = String(Math.round(WS.schritte));
+  if(WS.rhr!=null) S.rhr = String(Math.round(WS.rhr));
+  return S;
+}
+function standAuffrischen(iso){
+  if(UI.erfStandIso === iso) return;
+  UI.erfStandIso = iso;
+  UI.erfStand = standVom(iso);
+  for(var k in UI.erfStand) UI.erfWerte[k] = UI.erfStand[k];
+}
+/* Geaendert heisst: anders als in der Datei. Nur das wird geschrieben. */
+function wertGeaendert(k){
+  var s = (UI.erfStand||{})[k], v = UI.erfWerte[k];
+  return String(v==null?"":v).trim() !== String(s==null?"":s).trim();
+}
 function erfHat(reihe){ var iso=erfIso(); return reihe.some(function(x){ return x.iso===iso; }); }
 function tv(k){ var v=UI.erfWerte[k]; return v==null?"":String(v); }
 function num(s){ if(s==null) return null; s=String(s).trim().replace(",","."); return s===""?null:(isFinite(+s)?+s:null); }
@@ -1464,7 +1506,7 @@ function erfTagSetzen(n, oeffneNotiz){
   UI.erfTag = Math.max(0, n|0);
   UI.erfAuf = "auto"; UI.erfMeldung = null; UI.erfKuerzel = {};
   UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}];
-  UI.erfBpNote = {};
+  UI.erfBpNote = {}; UI.erfStandIso = null;
   var iso = erfIso(), zuerst = null;
   var g = rGewicht().filter(function(x){ return x.iso===iso; })[0];
   if(g && g.note){ UI.erfWerte.note_gw = g.note; zuerst = zuerst||"gw"; }
@@ -1490,7 +1532,7 @@ function erfTagSetzen(n, oeffneNotiz){
 function erfAnzahl(){
   var bpNeu = UI.erfBp.filter(function(r){ return String(r.sys).trim()!=="" || String(r.dia).trim()!==""; }).length;
   return Object.keys(UI.erfWerte).filter(function(k){
-      return k.indexOf("note_")!==0 && String(UI.erfWerte[k]).trim()!==""; }).length
+      return k.indexOf("note_")!==0 && wertGeaendert(k); }).length
     + bpNeu + ["gw","bz","bf"].filter(notizGeaendert).length + bpNotizGeaendert();
 }
 function fussAuffrischen(){
@@ -1550,8 +1592,27 @@ function notizBlock(k){
     + (alt?'<div class="bildtext">Der bestehende Text steht im Feld — was Du hier stehen lässt, ersetzt ihn. Leer heisst: Notiz entfernen.</div>':'');
 }
 
+/* Was fuer die Woche des Erfassungstags SCHON in der Datei steht. Ohne das behauptet
+   die Wochenkachel bei jedem Oeffnen «noch nicht» - auch dann, wenn Schlaf, Schritte und
+   Ruhepuls laengst gespeichert sind (gemeldet 16.08.2026). Trinken und Verdauung haengen
+   am MONTAG der Woche, Fitbit am SONNTAG - so liegen sie in der Datei. */
+function wocheStand(){ return wocheStandVon(erfIso()); }
+function wocheStandVon(iso){
+  var mo = montagVon(iso), so = sonntagVon(iso);
+  var fl = ((STATE.fluid&&STATE.fluid.weeks)||[]).filter(function(w){ return w.weekStart===mo; })[0];
+  var di = ((STATE.digestion&&STATE.digestion.weeks)||[]).filter(function(w){ return w.weekStart===mo; })[0];
+  var fb = ((STATE.fitbit&&STATE.fitbit.weeks)||[]).filter(function(w){ return w.weekStart===so; })[0] || {};
+  return { label: fb.label || (di&&di.label) || (fl&&fl.label) || (dm(mo)+"–"+dm(so)),
+    trinken: (fl && fl.goalMet!=null) ? (fl.goalMet?1:0) : null,
+    verdauung: (di && di.stars!=null) ? +di.stars : null,
+    schlaf: (fb.sleep && fb.sleep.avgH!=null) ? +fb.sleep.avgH : null,
+    schritte: (fb.steps && fb.steps.avg!=null) ? +fb.steps.avg : null,
+    rhr: (fb.rhr && fb.rhr.avg!=null) ? +fb.rhr.avg : null };
+}
+
 function zeichneErf(){
   var iso = erfIso(), wt = new Date(iso+"T12:00:00").getDay();
+  standAuffrischen(iso);
   var TAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
   var wochenende = (wt===0 || wt===1);
   var G=rGewicht(), BZT=rBzTage(), BP=rBp(), BF=rBefinden();
@@ -1560,9 +1621,9 @@ function zeichneErf(){
   var dims = befDims();
   var gE = G.filter(function(x){return x.iso===iso;})[0], bzE = BZT.filter(function(x){return x.iso===iso;})[0];
   var bpT = BP.filter(function(x){return x.iso===iso;}), bfE = BF.filter(function(x){return x.iso===iso;})[0];
-  var bzNeu = SLOT3.filter(function(s,i){ return tv("bz"+i)!==""; }).length;
+  var bzNeu = SLOT3.filter(function(s,i){ return wertGeaendert("bz"+i); }).length;
   var bpNeu = UI.erfBp.filter(function(r){ return String(r.sys).trim()!=="" || String(r.dia).trim()!==""; }).length;
-  var bfNeu = dims.filter(function(d){ return UI.erfWerte["bf_"+d.key]!=null; }).length;
+  var bfNeu = dims.filter(function(d){ return wertGeaendert("bf_"+d.key); }).length;
 
   /* Eine Kachel traegt den heutigen Stand, nicht bloss ihren Namen: erledigt zeigt den
      Wert, offen ein Plus. Die offene Kachel waechst an Ort und Stelle auf volle Breite -
@@ -1604,12 +1665,13 @@ function zeichneErf(){
     + '<div class="kacheln" style="margin-top:14px">';
 
   h += kachel("gw", "Gewicht",
-    tv("gewicht") ? tv("gewicht")+" kg" : (gE?nf(gE.v,1)+" kg":""),
-    !!gE && !tv("gewicht"),
+    tv("gewicht") ? tv("gewicht")+" kg" : "",
+    !!gE && !wertGeaendert("gewicht"),
     gE ? (gE.note||"heute erfasst") : (G.length?"zuletzt "+dmy(G[G.length-1].iso)+" · "+nf(G[G.length-1].v,1)+" kg":""),
     '<div style="display:flex;align-items:center;gap:10px;margin-top:12px">'
     + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="112,8" style="width:130px">'
     + '<div style="font-size:14.5px;color:var(--faint)">kg</div></div>'
+    + (gE?'<div class="bildtext">Im Feld steht der Wert dieses Tages — ändern berichtigt ihn, leeren entfernt ihn.</div>':'')
     + notizBlock("gw"));
 
   h += kachel("bz", "Blutzucker",
@@ -1626,7 +1688,7 @@ function zeichneErf(){
           +   (v==null ? esc(s.hint) : (v<soll ? "unter "+nf(soll,1)+" — wie ein Nicht-Diabetiker"
                 : (v<=(STATE.glucose.th||{}).postHigh ? "über "+nf(soll,1)+", im Korridor" : "über dem Korridor")))
           + '</div></div>'; }).join("")
-    + '</div><div class="bildtext">Leer lassen, wo nicht gemessen wurde. Drei Messpunkte statt sechs — die Uhrzeit trägt die Mahlzeit.</div>'
+    + '</div><div class="bildtext">Leer lassen, wo nicht gemessen wurde. Was schon im Feld steht, ist der Wert dieses Tages — ändern berichtigt ihn, leeren entfernt ihn. Drei Messpunkte statt sechs — die Uhrzeit trägt die Mahlzeit.</div>'
     + notizBlock("bz"));
 
   h += kachel("bd", "Blutdruck",
@@ -1683,32 +1745,73 @@ function zeichneErf(){
 
   h += '</div>';
 
-  var wNeu = ["trinken","verdauung","schlaf","schritte","rhr"].filter(function(k){ return UI.erfWerte[k]!=null && String(UI.erfWerte[k]).trim()!==""; }).length;
+  var wNeu = ["trinken","verdauung","schlaf","schritte","rhr"].filter(wertGeaendert).length;
+  /* Die Kachel zeigt den STAND, nicht nur den Entwurf: was in der Datei liegt, steht in
+     der Kachel und in den Feldern - sonst sieht ein gespeicherter Wert genauso aus wie
+     ein nie erfasster. */
+  var WS = wocheStand();
+  var wGesp = ["trinken","verdauung","schlaf","schritte","rhr"].filter(function(k){ return WS[k]!=null; }).length;
+  var wTeile = [];
+  if(WS.schlaf!=null) wTeile.push("Schlaf "+nf(WS.schlaf,1)+" h");
+  if(WS.schritte!=null) wTeile.push(tsd(WS.schritte)+" Schritte");
+  if(WS.rhr!=null) wTeile.push("Puls "+nf(WS.rhr,0));
+  if(WS.trinken!=null) wTeile.push("Trinken "+(WS.trinken===1?"erreicht":"nicht erreicht"));
+  if(WS.verdauung!=null) wTeile.push("Verdauung "+WS.verdauung+"★");
+  var trAn = (UI.erfWerte.trinken!=null) ? (+UI.erfWerte.trinken===1) : (WS.trinken===1);
+  var trAusDatei = (UI.erfWerte.trinken==null && WS.trinken!=null);
+  var vSt = (UI.erfWerte.verdauung!=null) ? +UI.erfWerte.verdauung : (WS.verdauung!=null?WS.verdauung:0);
+  var vAusDatei = (UI.erfWerte.verdauung==null && WS.verdauung!=null);
   h += '<div class="abschnitt">'+(wochenende?"Woche zum "+dm(iso)+" · jetzt fällig":"Woche · fällig am Sonntag")+'</div>'
     + '<div class="kacheln" style="margin-top:14px">';
 
   h += kachel("woche", "Trinken, Verdauung, Fitbit",
-    wNeu ? zahl(wNeu,"Wert","Werte") : "",
-    false,
-    (wochenende||wNeu) ? "Schlaf · Schritte · Ruhepuls · Trinken · Verdauung" : "öffnet am Sonntag",
+    wNeu ? zahl(wNeu,"Wert","Werte")+" neu" : (wGesp ? wGesp+" von 5" : ""),
+    wGesp===5 && !wNeu,
+    wGesp ? "Woche "+WS.label+" · "+wTeile.join(" · ")
+          : ((wochenende||wNeu) ? "Schlaf · Schritte · Ruhepuls · Trinken · Verdauung" : "öffnet am Sonntag"),
     (wochenende?"":'<div style="font-size:13.5px;color:var(--faint);margin-top:12px">Diese Werte gelten für die ganze Woche, nicht für einen Tag — darum stehen sie sonntags offen.</div>')
+    + '<div class="bildtext" style="margin-top:10px">Woche '+esc(WS.label)+' · '
+    +   (wTeile.length ? "was hier steht, liegt so in der Datei — ändern berichtigt die Woche." : "in der Datei steht dafür noch nichts.")
+    + '</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin-top:12px">'
     +   '<div style="display:flex;align-items:center;gap:11px"><div style="font-size:14.5px;color:var(--muted)">Trinken Ø 3 l</div>'
-    +     '<button class="schieber'+(UI.erfWerte.trinken===1?" an":"")+'" id="btnTrinken"><span class="knopf"></span></button>'
-    +     '<div style="font-size:13px;color:var(--faint)">'+(UI.erfWerte.trinken===1?"erreicht":"nicht erreicht")+'</div></div>'
+    +     '<button class="schieber'+(trAn?" an":"")+'" id="btnTrinken"><span class="knopf"></span></button>'
+    +     '<div style="font-size:13px;color:var(--faint)">'+(trAn?"erreicht":"nicht erreicht")+'</div></div>'
     +   '<div style="display:flex;align-items:center;gap:11px"><div style="font-size:14.5px;color:var(--muted)">Verdauung</div>'
     +     '<div style="display:flex;gap:4px">'+[1,2,3,4,5].map(function(n){
-            return '<button class="stern'+((+UI.erfWerte.verdauung>=n)?" an":"")+'" data-stern="'+n+'">'
-              + ((+UI.erfWerte.verdauung>=n)?"★":"☆")+'</button>'; }).join("")+'</div></div>'
+            return '<button class="stern'+((vSt>=n)?" an":"")+'" data-stern="'+n+'">'+((vSt>=n)?"★":"☆")+'</button>'; }).join("")+'</div>'
+    + '</div>'
     + '</div>'
     + '<div class="felder" style="margin-top:16px">'
     +   feld("schlaf","Schlaf h")+feld("schritte","Schritte Ø/Tag")+feld("rhr","Ruhepuls")
     + '</div>');
 
-  h += kachel("selten", "Körpermasse", "", false, "alle vier Wochen",
+  var K3 = rKoerper(), kL = K3.length?K3[K3.length-1]:null;
+  var kNeu = ["brust","taille","huefte"].filter(wertGeaendert).length;
+  var kHeute = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
+  /* Die letzten Messungen mit Sprung: eine falsche Taille liegt fast nie auf HEUTE, und
+     sich mit ‹ vierzehnmal zurueckzuklicken ist keine Korrekturmoeglichkeit. */
+  var kListe = K3.slice(-4).reverse().filter(function(p){ return p.date!==iso; });
+  h += kachel("selten", "Körpermasse",
+    kNeu ? zahl(kNeu,"Wert","Werte")+" geändert" : (kHeute?nf(kHeute.waist,0)+" cm":(kL?nf(kL.waist,0)+" cm":"")),
+    !!kHeute && !kNeu,
+    kHeute ? "an diesem Tag erfasst · Taille "+nf(kHeute.waist,0)+" · Hüfte "+nf(kHeute.hip,0)
+      : (kL ? "zuletzt "+dmy(kL.date)+" · Taille "+nf(kL.waist,0)+" · Hüfte "+nf(kL.hip,0)
+            + (kL.chest!=null?" · Brust "+nf(kL.chest,0):"") : "alle vier Wochen"),
     '<div class="felder" style="margin-top:12px">'
     + feld("brust","Brust cm")+feld("taille","Taille cm")+feld("huefte","Hüfte cm")
-    + '</div>');
+    + '</div>'
+    + '<div class="bildtext">'+(kHeute
+        ? "Im Feld steht die Messung dieses Tages — ändern berichtigt sie, alle drei leeren entfernt sie."
+        : "Alle vier Wochen fällig. Was Du hier einträgst, gehört zum "+esc(dmy(iso))+".")+'</div>'
+    + (kListe.length
+        ? '<div class="lbl" style="margin-top:16px">Frühere Messungen berichtigen</div>'
+          + '<div class="akten-liste" style="margin-top:8px">'
+          + kListe.map(function(p){
+              return '<button class="sch" data-nach="'+esc(p.date)+'" style="font-size:12.5px;padding:6px 11px">'
+                + esc(dmy(p.date))+' · Taille '+nf(p.waist,0)+' · Hüfte '+nf(p.hip,0)+'</button>'; }).join("")
+          + '</div><div class="bildtext">Ein Klick springt auf diesen Tag; die Werte stehen dann in den Feldern.</div>'
+        : ''));
 
   h += '</div>';
 
@@ -1756,11 +1859,18 @@ async function speichern(){
   N.fitbit = N.fitbit||{weeks:[]}; N.fitbit.weeks = N.fitbit.weeks||[];
 
   var g = num(W.gewicht), nGw = notizText("gw");
-  if(g!=null){ punktSetzen(N.weight.points, "date", iso, {value:g, note:nGw||null}); geschrieben++; }
-  else if(notizGeaendert("gw")){
-    /* Notiz ohne Messwert: nur berichtigen, nie einen leeren Punkt anlegen. */
-    var gp = N.weight.points.filter(function(p){ return p.date===iso; })[0];
-    if(gp){ if(nGw) gp.note = nGw; else delete gp.note; geschrieben++; }
+  if(wertGeaendert("gewicht") || notizGeaendert("gw")){
+    if(g!=null){
+      var gp2 = punktSetzen(N.weight.points, "date", iso, {value:g});
+      if(notizGeaendert("gw")){ if(nGw) gp2.note = nGw; else delete gp2.note; }
+      geschrieben++;
+    } else {
+      var gp = N.weight.points.filter(function(p){ return p.date===iso; })[0];
+      if(gp && wertGeaendert("gewicht")){
+        /* Geleert heisst entfernt - das ist der Weg aus einem Vertipper heraus. */
+        N.weight.points = N.weight.points.filter(function(p){ return p.date!==iso; }); geschrieben++;
+      } else if(gp){ if(nGw) gp.note = nGw; else delete gp.note; geschrieben++; }
+    }
   }
 
   /* Drei Messpunkte. Die alten Namen bleiben in der Datei stehen - was einmal als
@@ -1772,25 +1882,38 @@ async function speichern(){
     if(N.glucose.slots.indexOf(s.k)<0) N.glucose.slots.push(s.k);
     N.glucose.slotType[s.k] = s.t;
   });
-  var neueRows = [], jetzt = new Date(), zeit = String(jetzt.getHours()).padStart(2,"0")+":"+String(jetzt.getMinutes()).padStart(2,"0");
-  SLOT3.forEach(function(s,i){ var v=num(W["bz"+i]); if(v!=null) neueRows.push({slot:s.k, values:[{v:v, t:zeit}]}); });
+  var jetzt = new Date(), zeit = String(jetzt.getHours()).padStart(2,"0")+":"+String(jetzt.getMinutes()).padStart(2,"0");
+  var bzAend = SLOT3.map(function(s,i){ return wertGeaendert("bz"+i); });
   var nBz = notizText("bz");
-  if(neueRows.length){
+  if(bzAend.some(Boolean) || notizGeaendert("bz")){
     var tag = N.glucose.days.filter(function(d){ return d.iso===iso; })[0];
-    if(!tag){ tag={iso:iso, date:dm(iso), rows:[]}; N.glucose.days.push(tag);
+    if(!tag && bzAend.some(Boolean)){ tag={iso:iso, date:dm(iso), rows:[]}; N.glucose.days.push(tag);
       N.glucose.days.sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
-    tag.rows = tag.rows||[];
-    /* ERSETZEN, nicht anhaengen: das Feld traegt beim Oeffnen den bestehenden Text, also
-       ist das, was darin steht, die ganze Notiz dieses Tages. */
-    if(notizGeaendert("bz")){ if(nBz) tag.note = nBz; else delete tag.note; }
-    neueRows.forEach(function(nr){
-      var r = tag.rows.filter(function(x){ return x.slot===nr.slot; })[0];
-      if(r){ r.values = (r.values||[]).concat(nr.values); } else { tag.rows.push(nr); }
-      geschrieben++;
-    });
-  } else if(notizGeaendert("bz")){
-    var tg = N.glucose.days.filter(function(d){ return d.iso===iso; })[0];
-    if(tg){ if(nBz) tg.note = nBz; else delete tg.note; geschrieben++; }
+    if(tag){
+      tag.rows = tag.rows||[];
+      /* ERSETZEN, nicht anhaengen: das Feld traegt beim Oeffnen den bestehenden Text, also
+         ist das, was darin steht, die ganze Notiz dieses Tages. */
+      if(notizGeaendert("bz")){ if(nBz) tag.note = nBz; else delete tag.note; geschrieben++; }
+      SLOT3.forEach(function(s,i){
+        if(!bzAend[i]) return;
+        var v = num(W["bz"+i]);
+        var r = tag.rows.filter(function(x){ return x.slot===s.k; })[0];
+        var stand = (UI.erfStand||{})["bz"+i]!=null;
+        if(v==null){
+          /* Geleert: der berichtigte Messpunkt faellt weg. Nur der, nicht der Tag. */
+          if(stand && r) tag.rows = tag.rows.filter(function(x){ return x.slot!==s.k; });
+        } else if(stand && r && (r.values||[]).length===1){
+          r.values[0].v = v;            // Uhrzeit der Messung bleibt, wie sie war
+        } else if(r){
+          r.values = (r.values||[]).concat([{v:v, t:zeit}]);
+        } else {
+          tag.rows.push({slot:s.k, values:[{v:v, t:zeit}]});
+        }
+        geschrieben++;
+      });
+      if(!tag.rows.length && !tag.note)
+        N.glucose.days = N.glucose.days.filter(function(d){ return d.iso!==iso; });
+    }
   }
 
   var nBdKuerzel = kuerzelAn("bd").join(" · ");
@@ -1829,8 +1952,11 @@ async function speichern(){
 
   var dims = befDims(), bfFelder = {};
   dims.forEach(function(d){ if(W["bf_"+d.key]!=null) bfFelder[d.key] = W["bf_"+d.key]; });
+  /* Seit die Maske den Tagesstand traegt, stehen die Stufen auch dann im Entwurf, wenn
+     niemand sie angefasst hat - geschrieben wird nur, was sich geaendert hat. */
+  var bfAend = dims.some(function(d){ return wertGeaendert("bf_"+d.key); });
   var nBf = notizText("bf");
-  if(Object.keys(bfFelder).length){
+  if(bfAend && Object.keys(bfFelder).length){
     if(notizGeaendert("bf")) bfFelder.note = nBf || null;
     var bp2 = punktSetzen(N.befinden.entries, "iso", iso, bfFelder);
     if(notizGeaendert("bf") && !nBf) delete bp2.note;
@@ -1840,18 +1966,33 @@ async function speichern(){
     if(be){ if(nBf) be.note = nBf; else delete be.note; geschrieben++; }
   }
 
-  var kf = {chest:num(W.brust), waist:num(W.taille), hip:num(W.huefte)};
-  if(kf.chest!=null || kf.waist!=null || kf.hip!=null){ punktSetzen(N.body.points, "date", iso, kf); geschrieben++; }
+  var kMap = {brust:"chest", taille:"waist", huefte:"hip"};
+  if(["brust","taille","huefte"].some(wertGeaendert)){
+    var kp = punktSetzen(N.body.points, "date", iso, {});
+    ["brust","taille","huefte"].forEach(function(k){
+      if(!wertGeaendert(k)) return;
+      var v = num(W[k]);
+      if(v!=null) kp[kMap[k]] = v; else delete kp[kMap[k]];
+    });
+    if(kp.chest==null && kp.waist==null && kp.hip==null)
+      N.body.points = N.body.points.filter(function(p){ return p.date!==iso; });
+    geschrieben++;
+  }
 
-  if(W.trinken!=null){ punktSetzen(N.fluid.weeks, "weekStart", montagVon(iso), {goalMet:W.trinken===1}); geschrieben++; }
-  if(W.verdauung!=null){ punktSetzen(N.digestion.weeks, "weekStart", montagVon(iso), {stars:+W.verdauung}); geschrieben++; }
+  if(wertGeaendert("trinken") && W.trinken!=null){
+    punktSetzen(N.fluid.weeks, "weekStart", montagVon(iso), {goalMet:+W.trinken===1}); geschrieben++; }
+  if(wertGeaendert("verdauung") && W.verdauung!=null){
+    punktSetzen(N.digestion.weeks, "weekStart", montagVon(iso), {stars:+W.verdauung}); geschrieben++; }
 
-  var sl=num(W.schlaf), st=num(W.schritte), rh=num(W.rhr);
-  if(sl!=null || st!=null || rh!=null){
+  var fbK = [["schlaf","sleep","avgH"], ["schritte","steps","avg"], ["rhr","rhr","avg"]];
+  if(fbK.some(function(x){ return wertGeaendert(x[0]); })){
     var wk = punktSetzen(N.fitbit.weeks, "weekStart", sonntagVon(iso), {});
-    if(sl!=null){ wk.sleep = wk.sleep||{}; wk.sleep.avgH = sl; }
-    if(st!=null){ wk.steps = wk.steps||{}; wk.steps.avg = st; }
-    if(rh!=null){ wk.rhr = wk.rhr||{}; wk.rhr.avg = rh; }
+    fbK.forEach(function(x){
+      if(!wertGeaendert(x[0])) return;
+      var v = num(W[x[0]]);
+      if(v!=null){ wk[x[1]] = wk[x[1]]||{}; wk[x[1]][x[2]] = v; }
+      else if(wk[x[1]]) wk[x[1]][x[2]] = null;   // geleert: die Woche traegt dort nichts mehr
+    });
     geschrieben++;
   }
 
@@ -1861,7 +2002,8 @@ async function speichern(){
   try{ ok = await ghSchreiben(N, false); }
   catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
   if(ok!==true) return false;   // STATE bleibt unangetastet, der Entwurf steht noch da
-  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}]; UI.erfAuf = "auto"; UI.erfKuerzel = {}; UI.erfBpNote = {};
+  UI.erfWerte = {}; UI.erfBp = [{sys:"",dia:"",puls:"",note:""}]; UI.erfAuf = "auto"; UI.erfKuerzel = {};
+  UI.erfBpNote = {}; UI.erfStandIso = null;
   zustandSetzen(N);
   return meldung(zahl(geschrieben,"Eintrag","Einträge")+" unter dem "+dmy(iso)+" gespeichert.");
 }
@@ -2147,7 +2289,10 @@ document.addEventListener("click", function(e){
     UI.erfMeldung = null; zeichne(); return;
   }
   if(t.dataset.stern){ UI.erfWerte.verdauung = +t.dataset.stern; UI.erfMeldung=null; zeichne(); return; }
-  if(t.id==="btnTrinken"){ UI.erfWerte.trinken = (UI.erfWerte.trinken===1?0:1); UI.erfMeldung=null; zeichne(); return; }
+  /* Der Schalter kippt den ANGEZEIGTEN Zustand - steht in der Datei «erreicht» und der
+     Entwurf ist leer, muss ein Klick auf «nicht erreicht» gehen, nicht wieder auf «erreicht». */
+  if(t.id==="btnTrinken"){ var trJetzt = (UI.erfWerte.trinken!=null) ? (+UI.erfWerte.trinken===1) : (wocheStand().trinken===1);
+    UI.erfWerte.trinken = trJetzt?0:1; UI.erfMeldung=null; zeichne(); return; }
   if(t.id==="btnBpPlus"){ UI.erfBp.push({sys:"",dia:"",puls:"",note:""}); zeichne(); return; }
   if(t.id==="btnSpeichern"){ speichern(); return; }
 });
