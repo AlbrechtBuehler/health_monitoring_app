@@ -2170,9 +2170,9 @@ function zeichne(){
      jedem Neuzeichnen Eintraege an, die auf nichts mehr zeigen. */
   TIPS = {}; TIPN = 0; tipWeg();
   var kopfE = document.getElementById("kopfEyebrow"), kopfZ = document.getElementById("kopfZeile");
-  var kopie = FROZEN, stand = STATE.updated||"—";
+  var kopie = FROZEN, stand = STATE.updated||"—", heute = dmy(isoVon(new Date(heuteMs())));
   kopfE.textContent = kopie ? "Arztkopie · reine Ansicht" : "Monitoring";
-  kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+((STATE.__export&&STATE.__export.made)?dmy(STATE.__export.made):stand) : "MOPP+ | "+stand;
+  kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+((STATE.__export&&STATE.__export.made)?dmy(STATE.__export.made):stand) : "MOPP+ | "+heute;
   document.getElementById("werkzeuge").hidden = kopie;
   document.getElementById("fussText").textContent = kopie
     ? "Arztkopie · Datenstand "+stand+" · reine Ansicht, keine Erfassung"
