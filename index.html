@@ -401,8 +401,7 @@ function ms(iso){ return new Date(iso+"T12:00:00").getTime(); }
 function vz(v,dz){ return (v<0?"−":"+")+nf(Math.abs(v),dz); }
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function isoVon(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-function heuteMs(){ var u=STATE.updated; if(!u) return Date.now();
-  return ms(u.slice(6)+"-"+u.slice(3,5)+"-"+u.slice(0,2)); }
+function heuteMs(){ return Date.now(); }
 function tage(iso){ return Math.round((heuteMs()-ms(iso))/86400000); }
 function zahl(n,e,m){ return n+" "+(n===1?e:m); }
 function mittel(a){ return a.length ? a.reduce(function(s,x){return s+x;},0)/a.length : null; }
