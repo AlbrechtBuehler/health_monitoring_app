@@ -2845,7 +2845,14 @@ document.addEventListener("click", function(e){
   if(t.dataset.nach){ UI.seite = "erf";
     erfTagSetzen(tage(t.dataset.nach), t.classList.contains("roh-edit"));
     zeichne(); window.scrollTo(0,0); return; }
-  if(t.id==="btnErf" || t.id==="btnErf2"){ UI.seite = "erf"; UI.erfMeldung = null;
+  /* Der Knopf IM Vollbild kommt aus einer Kennzahl und muss deren Kachel oeffnen - sonst
+     landet man bei der ersten Luecke des Tages und sucht die Stelle, von der man kam.
+     Der THQ hat keine eigene Kachel: Taille und Huefte werden beim Gewicht erfasst. */
+  if(t.id==="btnErf" || t.id==="btnErf2"){
+    UI.seite = "erf"; UI.erfMeldung = null;
+    UI.erfAuf = (t.id==="btnErf2")
+      ? ({gewicht:"gw", thq:"gw", bz:"bz", bd:"bd"}[UI.kz] || "auto")
+      : "auto";
     erfZeitAuffrischen(); zeichne(); window.scrollTo(0,0); return; }
 
   /* Der Entwurf gehoert zu EINEM Tag. Wandert er beim Blaettern mit, landet der Wert
