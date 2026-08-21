@@ -922,7 +922,7 @@ function bild(reihen, opt){
 }
 
 /* ══ Kennzahlen ═════════════════════════════════════════════════════════════════
-   Drei, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
+   Vier, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
    alles Uebrige ist Nebenzahl und steht als Zeile im Vollbild. */
 function ampelFarbe(gut, warn){ return gut ? "var(--good)" : (warn ? "var(--warn)" : "var(--ink)"); }
 
@@ -934,8 +934,8 @@ function KZ(){
      Periode, in EINER Zeile. Genau das schafft der Schalter ab. */
   var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq");
   var G=imFenster(Gall,fg), BZ=imFenster(BZall,fb), BZT=imFenster(BZTall,fb), BP=imFenster(BPall,fd);
-  /* Der THQ hat sein eigenes Fenster und seine eigene Kennzahl - aber KEINE eigene Kachel.
-     Er steht als Zahl in der Unterzeile des Gewichts und wird dort angeklickt. */
+  /* Der THQ hat sein eigenes Fenster, seine eigene Kennzahl und seit dem 21.08.2026 eine
+     eigene Kachel auf der Kachelwand. */
   var Kall=rKoerper(), K=imFenster(Kall,fq);
   var kL=K.length?K[K.length-1]:null, kLa=Kall.length?Kall[Kall.length-1]:null;
   var bzOe = mittel(BZ.map(function(x){return x.v;}));
@@ -1589,7 +1589,7 @@ function akteLabor(){
   }
 
   /* Ein Wert über die Jahre — die Frage, für die ein Laborarchiv da ist. Ueber 400 Tage
-     ohne Messung bricht die Linie: zwischen zwei Blättern liegen Jahre. */
+     ohne Messung wird die Linie fein gestrichelt: zwischen zwei Blättern liegen Jahre. */
   var mit = P.map(function(pa){
     var pts = PA.filter(function(p){ return p.values && p.values[pa.key]!=null; })
       .map(function(p){ return {iso:p.date, v:+p.values[pa.key], ref:(p.refs&&p.refs[pa.key])||pa.ref}; })
@@ -1789,7 +1789,11 @@ function akteRoh(){
    Eine Liste, nicht eine Seite. Offen ist immer nur eine Zeile - von selbst die erste,
    die an diesem Tag noch fehlt. Es gibt nur den Tag: Gewicht, Blutzucker, Blutdruck -
    drei Werte, die alle auf dasselbe Datum gehoeren. */
-function erfIso(){ return isoVon(new Date(heuteMs() - UI.erfTag*86400000)); }
+/* Ein Tag ist eine KALENDEREINHEIT, keine Dauer. Mit Millisekunden gerechnet sprang
+   «einen Tag zurueck» unter Europe/Zurich am 30.03.2026 um 00:30 vom 30. direkt auf den
+   28. Maerz - der 29. war unerreichbar, ein Nachtrag waere am falschen Datum gelandet.
+   Der Date-Konstruktor zaehlt ueber Kalendertage und kennt die Zeitumstellung. */
+function erfIso(){ var d = new Date(heuteMs()); d.setDate(d.getDate() - UI.erfTag); return isoVon(d); }
 /* «heute» gilt nur heute. Wird ein zurueckliegender Tag nachgetragen, nennt die Kachel
    den TAG, um den es geht - «2 Messungen heute» an einem Tag, der eine Woche zurueckliegt,
    ist schlicht falsch und laesst den Nachtrag am richtigen Datum zweifeln. */
@@ -2086,7 +2090,7 @@ function zeichneErf(){
     !!gE && !wertGeaendert("gewicht"),
     gE ? (gE.note||erfWann()+" erfasst") : (G.length?"zuletzt "+dmy(G[G.length-1].iso)+" · "+nf(G[G.length-1].v,1)+" kg":""),
     '<div style="display:flex;align-items:center;gap:10px;margin-top:12px">'
-    + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="112,8" style="width:130px">'
+    + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="kg" style="width:130px">'
     + '<div style="font-size:14.5px;color:var(--faint)">kg</div></div>'
     + (gE?'<div class="bildtext">Im Feld steht der Wert dieses Tages — ändern berichtigt ihn, leeren entfernt ihn.</div>':'')
     /* Die Umfaenge stehen HIER und nicht in einem eigenen Abschnitt: sie werden am selben
@@ -2097,7 +2101,7 @@ function zeichneErf(){
     + '<div class="bildtext" style="margin-top:16px">Umfänge, wenn Du sie gemessen hast — leer ist kein Mangel.</div>'
     + '<div class="felder" style="grid-template-columns:repeat(3,1fr);margin-top:8px">'
     +   ["taille","huefte","brust"].map(function(mk,mi){
-          var lbl = ["Taille cm","Hüfte cm","Brust cm"][mi], ph = ["132","108","127"][mi];
+          var lbl = ["Taille cm","Hüfte cm","Brust cm"][mi], ph = "cm";
           return '<div class="feld"><div class="lbl">'+esc(lbl)+'</div>'
             + '<input type="text" inputmode="decimal" data-w="'+mk+'" value="'+esc(tv(mk))+'" placeholder="'+ph+'"></div>';
         }).join("")
@@ -2228,8 +2232,6 @@ function zeichneErf(){
     })());
 
   h += '</div>';
-
-  var anzahl = erfAnzahl();  h += '</div>';
 
   var anzahl = erfAnzahl();
   h += '<div class="fuss-erf"><div id="erfZaehler">'+zahl(anzahl,"Wert","Werte")+' eingetippt · geschrieben wird direkt in die '
