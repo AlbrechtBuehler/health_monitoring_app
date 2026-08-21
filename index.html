@@ -185,9 +185,6 @@
   /* Die THQ-Zahl in der Unterzeile der Gewichtskachel. Sie sitzt IN einem Knopf, darum
      kein zweiter button, sondern ein Feld mit eigener Trefferbehandlung; die gepunktete
      Linie sagt, dass dahinter etwas liegt. */
-  .thq-link{cursor:pointer;border-bottom:1px dotted var(--faint);white-space:nowrap}
-  .thq-link:hover{color:var(--akzent);border-bottom-color:var(--akzent)}
-  .thq-link:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
   .hoch{color:var(--high)} .tief{color:var(--zweit)} .imsoll{color:var(--good)}
   .ev{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}
   .ev .d{font-family:var(--mono);font-size:12px;color:var(--faint)}
@@ -962,22 +959,20 @@ function KZ(){
       unter:(gLa ? "seit "+dm(Gall[0].iso)+" "+vz(gLa.v-start,1)+" kg" : "")
         + (gLa && wt.goal1!=null ? " · Ziel 1: "+nf(wt.goal1,0)+" kg · Abstand "+nf(gLa.v-wt.goal1,1)+" kg" : "")
         + (gLa && wt.heightCm ? " · BMI "+nf(gLa.v/Math.pow(wt.heightCm/100,2),1) : ""),
-      /* Der THQ steht in derselben Zeile wie der BMI - zwei Einordnungen desselben
-         Koerpers, die einander nicht ersetzen. Er ist anklickbar und traegt sein eigenes
-         Vollbild; die Funke der Kachel bleibt die GEWICHTSKURVE. Wie die Bilanzzeile
-         nimmt er den letzten Punkt der ganzen Reihe, nicht den des Fensters. */
-      unterExtra: kLa ? ' · <span class="thq-link" data-kzsprung="thq" tabindex="0" role="button"'
-        + ' title="Taille ÷ Hüfte — eigene Ansicht">THQ <b style="font-weight:640;color:'
-        + (kLa.v<THQ_GRENZE?"var(--good)":"var(--warn)")+'">'+nf(kLa.v,2)+'</b> vom '+dm(kLa.iso)+'</span>' : "",
       meta:zahl(G.length,"Messung","Messungen")+" · "+fensterLang(fg) },
-    /* Kennzahl ohne Kachel: sie wird in KZ() gebaut, weil das Vollbild Kopfzahl, Farbe und
-       Beschriftung von hier holt - aber zeichneWand() ruft sie nie auf. */
+    /* Eigene Kachel, Entscheid Albrecht vom 21.08.2026. Zuerst stand der THQ als Zahl in
+       der Unterzeile des Gewichts - das war zu vorsichtig. Er hat den zweitlaengsten
+       Verlauf im Werkzeug (16 Messungen ueber acht Jahre) und sagt etwas, das keine andere
+       Zahl sagt: das Gewicht fiel um 20 kg, der THQ STIEG. Dass er nur alle paar Wochen
+       gemessen wird, spricht nicht dagegen - der HbA1c auf «Heute» ist 16 Monate alt, und
+       dort ist das Alter die Aussage. Genau darum traegt die Kachel ihr Messdatum. */
     thq:{ key:"thq", label:"Taille-Hüft-Quotient", einheit:"Taille ÷ Hüfte", reihe:K,
       farbe:"var(--akzent)", dez:2,
       sub:function(p){ return "Taille "+nf(p.waist,0)+" · Hüfte "+nf(p.hip,0)+" cm"; },
       wert:kL?nf(kL.v,2):"—",
       zustand:kL?ampelFarbe(kL.v<THQ_GRENZE, kL.v>=THQ_GRENZE):"var(--ink)",
-      unter:K.length ? "zuletzt "+dm(kL.iso)+" · Taille "+nf(kL.waist,0)+" cm zu Hüfte "+nf(kL.hip,0)+" cm" : "",
+      unter:K.length ? "zuletzt "+dm(kL.iso)+" · Taille "+nf(kL.waist,0)+" zu Hüfte "+nf(kL.hip,0)
+                       +" cm · Grenze "+nf(THQ_GRENZE,1) : "",
       meta:zahl(K.length,"Messung","Messungen")+" · "+fensterLang(fq) },
     bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
@@ -1033,9 +1028,7 @@ function kachelHtml(d, leit){
     + '</div>'
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
-    /* unterExtra ist der EINZIGE Platz in der Kachel, an dem fertiges HTML steht - fuer die
-       anklickbare THQ-Zahl neben dem BMI. Der Text davor bleibt escaped. */
-    + '<div class="k-unter">'+esc(d.unter||"")+(d.unterExtra||"")+'</div>'
+    + '<div class="k-unter">'+esc(d.unter||"")+'</div>'
     + (d.unter2?'<div class="k-unter" style="margin-top:2px">'+d.unter2+'</div>':'')
     + (d.reihe.length ? funkeSvg(f, w, hh, hits)
         : '<div class="bildtext" style="margin-top:12px">'+esc(LEER_ZEITRAUM)+'</div>')
@@ -1058,7 +1051,7 @@ function zeichneWand(){
   var kz = KZ();
   return '<div class="wand">'
     + kachelHtml(kz.gewicht, true)
-    + '<div class="kacheln">'+[kz.bz,kz.bd].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
+    + '<div class="kacheln">'+[kz.bz,kz.bd,kz.thq].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
     + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rückblick, Rohdaten</div>'
     +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
     + '</div>';
@@ -2272,7 +2265,10 @@ async function speichern(){
   N.glucose = N.glucose||{days:[]}; N.glucose.days = N.glucose.days||[];
   N.bloodpressure = N.bloodpressure||{points:[]}; N.bloodpressure.points = N.bloodpressure.points||[];
 
-  var g = num(W.gewicht), nGw = notizText("gw");
+  /* 0 kg ist keine Messung, sondern ein leeres Feld - dieselbe Falle wie bei den
+     Umfaengen: num("0") ist 0 und damit nicht null. */
+  var g = num(W.gewicht); if(g!=null && g<=0) g = null;
+  var nGw = notizText("gw");
   if(wertGeaendert("gewicht") || notizGeaendert("gw")){
     if(g!=null){
       var gp2 = punktSetzen(N.weight.points, "date", iso, {value:g});
@@ -2292,15 +2288,19 @@ async function speichern(){
      und ein Punkt ohne jedes Mass bleibt nicht als leere Huelse stehen. Die Feldnamen sind
      die der Datei: chest, waist, hip am Datumsfeld date. */
   var MASSE = [{k:"taille", f:"waist"}, {k:"huefte", f:"hip"}, {k:"brust", f:"chest"}];
+  /* Ein Umfang von 0 cm ist keine Messung, sondern ein leer abgeschicktes Feld. Die
+     alte Pruefung fragte auf null und liess die 0 durch - so landete am 15.08.2026
+     {chest:0, waist:0, hip:0} in der Datei. Unsichtbar, weil rKoerper() ueber
+     waist && hip filtert, aber Datenmuell. 0 zaehlt hier wie leer. */
   var massNeu = MASSE.filter(function(m){ return wertGeaendert(m.k); });
   if(massNeu.length){
     var setzen = {};
-    massNeu.forEach(function(m){ var mv=num(W[m.k]); if(mv!=null) setzen[m.f]=mv; });
+    massNeu.forEach(function(m){ var mv=num(W[m.k]); if(mv!=null && mv>0) setzen[m.f]=mv; });
     var bp2 = Object.keys(setzen).length
       ? punktSetzen(N.body.points, "date", iso, setzen)
       : N.body.points.filter(function(p){ return p.date===iso; })[0];
     if(bp2){
-      massNeu.forEach(function(m){ if(num(W[m.k])==null) delete bp2[m.f]; });
+      massNeu.forEach(function(m){ var mv=num(W[m.k]); if(mv==null || mv<=0) delete bp2[m.f]; });
       if(bp2.waist==null && bp2.hip==null && bp2.chest==null)
         N.body.points = N.body.points.filter(function(p){ return p.date!==iso; });
       geschrieben += massNeu.length;
@@ -2764,24 +2764,7 @@ window.addEventListener("resize", function(){
   }, 160);
 }, {passive:true});
 
-/* Die THQ-Zahl sitzt IN der Gewichtskachel, also in einem Knopf - ein zweiter button waere
-   ungueltig. Darum ein eigenes Merkmal, das VOR dem Knopf drankommt: sonst oeffnete jeder
-   Klick darauf das Gewicht statt des Quotienten. Tastatur inbegriffen, sonst waere die
-   Ansicht mit der Maus erreichbar und ohne sie nicht. */
-function kzSprung(el){
-  if(!el) return false;
-  UI.kz = el.dataset.kzsprung; UI.seite = "voll"; zeichne(); window.scrollTo(0,0);
-  return true;
-}
-document.addEventListener("keydown", function(e){
-  if(e.key!=="Enter" && e.key!==" ") return;
-  var sp = (e.target && e.target.closest) ? e.target.closest("[data-kzsprung]") : null;
-  if(!sp) return;
-  e.preventDefault(); kzSprung(sp);
-});
 document.addEventListener("click", function(e){
-  var sp = (e.target && e.target.closest) ? e.target.closest("[data-kzsprung]") : null;
-  if(sp){ e.preventDefault(); kzSprung(sp); return; }
   var t = e.target.closest("button"); if(!t) return;
 
   if(t.id==="btnConn" || t.id==="btnStart"){ document.getElementById("modale").innerHTML = connModal(); return; }
