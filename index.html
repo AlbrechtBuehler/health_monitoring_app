@@ -156,7 +156,11 @@
     .erf-kopf .nav{width:32px;height:32px;font-size:15px}
     .erf-kopf .btn.rund{width:34px;height:34px;font-size:16px}
   }
-  .schieber{width:56px;height:32px;border-radius:16px;border:1px solid var(--line);background:var(--bg);
+  /* flex:0 0 auto ist nicht Schmuck: der Schieber steht in einer Flex-Zeile, und eine lange
+     Zeile links (die Mengenangabe des Exports) staucht ihn sonst von 56 auf 46 px - der
+     Knopf sitzt bei 27 px und waere abgeschnitten. Ein Schalter, der je nach Nachbartext
+     anders aussieht, sieht kaputt aus. */
+  .schieber{width:56px;height:32px;flex:0 0 auto;border-radius:16px;border:1px solid var(--line);background:var(--bg);
     position:relative;cursor:pointer;padding:0}
   .schieber .knopf{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
     background:var(--faint);transition:left .12s,background .12s}
@@ -178,6 +182,12 @@
     color:var(--faint);background:var(--surface2);padding-top:11px;padding-bottom:11px}
   .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:13px;margin-top:16px}
   .scroll .akten-tabelle{margin:0;min-width:820px}
+  /* Die THQ-Zahl in der Unterzeile der Gewichtskachel. Sie sitzt IN einem Knopf, darum
+     kein zweiter button, sondern ein Feld mit eigener Trefferbehandlung; die gepunktete
+     Linie sagt, dass dahinter etwas liegt. */
+  .thq-link{cursor:pointer;border-bottom:1px dotted var(--faint);white-space:nowrap}
+  .thq-link:hover{color:var(--akzent);border-bottom-color:var(--akzent)}
+  .thq-link:focus-visible{outline:2px solid var(--akzent);outline-offset:2px}
   .hoch{color:var(--high)} .tief{color:var(--zweit)} .imsoll{color:var(--good)}
   .ev{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}
   .ev .d{font-family:var(--mono);font-size:12px;color:var(--faint)}
@@ -266,6 +276,13 @@
     border-bottom:1px solid var(--line)}
   .modal-kopf h2{margin:0;font-size:18px;font-weight:620}
   .modal-koerper{padding:20px 22px 24px}
+  /* Der Dialog ist mit dem Zeitraum und den Mengen laenger geworden als das Fenster: bei
+     700 px Fensterhoehe stand «Kopie erzeugen» 500 px unter dem Rand, bei 900 px immer noch
+     darunter. Der Knopf klebt darum am unteren Rand des Dialogs - erreichbar heisst hier
+     sichtbar, nicht «findet, wer scrollt». Gescrollt wird weiterhin in .modal. */
+  .modal-fuss{position:sticky;bottom:0;margin:18px -22px -24px;padding:14px 22px 20px;
+    background:var(--surface);border-top:1px solid var(--line)}
+  .modal-fuss .btn{width:100%;margin:0}
   .exp-zeile{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 2px;
     border-bottom:1px solid var(--line2);cursor:pointer}
   .exp-zeile:last-of-type{border-bottom:none}
@@ -321,7 +338,7 @@
    ihnen steht, durch den eingefrorenen Datenstand. Ein Muster auf den Inhalt dieser
    Zeilen waere beim ersten Umbau still gebrochen. Marken nicht entfernen. */
 /*STATE-ANFANG*/
-var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]},
+var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{points:[]},
   glucose:{days:[],slots:[],slotType:{},th:{}}, bloodpressure:{points:[]},
   lab:{params:[],panels:[]}, history:{events:[]}, meds:{liste:[]}, review:[], termine:[] };
 /*STATE-ENDE*/
@@ -330,10 +347,14 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]},
    Wochen zeigen davon nur −3,9 kg statt −20,3 kg — die Geschichte verschwaende aus dem
    Bild. Blutzucker und Blutdruck starten auf vier Wochen; dort lautet die Frage «wie steht
    es jetzt», und zwei Monate alte Werte beantworten sie nicht.
+   Der Taille-Huft-Quotient startet wie das Gewicht auf «alles»: zwischen zwei Messungen
+   liegen Wochen bis Jahre, jedes Wochenfenster waere leer.
+   «export» ist keine Kennzahl, sondern der Zeitraum des Arzt-Exports - er benutzt dieselben
+   Stufen und dieselbe Rechnung. Eine zweite Zeitraum-Mechanik daneben liefe auseinander.
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
 var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null,
-  zeit:{gewicht:"alles", bz:"28", bd:"28"}, zeitFrei:{}, zeitEntwurf:{},
+  zeit:{gewicht:"alles", bz:"28", bd:"28", thq:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
   erfBp:[neueBpZeile()], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
   medEdit:false, medListe:null, medKopf:null };
@@ -612,7 +633,7 @@ function normFuer(slot){ return sollTyp(slot)==="pre" ? NORM.pre : NORM.post; }
 
 /* ══ Reihen ═════════════════════════════════════════════════════════════════════
    Eine Rechenstelle je Reihe. Wer eine Zahl braucht, holt sie hier - nicht in der
-   Ansicht. Es sind noch fuenf: rGewicht, rBzAlle, rBzTage, rBp und rHba1c. */
+   Ansicht. Es sind sechs: rGewicht, rKoerper, rBzAlle, rBzTage, rBp und rHba1c. */
 function rGewicht(){ return (STATE.weight.points||[]).filter(function(p){ return !p.hist && p.value!=null; })
   .map(function(p){ return {iso:p.date, v:+p.value, note:p.note||null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function rBzAlle(){ var out=[];
@@ -636,6 +657,25 @@ function rHba1c(){ return (STATE.lab.panels||[]).filter(function(p){ return p.va
   .map(function(p){ return {iso:p.date, v:+p.values.hba1c, quelle:p.source||""}; })
   .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function hba1cAlter(iso){ return Math.round(tage(iso)/30.44); }
+
+/* ── Taille-Hueft-Quotient ───────────────────────────────────────────────────────
+   THQ = Taille ÷ Hüfte. Er sagt, WO das Gewicht sitzt - und das sagt keine andere Zahl im
+   Werkzeug: waehrend das Gewicht um 20 kg fiel, ist der THQ von 1,205 auf 1,222 gestiegen,
+   weil die Huefte prozentual mehr verloren hat als die Taille. 1,0 ist die Grenze, ab der
+   Bauchfett beim Mann als Risiko eingestuft wird; sie ist ein Massstab, keine Mahnung.
+   Diese Funktion ist die EINZIGE Stelle, an der geteilt wird. Eine zweite Division in einer
+   Ansicht liefe beim ersten Rundungswunsch auseinander - und dann stuenden in Kachel und
+   Vollbild zwei verschiedene Zahlen fuer dasselbe.
+   Die alten Punkte (hist:true) bleiben drin: anders als beim Gewicht gibt es hier keine
+   Periode, die zaehlt, sondern nur die Reihe - 2018 ist der Beleg, dass es schon einmal
+   tiefer war. Ein Punkt ohne Taille ODER ohne Huefte ergibt keinen Quotienten und faellt
+   weg; die Brust faehrt mit, sie ist gemessen worden. */
+var THQ_GRENZE = 1.0;
+function rKoerper(){ return ((STATE.body&&STATE.body.points)||[])
+  .filter(function(p){ return p.waist!=null && p.hip!=null && +p.hip>0; })
+  .map(function(p){ return {iso:p.date, v:(+p.waist)/(+p.hip), waist:+p.waist, hip:+p.hip,
+    chest:p.chest!=null?+p.chest:null, note:p.note||null}; })
+  .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 
 /* ══ Linien ═════════════════════════════════════════════════════════════════════
    Eine Messluecke ist kein Messwert. Bis zum doppelten ueblichen Abstand (mindestens
@@ -895,8 +935,12 @@ function KZ(){
   /* Ein Fenster je Kennzahl - und dasselbe Fenster fuer Bild UND Zahl. Vorher stand in der
      Blutzucker-Kachel die Zahl fuer 14 Messtage und der Prozentsatz fuer alle Messungen der
      Periode, in EINER Zeile. Genau das schafft der Schalter ab. */
-  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd");
+  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq");
   var G=imFenster(Gall,fg), BZ=imFenster(BZall,fb), BZT=imFenster(BZTall,fb), BP=imFenster(BPall,fd);
+  /* Der THQ hat sein eigenes Fenster und seine eigene Kennzahl - aber KEINE eigene Kachel.
+     Er steht als Zahl in der Unterzeile des Gewichts und wird dort angeklickt. */
+  var Kall=rKoerper(), K=imFenster(Kall,fq);
+  var kL=K.length?K[K.length-1]:null, kLa=Kall.length?Kall[Kall.length-1]:null;
   var bzOe = mittel(BZ.map(function(x){return x.v;}));
   var HB = rHba1c(), hbL = HB.length?HB[HB.length-1]:null;
   var imSoll = BZ.filter(function(x){ return sollTyp(x.slot)==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
@@ -918,7 +962,23 @@ function KZ(){
       unter:(gLa ? "seit "+dm(Gall[0].iso)+" "+vz(gLa.v-start,1)+" kg" : "")
         + (gLa && wt.goal1!=null ? " · Ziel 1: "+nf(wt.goal1,0)+" kg · Abstand "+nf(gLa.v-wt.goal1,1)+" kg" : "")
         + (gLa && wt.heightCm ? " · BMI "+nf(gLa.v/Math.pow(wt.heightCm/100,2),1) : ""),
+      /* Der THQ steht in derselben Zeile wie der BMI - zwei Einordnungen desselben
+         Koerpers, die einander nicht ersetzen. Er ist anklickbar und traegt sein eigenes
+         Vollbild; die Funke der Kachel bleibt die GEWICHTSKURVE. Wie die Bilanzzeile
+         nimmt er den letzten Punkt der ganzen Reihe, nicht den des Fensters. */
+      unterExtra: kLa ? ' · <span class="thq-link" data-kzsprung="thq" tabindex="0" role="button"'
+        + ' title="Taille ÷ Hüfte — eigene Ansicht">THQ <b style="font-weight:640;color:'
+        + (kLa.v<THQ_GRENZE?"var(--good)":"var(--warn)")+'">'+nf(kLa.v,2)+'</b> vom '+dm(kLa.iso)+'</span>' : "",
       meta:zahl(G.length,"Messung","Messungen")+" · "+fensterLang(fg) },
+    /* Kennzahl ohne Kachel: sie wird in KZ() gebaut, weil das Vollbild Kopfzahl, Farbe und
+       Beschriftung von hier holt - aber zeichneWand() ruft sie nie auf. */
+    thq:{ key:"thq", label:"Taille-Hüft-Quotient", einheit:"Taille ÷ Hüfte", reihe:K,
+      farbe:"var(--akzent)", dez:2,
+      sub:function(p){ return "Taille "+nf(p.waist,0)+" · Hüfte "+nf(p.hip,0)+" cm"; },
+      wert:kL?nf(kL.v,2):"—",
+      zustand:kL?ampelFarbe(kL.v<THQ_GRENZE, kL.v>=THQ_GRENZE):"var(--ink)",
+      unter:K.length ? "zuletzt "+dm(kL.iso)+" · Taille "+nf(kL.waist,0)+" cm zu Hüfte "+nf(kL.hip,0)+" cm" : "",
+      meta:zahl(K.length,"Messung","Messungen")+" · "+fensterLang(fq) },
     bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:BZ.length?nf(bzOe,1):"—",
@@ -973,7 +1033,9 @@ function kachelHtml(d, leit){
     + '</div>'
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
-    + '<div class="k-unter">'+esc(d.unter||"")+'</div>'
+    /* unterExtra ist der EINZIGE Platz in der Kachel, an dem fertiges HTML steht - fuer die
+       anklickbare THQ-Zahl neben dem BMI. Der Text davor bleibt escaped. */
+    + '<div class="k-unter">'+esc(d.unter||"")+(d.unterExtra||"")+'</div>'
     + (d.unter2?'<div class="k-unter" style="margin-top:2px">'+d.unter2+'</div>':'')
     + (d.reihe.length ? funkeSvg(f, w, hh, hits)
         : '<div class="bildtext" style="margin-top:12px">'+esc(LEER_ZEITRAUM)+'</div>')
@@ -1049,6 +1111,39 @@ function zeichneVoll(){
         {l:"BMI", w:nf(bmi,1), u:(w.heightCm||"—")+" cm · Stand "+dm(gL.iso)},
         {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl},
         {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—", u:"kg · Ziel "+nf(w.goal1,0)+" kg"} ];
+    }
+  }
+
+  /* Der THQ hat ein eigenes Vollbild, weil er eine eigene Frage beantwortet: nicht «wie
+     viel», sondern «wo». Alle Zahlen hier kommen aus rKoerper() - gerechnet wird an dieser
+     Stelle nichts nach. */
+  if(k==="thq"){
+    var KK = imFenster(rKoerper(), f);
+    if(!KK.length){ kopfWert = "—"; kopfEinheit = "Taille ÷ Hüfte · "+fl; satz = LEER_ZEITRAUM; }
+    else{
+      var k0=KK[0], kLetzt=KK[KK.length-1], kVor=KK.length>1?KK[KK.length-2]:null;
+      var dq = kVor ? kLetzt.v-kVor.v : null;
+      kopfWert = nf(kLetzt.v,2);
+      kopfEinheit = "Taille ÷ Hüfte · zuletzt "+dm(kLetzt.iso);
+      satz = "Taille geteilt durch Hüfte. Die Zahl sagt, wo das Gewicht sitzt — sie kann steigen, "
+        + "während das Gewicht fällt; dann hat die Hüfte prozentual mehr verloren als die Taille. "
+        + "Beim Mann gilt "+nf(THQ_GRENZE,1)+" als Grenze, ab der Bauchfett als Risiko eingestuft wird; sie liegt "
+        + "als gestrichelte Linie im Bild. Gezeigt sind "+zahl(KK.length,"Messung","Messungen")+" "+fl
+        + ", zuletzt "+nf(kLetzt.waist,0)+" cm Taille zu "+nf(kLetzt.hip,0)+" cm Hüfte am "+dmy(kLetzt.iso)+".";
+      inhalt = bild([{pts:KK, farbe:"var(--akzent)", r:3, dez:2, name:"THQ"}], {dez:2, einheit:"",
+        linien:[{v:THQ_GRENZE, label:nf(THQ_GRENZE,2)}],
+        sub:function(p){ return "Taille "+nf(p.waist,0)+" · Hüfte "+nf(p.hip,0)
+          + (p.chest!=null?" · Brust "+nf(p.chest,0):"")+" cm"; },
+        text:"Taille ÷ Hüfte an "+zahl(KK.length,"Messpunkt","Messpunkten")+" "+fl
+          + ". Die gestrichelte Linie ist die Grenze "+nf(THQ_GRENZE,2)+"."});
+      neben = [ {l:"Zuletzt", w:nf(kLetzt.v,2), u:dmy(kLetzt.iso),
+          f:kLetzt.v<THQ_GRENZE?"var(--good)":"var(--warn)"},
+        {l:"Taille zu Hüfte", w:nf(kLetzt.waist,0)+" / "+nf(kLetzt.hip,0), u:"cm · Stand "+dm(kLetzt.iso)},
+        {l:"Brust", w:kLetzt.chest!=null?nf(kLetzt.chest,0):"—", u:"cm · Stand "+dm(kLetzt.iso)},
+        {l:"seit der Messung davor", w:dq==null?"—":(Math.abs(dq)<0.005?"±0,00":vz(dq,2)),
+          u:kVor?("davor "+nf(kVor.v,2)+" am "+dm(kVor.iso)):"erst eine Messung in diesem Zeitraum",
+          f:(dq!=null && dq<-0.0049)?"var(--good)":((dq!=null && dq>0.0049)?"var(--warn)":null)},
+        {l:"Messungen", w:String(KK.length), u:dmy(k0.iso)+" → "+dmy(kLetzt.iso)} ];
     }
   }
 
@@ -1715,6 +1810,15 @@ function standVom(iso){
   var S = {};
   var g = ((STATE.weight&&STATE.weight.points)||[]).filter(function(p){ return p.date===iso; })[0];
   if(g && g.value!=null) S.gewicht = nf(g.value,1);
+  /* Taille, Huefte und Brust tragen denselben Tagesstand wie das Gewicht: was fuer diesen
+     Tag in der Datei steht, steht im Feld. Geschrieben wird als Text der Datei, nicht
+     gerundet - sonst machte ein Oeffnen der Maske aus 132,5 stillschweigend 133. */
+  var b = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
+  if(b){
+    if(b.waist!=null) S.taille = String(b.waist).replace(".",",");
+    if(b.hip!=null)   S.huefte = String(b.hip).replace(".",",");
+    if(b.chest!=null) S.brust  = String(b.chest).replace(".",",");
+  }
   /* Der Blutzucker steht NICHT mehr hier drin. Frueher fuellte diese Stelle ein festes
      Feld je Messpunkt vor - und nur dann, wenn an dem Messpunkt genau ein Wert lag; bei
      zweien haengte das Feld an und berichtigte nichts. Die Zeilenliste kennt dieses
@@ -1937,6 +2041,9 @@ function zeichneErf(){
   var auf = UI.erfAuf==="auto"
     ? (!erfHat(G)?"gw":(!erfHat(BZT)?"bz":(!erfHat(BP)?"bd":null))) : UI.erfAuf;
   var gE = G.filter(function(x){return x.iso===iso;})[0], bzE = BZT.filter(function(x){return x.iso===iso;})[0];
+  /* Liegt fuer diesen Tag schon ein Umfang in der Datei, sagt die Kachel es - sonst sieht
+     ein vorbelegtes Feld wie eine Eingabe aus, die man selbst gemacht hat. */
+  var bE = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
   var bpT = BP.filter(function(x){return x.iso===iso;});
   var bzNeu = bzNeuZeilen().length;
   var bpNeu = UI.erfBp.filter(function(r){ return String(r.sys).trim()!=="" || String(r.dia).trim()!==""; }).length;
@@ -1989,6 +2096,20 @@ function zeichneErf(){
     + '<input type="text" inputmode="decimal" data-w="gewicht" value="'+esc(tv("gewicht"))+'" placeholder="112,8" style="width:130px">'
     + '<div style="font-size:14.5px;color:var(--faint)">kg</div></div>'
     + (gE?'<div class="bildtext">Im Feld steht der Wert dieses Tages — ändern berichtigt ihn, leeren entfernt ihn.</div>':'')
+    /* Die Umfaenge stehen HIER und nicht in einem eigenen Abschnitt: sie werden am selben
+       Tag mit demselben Massband genommen wie das Gewicht auf der Waage. Kein Takt, keine
+       Faelligkeit, kein Fortschritt - drei Felder, die leer bleiben duerfen. Feste drei
+       Spalten statt auto-fit: bei 390 px waeren aus auto-fit zwei plus eine geworden, und
+       Taille, Huefte und Brust gehoeren nebeneinander. */
+    + '<div class="bildtext" style="margin-top:16px">Umfänge, wenn Du sie gemessen hast — leer ist kein Mangel.</div>'
+    + '<div class="felder" style="grid-template-columns:repeat(3,1fr);margin-top:8px">'
+    +   ["taille","huefte","brust"].map(function(mk,mi){
+          var lbl = ["Taille cm","Hüfte cm","Brust cm"][mi], ph = ["132","108","127"][mi];
+          return '<div class="feld"><div class="lbl">'+esc(lbl)+'</div>'
+            + '<input type="text" inputmode="decimal" data-w="'+mk+'" value="'+esc(tv(mk))+'" placeholder="'+ph+'"></div>';
+        }).join("")
+    + '</div>'
+    + (bE?'<div class="bildtext">Auch hier steht der Stand dieses Tages — ändern berichtigt, leeren entfernt.</div>':'')
     + notizBlock("gw"));
 
   h += kachel("bz", "Blutzucker",
@@ -2147,6 +2268,7 @@ async function speichern(){
   var iso = erfIso(), W = UI.erfWerte, geschrieben = 0;
   var N = JSON.parse(JSON.stringify(STATE));
   N.weight = N.weight||{points:[]}; N.weight.points = N.weight.points||[];
+  N.body = N.body||{points:[]}; N.body.points = N.body.points||[];
   N.glucose = N.glucose||{days:[]}; N.glucose.days = N.glucose.days||[];
   N.bloodpressure = N.bloodpressure||{points:[]}; N.bloodpressure.points = N.bloodpressure.points||[];
 
@@ -2162,6 +2284,26 @@ async function speichern(){
         /* Geleert heisst entfernt - das ist der Weg aus einem Vertipper heraus. */
         N.weight.points = N.weight.points.filter(function(p){ return p.date!==iso; }); geschrieben++;
       } else if(gp){ if(nGw) gp.note = nGw; else delete gp.note; geschrieben++; }
+    }
+  }
+
+  /* Taille, Huefte, Brust - derselbe Weg wie beim Gewicht, an denselben Tag. Geschrieben
+     wird nur, was gegenueber der Datei anders ist; ein geleertes Feld entfernt das Mass,
+     und ein Punkt ohne jedes Mass bleibt nicht als leere Huelse stehen. Die Feldnamen sind
+     die der Datei: chest, waist, hip am Datumsfeld date. */
+  var MASSE = [{k:"taille", f:"waist"}, {k:"huefte", f:"hip"}, {k:"brust", f:"chest"}];
+  var massNeu = MASSE.filter(function(m){ return wertGeaendert(m.k); });
+  if(massNeu.length){
+    var setzen = {};
+    massNeu.forEach(function(m){ var mv=num(W[m.k]); if(mv!=null) setzen[m.f]=mv; });
+    var bp2 = Object.keys(setzen).length
+      ? punktSetzen(N.body.points, "date", iso, setzen)
+      : N.body.points.filter(function(p){ return p.date===iso; })[0];
+    if(bp2){
+      massNeu.forEach(function(m){ if(num(W[m.k])==null) delete bp2[m.f]; });
+      if(bp2.waist==null && bp2.hip==null && bp2.chest==null)
+        N.body.points = N.body.points.filter(function(p){ return p.date!==iso; });
+      geschrieben += massNeu.length;
     }
   }
 
@@ -2315,13 +2457,82 @@ var EXP_DOCS = false;
    fuer die Praxis - und ein Schalter, der standardmaessig AN steht, ist keine Entscheidung. */
 var EXP_NOTIZEN = false;
 
+/* ── Zeitraum des Exports ────────────────────────────────────────────────────────
+   «nicht jeder muss alles sehen». Der Export bekommt denselben Schalter wie die Kurven und
+   dieselbe Rechnung - eine zweite Kappungslogik liefe beim ersten Randfall auseinander, und
+   dann zeigte der Dialog eine andere Menge, als die Datei traegt.
+   Ein Element OHNE verwertbares Datum bleibt drin. Stillschweigend wegzuwerfen, was sich
+   nicht einordnen laesst, waere die schlimmste der moeglichen Antworten: die Kopie waere
+   unvollstaendig, ohne dass es jemand sieht. Der Dialog sagt darum, wie viele das sind. */
+function expDatum(x, feld){
+  var d = x && x[feld];
+  return (typeof d==="string" && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10) : null;
+}
+function expKappen(arr, feld, f){
+  if(!f || (!f.von && !f.bis)) return (arr||[]).slice();
+  return (arr||[]).filter(function(x){
+    var d = expDatum(x, feld);
+    if(!d) return true;
+    return (!f.von || d>=f.von) && (!f.bis || d<=f.bis);
+  });
+}
+/* Was in welchem Bereich ein Datum traegt. body steht bei «Gewicht»: es hat keinen eigenen
+   Schalter und geht mit dem Gewicht an oder aus. Die Medikation traegt kein Datum je Zeile -
+   ein Plan ist ein Stand, kein Verlauf. */
+var EXP_TEILE = {
+  gewicht:[ {q:function(){ return (STATE.weight||{}).points; }, feld:"date", e:"Messung", m:"Messungen"},
+            {q:function(){ return (STATE.body||{}).points; }, feld:"date", e:"Körpermass", m:"Körpermassen"} ],
+  bz:[ {q:function(){ return (STATE.glucose||{}).days; }, feld:"iso", e:"Messtag", m:"Messtagen"} ],
+  bd:[ {q:function(){ return (STATE.bloodpressure||{}).points; }, feld:"iso", e:"Messung", m:"Messungen"} ],
+  labor:[ {q:function(){ return (STATE.lab||{}).panels; }, feld:"date", e:"Blatt", m:"Blättern"} ],
+  history:[ {q:function(){ return (STATE.history||{}).events; }, feld:"date", e:"Eintrag", m:"Einträgen"} ],
+  meds:[],
+  stamm:[ {q:function(){ return STATE.review; }, feld:"weekIso", e:"Woche", m:"Wochen", vor:"Rückblick "} ]
+};
+function expMengen(){
+  var f = fenster("export");
+  return EXP_BEREICHE.map(function(b){
+    return { k:b.k, teile:(EXP_TEILE[b.k]||[]).map(function(t){
+      var arr = t.q()||[];
+      var drin = expKappen(arr, t.feld, f).length;
+      var ohne = arr.filter(function(x){ return !expDatum(x, t.feld); }).length;
+      return { drin:drin, gesamt:arr.length, ohne:ohne,
+        text:(t.vor||"")+drin+" von "+zahl(arr.length, t.e, t.m) };
+    }) };
+  });
+}
+/* Ein Bereich, der durch den Zeitraum leer wird, wird BENANNT, nicht versteckt: «0 von 29
+   Blättern» in gedaempfter Warnfarbe. Wer mit vier Wochen ein leeres Labor mitschickt, muss
+   das sehen, bevor die Datei entsteht - nicht, wenn der Arzt sie oeffnet. */
+function expMengeZeile(mz, an, gekappt){
+  if(!an) return '<span style="color:var(--faint)">nicht enthalten</span>';
+  if(!mz.teile.length) return gekappt ? '<span style="color:var(--faint)">ohne Datum — bleibt vollständig</span>' : "";
+  return mz.teile.map(function(t){
+    var leer = t.gesamt>0 && t.drin===0;
+    return '<span style="color:'+(leer?"var(--warn);opacity:.8":"var(--faint)")+'">'+esc(t.text)+'</span>'
+      + ((gekappt && t.ohne) ? '<span style="color:var(--faint)"> ('+t.ohne+' ohne Datum)</span>' : "");
+  }).join('<span style="color:var(--faint)"> · </span>');
+}
+
 function exportModal(){
+  var f = fenster("export"), gekappt = !!(f.von||f.bis), M = expMengen();
   return '<div class="modal-bg" id="expBg"><div class="modal"><div class="modal-kopf">'
     + '<h2>Für Arzt exportieren</h2><button class="btn rund" data-modalzu="1">×</button></div>'
     + '<div class="modal-koerper">'
     + '<p style="margin:0 0 16px;font-size:14px;color:var(--muted)">Eine einzelne HTML-Datei mit dem heutigen Datenstand — dieselbe Ansicht, ohne Erfassen und ohne Zugang zum Datenspeicher. Abgewählte Bereiche sind in der Kopie nicht enthalten.</p>'
-    + EXP_BEREICHE.map(function(b){
-        return '<div class="exp-zeile" data-exp="'+b.k+'"><div class="exp-name">'+esc(b.t)+'</div>'
+    + '<div class="abschnitt" style="padding-top:0">Zeitraum</div>'
+    + zeitschalterHtml("export")
+    /* «Einträge» und nicht «Messungen»: gekappt werden auch Laborblätter, Krankengeschichte
+       und Rückblick. Und der Bezug steht im Genitiv, wie ihn fensterLang liefert - «was der
+       letzten Woche erfasst wurde» ist kein Satz. */
+    + '<div class="bildtext">'+(gekappt
+        ? esc("Die Kopie enthält nur Einträge "+fensterLang(f)+". Unter jedem Bereich steht, wie viel davon übrig bleibt.")
+        : "Ohne Einschränkung geht der ganze Bestand mit. Unter jedem Bereich steht, wie viel das ist.")+'</div>'
+    + '<div class="abschnitt">Bereiche</div>'
+    + EXP_BEREICHE.map(function(b,bi){
+        var mz = expMengeZeile(M[bi], EXP_AN[b.k], gekappt);
+        return '<div class="exp-zeile" data-exp="'+b.k+'"><div class="exp-name">'+esc(b.t)
+          + (mz?'<div style="font-size:12px;margin-top:2px">'+mz+'</div>':'')+'</div>'
           + '<button class="schieber'+(EXP_AN[b.k]?" an":"")+'"><span class="knopf"></span></button></div>'; }).join("")
     + '<div class="exp-zeile" data-exp="__notizen"><div class="exp-name">Deine Notizen zu den Messungen<br>'
     +   '<span style="font-size:12px;color:var(--faint)">«nach Kaffee», «auf Arbeit, Stress» — Kontext für Dich, nicht Befund</span></div>'
@@ -2329,7 +2540,7 @@ function exportModal(){
     + '<div class="exp-zeile" data-exp="__docs"><div class="exp-name">Dokumentpfade und Links<br>'
     +   '<span style="font-size:12px;color:var(--faint)">zeigen auf Deine private OneDrive</span></div>'
     +   '<button class="schieber'+(EXP_DOCS?" an":"")+'"><span class="knopf"></span></button></div>'
-    + '<button class="btn stark" id="btnExpGo" style="margin-top:18px;width:100%">Kopie erzeugen</button>'
+    + '<div class="modal-fuss"><button class="btn stark" id="btnExpGo">Kopie erzeugen</button></div>'
     + '</div></div></div>';
 }
 
@@ -2337,10 +2548,14 @@ function exportZustand(){
   var S = JSON.parse(JSON.stringify(STATE));
   /* Was das Werkzeug nicht mehr zeigt, gehoert auch nicht in die Arztkopie. Solange
      eine aeltere monitoring.json geladen wird, stehen diese Bloecke noch im STATE -
-     sie waeren unsichtbar, aber im Dateitext enthalten, samt ihrer Notizen. */
-  ["befinden","fitbit","fluid","digestion","body","wellbeing","nutrition","notes","hba1cLab","markers"]
+     sie waeren unsichtbar, aber im Dateitext enthalten, samt ihrer Notizen.
+     body steht NICHT mehr in dieser Liste: der Taille-Hueft-Quotient wird wieder gezeigt,
+     und die Aufraeumliste warf ihn sonst genau dann weg, wenn er gebraucht wird. */
+  ["befinden","fitbit","fluid","digestion","wellbeing","nutrition","notes","hba1cLab","markers"]
     .forEach(function(k){ if(S[k]!==undefined) delete S[k]; });
-  if(!EXP_AN.gewicht) S.weight.points=[];
+  /* body hat keinen eigenen Bereichsschalter - die Umfaenge gehoeren zum Gewicht und gehen
+     mit ihm an oder aus. Ein achter Schalter fuer drei Zahlen waere eine Frage zu viel. */
+  if(!EXP_AN.gewicht){ S.weight.points=[]; if(S.body) S.body.points=[]; }
   if(!EXP_AN.bz){ S.glucose.days=[]; S.glucose.histDays=[]; delete S.glucose.baseline; }
   if(!EXP_AN.bd) S.bloodpressure.points=[];
   if(!EXP_AN.labor) S.lab={params:[],panels:[]};
@@ -2348,17 +2563,37 @@ function exportZustand(){
   if(!EXP_AN.meds) S.meds={liste:[]};
   if(!EXP_AN.stamm) S.patient={};
   S.review = EXP_AN.stamm ? S.review : [];
-  S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN, bereiche:JSON.parse(JSON.stringify(EXP_AN)) };
+  /* Der Zeitraum kappt zuletzt und ueber allem: alles, was ein Datum traegt. Gekappt wird
+     mit derselben Funktion, aus der der Dialog seine Mengen liest - was dort steht, steht
+     danach in der Datei. Ohne Einschraenkung (Startwert «alles») laeuft hier nichts. */
+  var fz = fenster("export");
+  if(fz.von || fz.bis){
+    S.weight.points        = expKappen(S.weight.points, "date", fz);
+    if(S.body) S.body.points = expKappen(S.body.points, "date", fz);
+    S.glucose.days         = expKappen(S.glucose.days, "iso", fz);
+    S.bloodpressure.points = expKappen(S.bloodpressure.points, "iso", fz);
+    S.lab.panels           = expKappen(S.lab.panels, "date", fz);
+    S.history.events       = expKappen(S.history.events, "date", fz);
+    S.review               = expKappen(S.review, "weekIso", fz);
+  }
+  S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN,
+    bereiche:JSON.parse(JSON.stringify(EXP_AN)),
+    /* Eine Kopie, die einen Ausschnitt zeigt, muss sagen, dass sie einer ist - darum steht
+       der Zeitraum in der Datei und im Kopf der Kopie. */
+    zeitraum:{ stufe:fz.k, von:fz.von||null, bis:fz.bis||null,
+      gekappt:!!(fz.von||fz.bis), text:fensterLang(fz) } };
   if(!EXP_DOCS){
     var putzen = function(arr){ (arr||[]).forEach(function(x){ if(x.docs) delete x.docs; }); };
     putzen(S.history.events); putzen(S.lab.panels);
   }
   /* Notizen aus allen drei Reihen entfernen, nicht bloss aus einer: sie stehen am
      Gewichtspunkt, am Blutzuckertag UND an dessen Einzelwerten und an jeder
-     Blutdruckmessung. */
+     Blutdruckmessung. Und am Koerpermass: ein Punkt in body.points kann eine Notiz tragen
+     wie jeder andere Messpunkt auch. */
   if(!EXP_NOTIZEN){
     var weg = function(arr){ (arr||[]).forEach(function(x){ if(x.note) delete x.note; }); };
     weg(S.weight.points); weg(S.bloodpressure.points);
+    if(S.body) weg(S.body.points);
     (S.glucose.days||[]).forEach(function(d){
       if(d.note) delete d.note;
       (d.rows||[]).forEach(function(r){ if(r.note) delete r.note;
@@ -2466,7 +2701,13 @@ function zeichne(){
   bildBreiteMerk = bildBreitePx();
   var kopfE = document.getElementById("kopfEyebrow"), kopfZ = document.getElementById("kopfZeile");
   var kopie = FROZEN, stand = STATE.updated||"—", heute = dmy(isoVon(new Date(heuteMs())));
-  kopfE.textContent = kopie ? "Arztkopie · reine Ansicht" : "Monitoring";
+  /* Zeigt die Kopie nur einen Ausschnitt, sagt sie es im Kopf. Ohne diese Zeile sieht eine
+     auf vier Wochen gekappte Kopie aus wie der ganze Bestand - und ein leeres Labor wie
+     eine Krankengeschichte ohne Laborwerte. */
+  var zr = (STATE.__export && STATE.__export.zeitraum) || null;
+  kopfE.textContent = kopie
+    ? ("Arztkopie · reine Ansicht" + ((zr && zr.gekappt) ? " · Ausschnitt "+zr.text : ""))
+    : "Monitoring";
   kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+((STATE.__export&&STATE.__export.made)?dmy(STATE.__export.made):stand) : "MOPP+ | "+heute;
   document.getElementById("werkzeuge").hidden = kopie;
   document.getElementById("fussText").textContent = kopie
@@ -2523,7 +2764,24 @@ window.addEventListener("resize", function(){
   }, 160);
 }, {passive:true});
 
+/* Die THQ-Zahl sitzt IN der Gewichtskachel, also in einem Knopf - ein zweiter button waere
+   ungueltig. Darum ein eigenes Merkmal, das VOR dem Knopf drankommt: sonst oeffnete jeder
+   Klick darauf das Gewicht statt des Quotienten. Tastatur inbegriffen, sonst waere die
+   Ansicht mit der Maus erreichbar und ohne sie nicht. */
+function kzSprung(el){
+  if(!el) return false;
+  UI.kz = el.dataset.kzsprung; UI.seite = "voll"; zeichne(); window.scrollTo(0,0);
+  return true;
+}
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Enter" && e.key!==" ") return;
+  var sp = (e.target && e.target.closest) ? e.target.closest("[data-kzsprung]") : null;
+  if(!sp) return;
+  e.preventDefault(); kzSprung(sp);
+});
 document.addEventListener("click", function(e){
+  var sp = (e.target && e.target.closest) ? e.target.closest("[data-kzsprung]") : null;
+  if(sp){ e.preventDefault(); kzSprung(sp); return; }
   var t = e.target.closest("button"); if(!t) return;
 
   if(t.id==="btnConn" || t.id==="btnStart"){ document.getElementById("modale").innerHTML = connModal(); return; }
@@ -2585,14 +2843,19 @@ document.addEventListener("click", function(e){
   if(t.dataset.sch){ UI.bzView = t.dataset.sch; zeichne(); return; }
   /* Der Zeitraum haengt an DIESER Kennzahl, nicht an der Seite: wer den Blutzucker auf
      eine Woche stellt, hat damit nichts ueber das Gewicht gesagt. */
+  /* Der Zeitraum des Exports steht im Dialog, nicht auf der Seite: dort wird nicht die
+     Seite neu gezeichnet, sondern der Dialog - sonst blieben die Mengen darin stehen. */
   if(t.dataset.zeitstufe){ UI.zeit[t.dataset.zeitkz] = t.dataset.zeitstufe; UI.erfMeldung = null;
+    if(t.dataset.zeitkz==="export"){ document.getElementById("modale").innerHTML = exportModal(); return; }
     zeichne(); return; }
   /* «von–bis» wird erst mit «anwenden» uebernommen - sonst zeichnete die Seite bei jedem
      Tastendruck im Datumsfeld neu, und eine halbfertige Eingabe waere ein Zeitraum. */
   if(t.dataset.zeitanwenden){
     var zk = t.dataset.zeitanwenden, ze = zeitEntwurf(zk);
     UI.zeitFrei[zk] = {von:ze.von||"", bis:ze.bis||""};
-    UI.zeit[zk] = "frei"; zeichne(); return;
+    UI.zeit[zk] = "frei";
+    if(zk==="export"){ document.getElementById("modale").innerHTML = exportModal(); return; }
+    zeichne(); return;
   }
   /* Ein Sprung auf einen bestimmten Tag - aus der Statuszeile (nachtragen) oder aus den
      Rohdaten (Notiz berichtigen). Beide brauchen dasselbe, also gibt es einen Weg. */
