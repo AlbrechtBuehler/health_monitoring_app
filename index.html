@@ -341,7 +341,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
 /*STATE-ENDE*/
 
 /* Ein Zeitraum JE KENNZAHL, nicht einer fuer alle. Das Gewicht startet auf «alles»: vier
-   Wochen zeigen davon nur −3,9 kg statt −20,3 kg — die Geschichte verschwaende aus dem
+   Wochen zeigen davon nur einen Bruchteil — die Geschichte verschwaende aus dem
    Bild. Blutzucker und Blutdruck starten auf vier Wochen; dort lautet die Frage «wie steht
    es jetzt», und zwei Monate alte Werte beantworten sie nicht.
    Der Taille-Huft-Quotient startet wie das Gewicht auf «alles»: zwischen zwei Messungen
@@ -351,7 +351,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
 var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null,
-  zeit:{gewicht:"alles", bz:"28", bd:"28", thq:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
+  zeit:{gewicht:"alles", bz:"28", bd:"28", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
   erfBp:[neueBpZeile()], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
   medEdit:false, medListe:null, medKopf:null };
@@ -679,6 +679,61 @@ function rKoerper(){ return ((STATE.body&&STATE.body.points)||[])
     chest:p.chest!=null?+p.chest:null, note:p.note||null}; })
   .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 
+/* ══ BMI ═══════════════════════════════════════════════════════════════════════════
+   Zurueckgeholt am 22.08.2026 mit eigener Kachel. Vorher stand der BMI als Anhaengsel in
+   der Unterzeile des Gewichts und als Nebenzahl im Gewicht-Vollbild – dieselbe zu
+   vorsichtige Konstruktion, die beim THQ am 21.08. verworfen wurde.
+
+   Was er sagt und das Gewicht nicht sagt, ist die KATEGORIE. Die Gewichtskurve laeuft
+   schraeg nach unten und sieht ueberall gleich aus; der BMI geht auf demselben Weg an
+   waagrechten Grenzen vorbei, und DAS ist die Aussage.
+
+   Er wird NICHT gespeichert. Er ist eine Ableitung aus weight.points und weight.heightCm;
+   eine zweite Kopie in der Datei liefe beim ersten korrigierten Gewicht auseinander.
+   rBmi() ist die eine Rechenstelle – wer eine zweite aufmacht, baut den Fehler Nummer
+   eins dieses Werkzeugs nach.
+
+   Im Arzt-Export braucht der BMI KEINEN eigenen Schalter: er haengt an weight.points, und
+   ohne Gewicht ist die Reihe leer. Dasselbe Argument wie bei body. */
+var BMI_STUFEN = [
+  {bis:18.5,     t:"Untergewicht"},
+  {bis:25,       t:"Normalgewicht"},
+  {bis:30,       t:"Übergewicht"},
+  {bis:35,       t:"Adipositas Grad I"},
+  {bis:40,       t:"Adipositas Grad II"},
+  {bis:Infinity, t:"Adipositas Grad III"}
+];
+/* Die GRENZEN als Zahlen – fuer die Linien im Bild. Die oberste Stufe hat keine, sie ist
+   nach oben offen. */
+var BMI_GRENZEN = BMI_STUFEN.filter(function(x){ return isFinite(x.bis); })
+  .map(function(x){ return x.bis; });
+var BMI_GUT = 25, BMI_HOCH = 30, BMI_TIEF = 18.5;
+
+function bmiStufe(v){
+  if(v==null) return "";
+  for(var i=0;i<BMI_STUFEN.length;i++) if(v < BMI_STUFEN[i].bis) return BMI_STUFEN[i].t;
+  return BMI_STUFEN[BMI_STUFEN.length-1].t;
+}
+/* Dreistufig, darum NICHT ampelFarbe(): die kennt nur gut und warn und gibt fuer «weder
+   noch» die neutrale Schriftfarbe – ein BMI ueber 30 waere damit farblos statt rot.
+   Und Untergewicht ist nicht gruen: eine Ampel, die 16,0 als «gut» faerbt, sagt die
+   Unwahrheit. Sie liegt unter der Norm, also gelb wie jede Abweichung nach unten. */
+function bmiFarbe(v){
+  if(v==null) return "var(--ink)";
+  if(v < BMI_TIEF) return "var(--warn)";
+  return v < BMI_GUT ? "var(--good)" : (v < BMI_HOCH ? "var(--warn)" : "var(--high)");
+}
+/* Kein eigener Datenbestand: jeder Gewichtspunkt wird geteilt, mehr passiert hier nicht.
+   Ohne Koerpergroesse in den Stammdaten gibt es keine Reihe – und nicht etwa eine mit
+   geratener Groesse. */
+function rBmi(){
+  var w = STATE.weight||{}, hM = w.heightCm ? (+w.heightCm)/100 : null;
+  if(!hM || !(hM > 0)) return [];
+  var q = hM*hM;
+  return rGewicht().map(function(p){
+    return {iso:p.iso, v:p.v/q, kg:p.v, note:p.note||null}; });
+}
+
 /* ══ Linien ═════════════════════════════════════════════════════════════════════
    Eine Messluecke ist kein Messwert. Bis zum doppelten ueblichen Abstand (mindestens
    acht Tage) laeuft die Linie durch, darueber eine fein gestrichelte Bruecke. Die
@@ -803,7 +858,7 @@ function bild(reihen, opt){
   /* Die Achse braucht so viele Nachkommastellen, wie es fuer unterscheidbare Zahlen
      braucht. Mit dem Zeitraum-Schalter kann der Wertebereich sehr eng werden - im
      Wochenfenster des Gewichts liegen 0,3 kg zwischen erster und letzter Messung, und
-     fuenfmal «112,4» untereinander ist keine Achse. Wo die Zahlen ohnehin schon
+     fuenfmal dieselbe Zahl untereinander ist keine Achse. Wo die Zahlen ohnehin schon
      verschieden sind, aendert sich nichts. */
   var adez = opt.dez==null?1:opt.dez, achse;
   while(true){
@@ -937,12 +992,17 @@ function KZ(){
   /* Ein Fenster je Kennzahl - und dasselbe Fenster fuer Bild UND Zahl. Vorher stand in der
      Blutzucker-Kachel die Zahl fuer 14 Messtage und der Prozentsatz fuer alle Messungen der
      Periode, in EINER Zeile. Genau das schafft der Schalter ab. */
-  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq");
+  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq"), fm=fenster("bmi");
   var G=imFenster(Gall,fg), BZ=imFenster(BZall,fb), BZT=imFenster(BZTall,fb), BP=imFenster(BPall,fd);
   /* Der THQ hat sein eigenes Fenster, seine eigene Kennzahl und seit dem 21.08.2026 eine
      eigene Kachel auf der Kachelwand. */
   var Kall=rKoerper(), K=imFenster(Kall,fq);
   var kL=K.length?K[K.length-1]:null, kLa=Kall.length?Kall[Kall.length-1]:null;
+  /* Der BMI hat sein eigenes Fenster, weil er seine eigene Frage stellt. Startwert
+     «alles» wie beim Gewicht: im Vier-Wochen-Fenster liegt zwischen erstem und letztem
+     Wert gut ein Punkt, ueber die ganze Periode sind es zwei Kategoriegrenzen. */
+  var Ball=rBmi(), B=imFenster(Ball,fm);
+  var bL=B.length?B[B.length-1]:null;
   var bzOe = mittel(BZ.map(function(x){return x.v;}));
   var HB = rHba1c(), hbL = HB.length?HB[HB.length-1]:null;
   var imSoll = BZ.filter(function(x){ return sollTyp(x.slot)==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
@@ -960,10 +1020,11 @@ function KZ(){
       wert:gL?nf(gL.v,1):"—", zustand:"var(--ink)", tempo:tempo(G),
       /* DIE Ausnahme, und die einzige: die Kachel traegt die GESAMTBILANZ seit dem
          Startwert. Das ist eine Bilanz, kein Fensterausschnitt - sie schrumpft nicht mit
-         dem Schalter, sonst waeren aus −20,3 kg im Vier-Wochen-Fenster −3,9 kg geworden. */
+         dem Schalter, sonst schrumpfte die Gesamtabnahme auf das Vier-Wochen-Fenster. */
       unter:(gLa ? "seit "+dm(Gall[0].iso)+" "+vz(gLa.v-start,1)+" kg" : "")
-        + (gLa && wt.goal1!=null ? " · Ziel 1: "+nf(wt.goal1,0)+" kg · Abstand "+nf(gLa.v-wt.goal1,1)+" kg" : "")
-        + (gLa && wt.heightCm ? " · BMI "+nf(gLa.v/Math.pow(wt.heightCm/100,2),1) : ""),
+        /* Der BMI stand hier als drittes Anhaengsel. Er hat seit dem 22.08.2026 eine
+           eigene Kachel - ein Ort pro Sache, genau wie beim THQ am Tag davor. */
+        + (gLa && wt.goal1!=null ? " · Ziel 1: "+nf(wt.goal1,0)+" kg · Abstand "+nf(gLa.v-wt.goal1,1)+" kg" : ""),
       meta:zahl(G.length,"Messung","Messungen")+" · "+fensterLang(fg) },
     /* Eigene Kachel, Entscheid Albrecht vom 21.08.2026. Zuerst stand der THQ als Zahl in
        der Unterzeile des Gewichts - das war zu vorsichtig. Er hat den zweitlaengsten
@@ -979,6 +1040,22 @@ function KZ(){
       unter:K.length ? "zuletzt "+dm(kL.iso)+" · Taille "+nf(kL.waist,0)+" zu Hüfte "+nf(kL.hip,0)
                        +" cm · Grenze "+nf(THQ_GRENZE,1) : "",
       meta:zahl(K.length,"Messung","Messungen")+" · "+fensterLang(fq) },
+    /* Eigene Kachel, Entscheid Albrecht vom 22.08.2026. Der BMI war beim Vereinfachen am
+       21.08. zur Nebenzahl geworden - derselbe Fehler wie beim THQ, und aus demselben
+       Reflex heraus. Er beantwortet eine Frage, die das Gewicht nicht beantwortet: nicht
+       «wie viel», sondern «in welcher Kategorie». Auf dem bisherigen Weg hat der BMI zwei
+       Kategoriegrenzen unterschritten; die Gewichtskurve zeigt an denselben Stellen nichts.
+       (Die Zahlen dazu stehen NICHT hier: dieser Code ist oeffentlich, und ein Messwert im
+       Kommentar ist derselbe Verstoss wie einer im Fliesstext. Das ist am 14.08. und am
+       21.08.2026 schon zweimal passiert.)
+       Die Kachel traegt darum die KATEGORIE als Untertitel, nicht nur die Zahl. */
+    bmi:{ key:"bmi", label:"BMI", einheit:"kg/m²", reihe:B, farbe:"var(--akzent)", dez:1,
+      sub:function(p){ return nf(p.kg,1)+" kg · "+bmiStufe(p.v); },
+      wert:bL?nf(bL.v,1):"—",
+      zustand:bL?bmiFarbe(bL.v):"var(--ink)",
+      unter:B.length ? bmiStufe(bL.v)+" · zuletzt "+dm(bL.iso)
+        + (B.length>1 ? " · seit "+dm(B[0].iso)+" "+vz(bL.v-B[0].v,1) : "") : "",
+      meta:zahl(B.length,"Messung","Messungen")+" · "+fensterLang(fm) },
     bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:BZ.length?nf(bzOe,1):"—",
@@ -1056,7 +1133,7 @@ function zeichneWand(){
   var kz = KZ();
   return '<div class="wand">'
     + kachelHtml(kz.gewicht, true)
-    + '<div class="kacheln">'+[kz.bz,kz.bd,kz.thq].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
+    + '<div class="kacheln">'+[kz.bz,kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
     + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rohdaten</div>'
     +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
     + '</div>';
@@ -1090,7 +1167,7 @@ function zeichneVoll(){
     if(!G.length){ kopfWert = "—"; kopfEinheit = "kg · "+fl; satz = LEER_ZEITRAUM; }
     else{
       var g0=G[0], gL=G[G.length-1];
-      var tF = tempo(G), bmi = w.heightCm ? gL.v/Math.pow(w.heightCm/100,2) : null;
+      var tF = tempo(G);
       var rest = w.goal1!=null ? gL.v-w.goal1 : null;
       kopfWert = nf(gL.v,1);
       kopfEinheit = "kg · zuletzt "+dm(gL.iso);
@@ -1106,7 +1183,6 @@ function zeichneVoll(){
           + (w.goal1!=null ? " Ziel 1 liegt bei "+nf(w.goal1,0)+" kg und damit unter dem Bildausschnitt." : "")});
       neben = [ {l:"Im Zeitraum", w:nf(g0.v,1)+" → "+nf(gL.v,1), u:zahl(G.length,"Messung","Messungen")+" · kg"},
         {l:"Veränderung", w:vz(gL.v-g0.v,1), u:"kg "+fl, f:(gL.v<g0.v?"var(--good)":null)},
-        {l:"BMI", w:nf(bmi,1), u:(w.heightCm||"—")+" cm · Stand "+dm(gL.iso)},
         {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl},
         {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—", u:"kg · Ziel "+nf(w.goal1,0)+" kg"} ];
     }
@@ -1142,6 +1218,76 @@ function zeichneVoll(){
           u:kVor?("davor "+nf(kVor.v,2)+" am "+dm(kVor.iso)):"erst eine Messung in diesem Zeitraum",
           f:(dq!=null && dq<-0.0049)?"var(--good)":((dq!=null && dq>0.0049)?"var(--warn)":null)},
         {l:"Messungen", w:String(KK.length), u:dmy(k0.iso)+" → "+dmy(kLetzt.iso)} ];
+    }
+  }
+
+  /* Der BMI hat ein eigenes Vollbild, weil er eine eigene Frage beantwortet: nicht «wie
+     viel», sondern «in welcher Kategorie». Die Kurve hat zwangslaeufig dieselbe FORM wie
+     die des Gewichts - sie ist dieselbe Reihe durch eine Konstante geteilt. Die Aussage
+     sind darum nicht die Punkte, sondern die WAAGRECHTEN, an denen sie vorbeigehen.
+     Gerechnet wird hier nichts nach: alle Zahlen kommen aus rBmi(). */
+  if(k==="bmi"){
+    var qB = imFenster(rBmi(), f), qW = STATE.weight||{};
+    if(!qB.length){
+      kopfWert = "—"; kopfEinheit = "kg/m² · "+fl;
+      /* Zwei verschiedene Gruende, zwei verschiedene Saetze. «keine Messung in diesem
+         Zeitraum» waere bei fehlender Koerpergroesse schlicht falsch - dann gibt es in
+         KEINEM Zeitraum eine. */
+      satz = qW.heightCm ? LEER_ZEITRAUM
+        : "Ohne Körpergrösse lässt sich kein BMI rechnen. Sie steht in den Stammdaten "
+          + "unter «heightCm» und fehlt dort.";
+    }
+    else{
+      var qErst=qB[0], qLetzt=qB[qB.length-1];
+      var qWerte = qB.map(function(x){ return x.v; });
+      var qMin = Math.min.apply(null,qWerte), qMax = Math.max.apply(null,qWerte);
+      /* NUR Grenzen, die im Wertebereich liegen. bild() zieht die Achse ueber jede
+         uebergebene Linie (mn/mx werden dort mit opt.linien verglichen) - eine Grenze
+         ausserhalb streckt den Ausschnitt, bis die eigentliche Bewegung verschwindet.
+         Im Wochenfenster liegen wenige Zehntel zwischen erster und letzter Messung; die
+         naechste Grenze haette daraus ein Bild ueber mehrere Punkte gemacht. Was nicht
+         ins Bild passt, wird darum NICHT gezeichnet - aber in der Bildunterschrift
+         gesagt und steht als Nebenzahl daneben. Verschwiegen wird nichts. */
+      var qGr = BMI_GRENZEN.filter(function(g){ return g>qMin && g<qMax; });
+      /* Die naechste Grenze UNTERHALB des heutigen Werts - das ist der Weg, der noch
+         vor ihm liegt, und die einzige der sechs, die etwas zu tun gibt. */
+      var qUnten = null;
+      for(var qi=BMI_GRENZEN.length-1; qi>=0; qi--)
+        if(BMI_GRENZEN[qi] <= qLetzt.v){ qUnten = BMI_GRENZEN[qi]; break; }
+      var qM2 = qW.heightCm ? Math.pow((+qW.heightCm)/100, 2) : null;
+      var qKg = (qUnten!=null && qM2) ? (qLetzt.v-qUnten)*qM2 : null;
+
+      kopfWert = nf(qLetzt.v,1);
+      kopfEinheit = "kg/m² · zuletzt "+dm(qLetzt.iso);
+      satz = "Gewicht geteilt durch die Körpergrösse im Quadrat"
+        + (qW.heightCm ? ", bei "+nf(qW.heightCm,0)+" cm" : "")
+        + ". Heute "+nf(qLetzt.v,1)+" — "+bmiStufe(qLetzt.v)+". "
+        + (qB.length>1
+            ? "Im Zeitraum "+fl+" von "+nf(qErst.v,1)+" ("+bmiStufe(qErst.v)+") auf "
+              + nf(qLetzt.v,1)+"."
+            : "Eine Messung "+fl+".")
+        + (qKg!=null && qKg>0
+            ? " Bis "+bmiStufe(qUnten-0.01)+" fehlen "+nf(qLetzt.v-qUnten,1)+" Punkte, "
+              + "also "+nf(qKg,1)+" kg." : "");
+      inhalt = bild([{pts:qB, farbe:"var(--akzent)", r:3, dez:1, name:"BMI"}],
+        {dez:1, einheit:"",
+          linien: qGr.map(function(g){ return {v:g, label:nf(g,1)}; }),
+          sub:function(p){ return nf(p.kg,1)+" kg · "+bmiStufe(p.v); },
+          text:zahl(qB.length,"Messpunkt","Messpunkte")+" "+fl+", je aus dem Gewicht dieses Tages gerechnet. "
+            + (qGr.length
+                ? "Gestrichelt die Kategoriegrenzen "+qGr.map(function(g){ return nf(g,1); }).join(" und ")+"."
+                : "In diesem Ausschnitt liegt keine Kategoriegrenze — durchgehend "
+                  + bmiStufe(qLetzt.v)+".")});
+      neben = [ {l:"Zuletzt", w:nf(qLetzt.v,1), u:bmiStufe(qLetzt.v)+" · "+dmy(qLetzt.iso),
+          f:bmiFarbe(qLetzt.v)},
+        {l:"Im Zeitraum", w:nf(qErst.v,1)+" → "+nf(qLetzt.v,1),
+          u:zahl(qB.length,"Messung","Messungen")+" · kg/m²"},
+        {l:"Veränderung", w:qB.length>1?vz(qLetzt.v-qErst.v,1):"—", u:"Punkte "+fl,
+          f:(qB.length>1 && qLetzt.v<qErst.v)?"var(--good)":null},
+        {l:"Gewicht dazu", w:nf(qLetzt.kg,1), u:"kg · Stand "+dm(qLetzt.iso)},
+        {l:"Bis "+(qUnten!=null?bmiStufe(qUnten-0.01):"—"),
+          w:qKg!=null&&qKg>0?nf(qKg,1):"—",
+          u:qKg!=null&&qKg>0 ? "kg · "+nf(qLetzt.v-qUnten,1)+" Punkte" : "keine Grenze darunter"} ];
     }
   }
 
@@ -1775,7 +1921,8 @@ function standVom(iso){
   if(g && g.value!=null) S.gewicht = nf(g.value,1);
   /* Taille, Huefte und Brust tragen denselben Tagesstand wie das Gewicht: was fuer diesen
      Tag in der Datei steht, steht im Feld. Geschrieben wird als Text der Datei, nicht
-     gerundet - sonst machte ein Oeffnen der Maske aus 132,5 stillschweigend 133. */
+     gerundet - sonst machte ein Oeffnen der Maske aus einem Komma-Wert stillschweigend eine
+        runde Zahl. */
   var b = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
   if(b){
     if(b.waist!=null) S.taille = String(b.waist).replace(".",",");
@@ -2813,11 +2960,12 @@ document.addEventListener("click", function(e){
     zeichne(); window.scrollTo(0,0); return; }
   /* Der Knopf IM Vollbild kommt aus einer Kennzahl und muss deren Kachel oeffnen - sonst
      landet man bei der ersten Luecke des Tages und sucht die Stelle, von der man kam.
-     Der THQ hat keine eigene Kachel: Taille und Huefte werden beim Gewicht erfasst. */
+     THQ und BMI haben keine eigene Erfassungs-Kachel: Taille, Huefte und das Gewicht,
+     aus dem der BMI faellt, werden alle drei in der Gewichts-Kachel erfasst. */
   if(t.id==="btnErf" || t.id==="btnErf2"){
     UI.seite = "erf"; UI.erfMeldung = null;
     UI.erfAuf = (t.id==="btnErf2")
-      ? ({gewicht:"gw", thq:"gw", bz:"bz", bd:"bd"}[UI.kz] || "auto")
+      ? ({gewicht:"gw", thq:"gw", bmi:"gw", bz:"bz", bd:"bd"}[UI.kz] || "auto")
       : "auto";
     erfZeitAuffrischen(); zeichne(); window.scrollTo(0,0); return; }
 
