@@ -337,7 +337,7 @@
 /*STATE-ANFANG*/
 var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{points:[]},
   glucose:{days:[],slots:[],slotType:{},th:{}}, bloodpressure:{points:[]},
-  lab:{params:[],panels:[]}, history:{events:[]}, meds:{liste:[]}, review:[], termine:[] };
+  lab:{params:[],panels:[]}, history:{events:[]}, meds:{liste:[]}, termine:[] };
 /*STATE-ENDE*/
 
 /* Ein Zeitraum JE KENNZAHL, nicht einer fuer alle. Das Gewicht startet auf «alles»: vier
@@ -445,10 +445,15 @@ async function ghSchreiben(obj, nochmal){
 
 function meldung(t, fehler){ UI.erfMeldung = {text:t, fehler:!!fehler}; zeichne(); return !fehler; }
 
+/* Der Rueckblick ist am 21.08.2026 ersatzlos gestrichen worden (Entscheid Albrecht):
+   persoenliche Wochennotizen gehoeren nicht in eine Krankenakte, die das Haus verlaesst.
+   Weggelassen heisst weggelassen - darum wird `review` schon beim Laden verworfen und
+   nicht bloss nicht angezeigt. Beim naechsten Speichern faellt der Block aus der Datei. */
 function zustandSetzen(o){
   UI.erfStandIso = null;
   for(var k in STATE) delete STATE[k];
   for(var k2 in o) STATE[k2] = o[k2];
+  delete STATE.review;
   zeichne();
 }
 
@@ -1052,7 +1057,7 @@ function zeichneWand(){
   return '<div class="wand">'
     + kachelHtml(kz.gewicht, true)
     + '<div class="kacheln">'+[kz.bz,kz.bd,kz.thq].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
-    + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rückblick, Rohdaten</div>'
+    + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rohdaten</div>'
     +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
     + '</div>';
 }
@@ -1400,7 +1405,7 @@ function jahreReihe(isos){
 function aktenUebersicht(){
   var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
   var EV = (STATE.history.events||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
-  var P = STATE.lab.params||[], meds = (STATE.meds&&STATE.meds.liste)||[], rb = STATE.review||[];
+  var P = STATE.lab.params||[], meds = (STATE.meds&&STATE.meds.liste)||[];
   var flagsN = PA.reduce(function(n,p){ return n+Object.keys(p.flags||{}).length; }, 0);
   var pL = PA.length?PA[PA.length-1]:null;
   var lj = jahreReihe(PA.map(function(p){ return p.date; }));
@@ -1429,11 +1434,6 @@ function aktenUebersicht(){
   var taeglich = meds.filter(function(m){ return /^\s*\d\s*[–-]/.test(m.dosis||""); }).length;
   var reserve = meds.filter(function(m){ return /^\s*i\.\s*R\.?/i.test(m.dosis||""); }).length;
   var sonst = meds.length - taeglich - reserve;
-
-  var rbS = rb.slice().sort(function(a,b){ return (a.weekIso||"")<(b.weekIso||"")?-1:1; });
-  var rL = rbS.length?rbS[rbS.length-1]:null;
-  var sterne = rbS.map(function(r){ return +r.stars||0; });
-  var bewertet = sterne.filter(function(s){ return s>0; }).length;
 
   var RT = rohTage();
   var rj = jahreReihe(RT.map(function(z){ return z.iso; }));
@@ -1497,14 +1497,6 @@ function aktenUebersicht(){
     + '</div>'
     + '<div class="k-meta">'+taeglich+' täglich'+(sonst>0?' · '+sonst+' nach Plan':'')+(reserve?' · '+reserve+' in Reserve':'')+'</div></button>';
 
-  h += '<button class="kachel" data-akte="review">'
-    + '<div class="k-name">Rückblick</div>'
-    + '<div class="k-reihe"><div class="k-zahl">'+rb.length+'</div><div class="k-einheit">'+(rb.length===1?"Woche":"Wochen")+'</div></div>'
-    + '<div class="k-unter">'+esc(rL ? "Zuoberst "+(rL.kw||"")+" — «"+(rL.headline||"ohne Titel")+"»" : "Noch kein Rückblick.")+'</div>'
-    + (sterne.length>1 ? balkenSvg(sterne, 260, 46, "var(--akzent)", function(i,v){
-        return {tag:(rbS[i].kw||""), wert:"★".repeat(v), einheit:"", sub:rbS[i].headline||"", notiz:""}; }) : '')
-    + '<div class="k-meta">'+zahl(bewertet,"Woche","Wochen")+' mit Bewertung</div></button>';
-
   h += '<button class="kachel" data-akte="roh">'
     + '<div class="k-name">Rohdaten</div>'
     + '<div class="k-reihe"><div class="k-zahl">'+RT.length+'</div><div class="k-einheit">Messtage</div></div>'
@@ -1547,7 +1539,6 @@ function zeichneAkten(){
   if(UI.akte==="labor")   return akteLabor();
   if(UI.akte==="history") return akteHistory();
   if(UI.akte==="meds")    return akteMeds();
-  if(UI.akte==="review")  return akteReview();
   if(UI.akte==="roh")     return akteRoh();
   return aktenUebersicht();
 }
@@ -1702,31 +1693,6 @@ async function medSpeichern(){
   UI.medEdit = false; UI.medListe = null; UI.medKopf = null;
   zustandSetzen(N);
   return meldung(zahl(A.length,"Präparat","Präparate")+" gespeichert.");
-}
-
-function akteReview(){
-  var R = STATE.review||[];
-  if(!R.length) return aktenRahmen({bereich:"Rückblick", titel:"Noch kein Rückblick", links:'<p class="satz">Sobald eine Woche erfasst ist, steht sie hier.</p>'});
-  var i = Math.min(UI.blatt||0, R.length-1), r = R[i]||{};
-  /* Ein ganzzeiliges **X** ist eine Ueberschrift — daran haengt die Gliederung der
-     Wochenziele. Nur die Sternchen zu streichen macht aus einer Struktur eine Textwand. */
-  function md(t){
-    return String(t||"").split("\n").map(function(z){ return z.trim(); })
-      .filter(function(z){ return z!==""; })
-      .map(function(z){
-        var k = /^\*\*(.+?)\*\*:?$/.exec(z);
-        if(k) return '<h4 style="margin:16px 0 4px;font-size:15px;font-weight:660">'+esc(k[1])+'</h4>';
-        if(z.indexOf("- ")===0) return '<div style="display:flex;gap:9px;padding:2px 0 2px 4px">'
-          + '<span style="color:var(--akzent)">·</span><span>'+esc(z.slice(2).replace(/\*\*/g,""))+'</span></div>';
-        return '<p style="margin:8px 0 0">'+esc(z.replace(/\*\*/g,""))+'</p>';
-      }).join("");
-  }
-  return aktenRahmen({ bereich:"Rückblick", titel:r.headline||("Woche "+(r.kw||"")),
-    untertitel:(r.kw||"")+" · "+"★".repeat(r.stars||0)+"☆".repeat(5-(r.stars||0)),
-    links:'<div class="rb-txt" style="font-size:14.5px;color:var(--muted)">'+md(r.desc)
-      + (r.analyse?'<h4 style="margin:22px 0 4px;font-size:15px;font-weight:660">Analyse</h4>'+md(r.analyse):'')+'</div>',
-    listeKopf:zahl(R.length,"Woche","Wochen"),
-    liste:R.map(function(x,n){ return lz(x.kw||"—", "★".repeat(x.stars||0), n===i, 'data-blatt="'+n+'"'); }).join("") });
 }
 
 function rohTage(){
@@ -2489,7 +2455,7 @@ var EXP_TEILE = {
   labor:[ {q:function(){ return (STATE.lab||{}).panels; }, feld:"date", e:"Blatt", m:"Blättern"} ],
   history:[ {q:function(){ return (STATE.history||{}).events; }, feld:"date", e:"Eintrag", m:"Einträgen"} ],
   meds:[],
-  stamm:[ {q:function(){ return STATE.review; }, feld:"weekIso", e:"Woche", m:"Wochen", vor:"Rückblick "} ]
+  stamm:[]
 };
 function expMengen(){
   var f = fenster("export");
@@ -2524,9 +2490,9 @@ function exportModal(){
     + '<p style="margin:0 0 16px;font-size:14px;color:var(--muted)">Eine einzelne HTML-Datei mit dem heutigen Datenstand — dieselbe Ansicht, ohne Erfassen und ohne Zugang zum Datenspeicher. Abgewählte Bereiche sind in der Kopie nicht enthalten.</p>'
     + '<div class="abschnitt" style="padding-top:0">Zeitraum</div>'
     + zeitschalterHtml("export")
-    /* «Einträge» und nicht «Messungen»: gekappt werden auch Laborblätter, Krankengeschichte
-       und Rückblick. Und der Bezug steht im Genitiv, wie ihn fensterLang liefert - «was der
-       letzten Woche erfasst wurde» ist kein Satz. */
+    /* «Einträge» und nicht «Messungen»: gekappt werden auch Laborblätter und die
+       Krankengeschichte. Und der Bezug steht im Genitiv, wie ihn fensterLang liefert -
+       «was der letzten Woche erfasst wurde» ist kein Satz. */
     + '<div class="bildtext">'+(gekappt
         ? esc("Die Kopie enthält nur Einträge "+fensterLang(f)+". Unter jedem Bereich steht, wie viel davon übrig bleibt.")
         : "Ohne Einschränkung geht der ganze Bestand mit. Unter jedem Bereich steht, wie viel das ist.")+'</div>'
@@ -2564,7 +2530,6 @@ function exportZustand(){
   if(!EXP_AN.history) S.history={events:[]};
   if(!EXP_AN.meds) S.meds={liste:[]};
   if(!EXP_AN.stamm) S.patient={};
-  S.review = EXP_AN.stamm ? S.review : [];
   /* Der Zeitraum kappt zuletzt und ueber allem: alles, was ein Datum traegt. Gekappt wird
      mit derselben Funktion, aus der der Dialog seine Mengen liest - was dort steht, steht
      danach in der Datei. Ohne Einschraenkung (Startwert «alles») laeuft hier nichts. */
@@ -2576,7 +2541,6 @@ function exportZustand(){
     S.bloodpressure.points = expKappen(S.bloodpressure.points, "iso", fz);
     S.lab.panels           = expKappen(S.lab.panels, "date", fz);
     S.history.events       = expKappen(S.history.events, "date", fz);
-    S.review               = expKappen(S.review, "weekIso", fz);
   }
   S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN,
     bereiche:JSON.parse(JSON.stringify(EXP_AN)),
