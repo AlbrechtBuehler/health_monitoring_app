@@ -6,8 +6,13 @@
 <title>MOPP+ · Monitoring</title>
 <style>
   /* MOPP+ · Neubau 15.08.2026. Eine Frage, eine Antwort, ein Weg.
-     Drei Kurven — Gewicht, Blutzucker, Blutdruck — und die Akten; mehr traegt das
-     Werkzeug nicht. Drei Ebenen: Heute (Kachelwand) · eine Kennzahl gross · Akten.
+     Drei Kurven — Gewicht, Blutzucker, Blutdruck —, dazu zwei Zahlen ueber den Koerper
+     (Taille-Hueft-Quotient seit 21.08.2026, BMI seit 22.08.2026) und die Akten; mehr
+     traegt das Werkzeug nicht. Drei Ebenen: Heute (Kachelwand) · eine Kennzahl gross ·
+     Akten, dazu das Erfassen.
+     ACHTUNG: dieser Kommentar steht im Style-Block, nicht beim Skript. Proben, die nur
+     den Skriptteil schneiden, sehen ihn nicht - er ist darum dreimal falsch stehen
+     geblieben. Wer Kommentare prueft, prueft die GANZE Datei.
      Farben: Palette «Mitternacht». Ampel nur fuer ZUSTAND, --akzent fuer eine Datenreihe,
      --zweit nur dort, wo zwei echte Reihen in einem Bild liegen (Blutdruck). */
   :root{
@@ -182,9 +187,7 @@
     color:var(--faint);background:var(--surface2);padding-top:11px;padding-bottom:11px}
   .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:13px;margin-top:16px}
   .scroll .akten-tabelle{margin:0;min-width:820px}
-  /* Die THQ-Zahl in der Unterzeile der Gewichtskachel. Sie sitzt IN einem Knopf, darum
-     kein zweiter button, sondern ein Feld mit eigener Trefferbehandlung; die gepunktete
-     Linie sagt, dass dahinter etwas liegt. */
+  /* Wertfarben fuer Zahlen in Tabellen und Merkzetteln: ueber der Norm, darunter, im Soll. */
   .hoch{color:var(--high)} .tief{color:var(--zweit)} .imsoll{color:var(--good)}
   .ev{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}
   .ev .d{font-family:var(--mono);font-size:12px;color:var(--faint)}
@@ -345,7 +348,8 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    Bild. Blutzucker und Blutdruck starten auf vier Wochen; dort lautet die Frage «wie steht
    es jetzt», und zwei Monate alte Werte beantworten sie nicht.
    Der Taille-Huft-Quotient startet wie das Gewicht auf «alles»: zwischen zwei Messungen
-   liegen Wochen bis Jahre, jedes Wochenfenster waere leer.
+   liegen Wochen bis Jahre, jedes Wochenfenster waere leer. Der BMI ebenso - er ist die
+   Gewichtsreihe geteilt durch eine Konstante, also gilt dort dasselbe Argument.
    «export» ist keine Kennzahl, sondern der Zeitraum des Arzt-Exports - er benutzt dieselben
    Stufen und dieselbe Rechnung. Eine zweite Zeitraum-Mechanik daneben liefe auseinander.
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
@@ -519,8 +523,11 @@ function zeitEntwurf(kzk){
     UI.zeitEntwurf[kzk] = {von:w.von||"", bis:w.bis||""}; }
   return UI.zeitEntwurf[kzk];
 }
-/* Der Schalter selbst. Er steht bei jeder der drei Kurven und nirgends in den Akten: «Ein
-   Wert über die Jahre» liegt zwischen 2013 und 2025, jedes Wochenfenster waere dort leer. */
+/* Der Schalter selbst. Er steht bei JEDER Kennzahl - heute sind das fuenf - und nirgends
+   in den Akten: «Ein Wert über die Jahre» liegt zwischen 2013 und 2025, jedes
+   Wochenfenster waere dort leer. Die Zahl wird nicht aufgezaehlt, weil zeichneVoll() den
+   Schalter unbedingt fuer jedes k baut; wer eine Kennzahl hinzufuegt, muss hier nichts
+   aendern. */
 function zeitschalterHtml(kzk){
   var h = '<div class="schalter no-print">'+ZEIT_STUFEN.map(function(s){
       return '<button class="sch'+(UI.zeit[kzk]===s.k?" an":"")+'" data-zeitstufe="'+s.k
@@ -635,7 +642,8 @@ function normFuer(slot){ return sollTyp(slot)==="pre" ? NORM.pre : NORM.post; }
 
 /* ══ Reihen ═════════════════════════════════════════════════════════════════════
    Eine Rechenstelle je Reihe. Wer eine Zahl braucht, holt sie hier - nicht in der
-   Ansicht. Es sind sechs: rGewicht, rKoerper, rBzAlle, rBzTage, rBp und rHba1c. */
+   Ansicht. Es sind sieben: rGewicht, rKoerper, rBmi, rBzAlle, rBzTage, rBp und rHba1c.
+   rBmi ist die erste ABGELEITETE Reihe - sie rechnet aus rGewicht und speichert nichts. */
 function rGewicht(){ return (STATE.weight.points||[]).filter(function(p){ return !p.hist && p.value!=null; })
   .map(function(p){ return {iso:p.date, v:+p.value, note:p.note||null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function rBzAlle(){ var out=[];
@@ -662,8 +670,9 @@ function hba1cAlter(iso){ return Math.round(tage(iso)/30.44); }
 
 /* ── Taille-Hueft-Quotient ───────────────────────────────────────────────────────
    THQ = Taille ÷ Hüfte. Er sagt, WO das Gewicht sitzt - und das sagt keine andere Zahl im
-   Werkzeug: waehrend das Gewicht um 20 kg fiel, ist der THQ von 1,205 auf 1,222 gestiegen,
-   weil die Huefte prozentual mehr verloren hat als die Taille. 1,0 ist die Grenze, ab der
+   Werkzeug: er kann STEIGEN, waehrend das Gewicht faellt - dann hat die Huefte prozentual
+   mehr verloren als die Taille. Genau das ist hier gemessen worden; die Zahlen dazu stehen
+   in den Daten, nicht in diesem Kommentar. 1,0 ist die Grenze, ab der
    Bauchfett beim Mann als Risiko eingestuft wird; sie ist ein Massstab, keine Mahnung.
    Diese Funktion ist die EINZIGE Stelle, an der geteilt wird. Eine zweite Division in einer
    Ansicht liefe beim ersten Rundungswunsch auseinander - und dann stuenden in Kachel und
@@ -857,7 +866,8 @@ function bild(reihen, opt){
   var nY = (1.35*fsA > (B-T)/4) ? 3 : 5;
   /* Die Achse braucht so viele Nachkommastellen, wie es fuer unterscheidbare Zahlen
      braucht. Mit dem Zeitraum-Schalter kann der Wertebereich sehr eng werden - im
-     Wochenfenster des Gewichts liegen 0,3 kg zwischen erster und letzter Messung, und
+     Wochenfenster des Gewichts liegen oft nur Zehntelkilo zwischen erster und letzter
+     Messung, und
      fuenfmal dieselbe Zahl untereinander ist keine Achse. Wo die Zahlen ohnehin schon
      verschieden sind, aendert sich nichts. */
   var adez = opt.dez==null?1:opt.dez, achse;
@@ -932,9 +942,9 @@ function bild(reihen, opt){
   });
   /* Merkzettel: eine Trefferflaeche je Tag, halber Weg zum Nachbarn. Was der Zettel
      zeigt, steht in der Reihe selbst - so muss die Ansicht nichts nachschlagen.
-     An einem Tag mit mehreren Messungen wird ZUSAMMENGEFASST, nicht aufgezaehlt: am
-     02.08. lagen sechs Blutdruckmessungen, und zwoelf Einzelwerte in einem Zettel sind
-     keine Antwort, sondern eine Tabelle. */
+     An einem Tag mit mehreren Messungen wird ZUSAMMENGEFASST, nicht aufgezaehlt: an
+     einem Messtag koennen ein halbes Dutzend Blutdruckwerte liegen, und zwoelf
+     Einzelzahlen in einem Zettel sind keine Antwort, sondern eine Tabelle. */
   var proTag = {};
   reihen.forEach(function(r, ri){ (r.pts||[]).forEach(function(p){ if(p.v==null) return;
     var d = proTag[p.iso] = proTag[p.iso] || {};
@@ -946,8 +956,9 @@ function bild(reihen, opt){
     var lo = i ? (tx[i]+tx[i-1])/2 : L, hi = i<tage.length-1 ? (tx[i]+tx[i+1])/2 : R;
     var d = proTag[iso], ks = Object.keys(d).sort();
     /* Der Durchschnitt ist die Antwort, nicht die Liste. Die Spanne kommt nur dazu, wenn
-       sie etwas sagt - am 02.08. lagen sechs Blutdruckmessungen zwischen 100 und 126,
-       das verschweigt ein Mittelwert. An einem gewoehnlichen Tag steht sie nicht da. */
+       sie etwas sagt - liegen an einem Tag mehrere Messungen weit auseinander, verschweigt
+       der Mittelwert genau das Interessante. Die Schwelle steht im Code (max-min groesser
+       als 8 % des Mittels); an einem gewoehnlichen Tag steht die Spanne nicht da. */
     function zeig(g){
       var vs = g.pts.map(function(x){ return x.v; });
       var dez = g.r.dez==null ? (opt.dez==null?1:opt.dez) : g.r.dez;
@@ -982,7 +993,7 @@ function bild(reihen, opt){
 }
 
 /* ══ Kennzahlen ═════════════════════════════════════════════════════════════════
-   Vier, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
+   Fuenf, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
    alles Uebrige ist Nebenzahl und steht als Zeile im Vollbild. */
 function ampelFarbe(gut, warn){ return gut ? "var(--good)" : (warn ? "var(--warn)" : "var(--ink)"); }
 
@@ -1029,7 +1040,7 @@ function KZ(){
     /* Eigene Kachel, Entscheid Albrecht vom 21.08.2026. Zuerst stand der THQ als Zahl in
        der Unterzeile des Gewichts - das war zu vorsichtig. Er hat den zweitlaengsten
        Verlauf im Werkzeug (16 Messungen ueber acht Jahre) und sagt etwas, das keine andere
-       Zahl sagt: das Gewicht fiel um 20 kg, der THQ STIEG. Dass er nur alle paar Wochen
+       Zahl sagt: das Gewicht fiel deutlich, der THQ STIEG. Dass er nur alle paar Wochen
        gemessen wird, spricht nicht dagegen - der HbA1c auf «Heute» ist 16 Monate alt, und
        dort ist das Alter die Aussage. Genau darum traegt die Kachel ihr Messdatum. */
     thq:{ key:"thq", label:"Taille-Hüft-Quotient", einheit:"Taille ÷ Hüfte", reihe:K,
@@ -1249,8 +1260,9 @@ function zeichneVoll(){
          ins Bild passt, wird darum NICHT gezeichnet - aber in der Bildunterschrift
          gesagt und steht als Nebenzahl daneben. Verschwiegen wird nichts. */
       var qGr = BMI_GRENZEN.filter(function(g){ return g>qMin && g<qMax; });
-      /* Die naechste Grenze UNTERHALB des heutigen Werts - das ist der Weg, der noch
-         vor ihm liegt, und die einzige der sechs, die etwas zu tun gibt. */
+      /* Die naechste Grenze UNTERHALB des heutigen Werts - das ist der Weg, der noch vor
+         ihm liegt, und die einzige der FUENF Grenzen, die etwas zu tun gibt. (Sechs sind
+         die STUFEN; eine Grenze ist keine Stufe - fuenf Grenzen teilen sechs Stufen.) */
       var qUnten = null;
       for(var qi=BMI_GRENZEN.length-1; qi>=0; qi--)
         if(BMI_GRENZEN[qi] <= qLetzt.v){ qUnten = BMI_GRENZEN[qi]; break; }
@@ -1911,8 +1923,8 @@ function erfIso(){ var d = new Date(heuteMs()); d.setDate(d.getDate() - UI.erfTa
    ist schlicht falsch und laesst den Nachtrag am richtigen Datum zweifeln. */
 function erfWann(){ return UI.erfTag===0 ? "heute" : "am "+dmy(erfIso()); }
 /* Was am gewaehlten Tag schon in der Datei steht, gehoert IN die Maske. Sonst laesst sich
-   ein einmal falsch eingetippter Wert nie mehr berichtigen - gemeldet am 16.08.2026 an
-   einem unsinnigen Taille-Wert, an den die Erfassung nicht mehr herankam.
+   ein einmal falsch eingetippter Wert nie mehr berichtigen - gemeldet an einem unsinnigen
+   Taille-Wert, an den die Erfassung nicht mehr herankam.
    UI.erfStand haelt daneben den Dateistand: geschrieben wird nur, was davon abweicht,
    ein geleertes Feld entfernt den Wert. So ist die Maske Anzeige UND Korrektur. */
 function standVom(iso){
@@ -2059,9 +2071,9 @@ function erfTagSetzen(n, oeffneNotiz){
   if(oeffneNotiz && zuerst) UI.erfAuf = zuerst;
 }
 /* Bestehende Blutdruckmessungen des Tages. Die Notiz haengt an der MESSUNG, nicht am Tag -
-   am 06.08. steht an einer «auf Arbeit. stress» und an der naechsten «nach der Arbeit,
-   Heimweg zu Fuss». Zu einer Tagesnotiz verschmolzen weiss niemand mehr, welcher Wert
-   wozu gehoert. Darum bekommt jede Messung ihr eigenes Feld.
+   an einem belegten Tag steht an einer Messung «auf Arbeit. stress» und an der naechsten
+   «nach der Arbeit, Heimweg zu Fuss». Zu einer Tagesnotiz verschmolzen weiss niemand mehr,
+   welcher Wert wozu gehoert. Darum bekommt jede Messung ihr eigenes Feld.
    Der Schluessel traegt Zeit UND Werte: allein die Position waere beim naechsten Sortieren
    eine andere Messung. */
 /* Wie viel steht im Entwurf. Eine Stelle, zwei Aufrufer: das Zeichnen und die Eingabe.
@@ -2301,8 +2313,8 @@ function zeichneErf(){
         ? '<div class="lbl" style="margin-top:12px">An diesem Tag schon erfasst</div>'
           + '<div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">'
           + A.map(function(p){
-              /* Zusaetzlich der Messpunkt, sofern einer gesetzt ist - «128/82» allein sagt
-                 nicht, wovon es spricht. Das Notizfeld bleibt, wie es war. */
+              /* Zusaetzlich der Messpunkt, sofern einer gesetzt ist - ein Zahlenpaar allein
+                 sagt nicht, wovon es spricht. Das Notizfeld bleibt, wie es war. */
               return '<div class="bz-zeile">'
                 + '<div class="sel"><b style="font-size:14.5px;font-weight:620">'
                 +   Math.round(p.sys)+'/'+Math.round(p.dia)+'</b>'
@@ -2320,8 +2332,8 @@ function zeichneErf(){
       + '<div style="display:flex;flex-direction:column;gap:14px;margin-top:'+(A.length?8:12)+'px">'
       + UI.erfBp.map(function(r,i){
           /* Dieselbe Zeilenform wie beim Blutzucker: Messpunkt, Uhrzeit, dann die drei
-             Zahlen, dann die Notiz. Ohne Messpunkt und Uhrzeit sagt «128/82» nicht, wovon
-             es spricht - und die Auswahlliste ist DIESELBE wie dort (slotOptionen), nicht
+             Zahlen, dann die Notiz. Ohne Messpunkt und Uhrzeit sagt ein Zahlenpaar nicht,
+             wovon es spricht - und die Auswahlliste ist DIESELBE wie dort (slotOptionen), nicht
              eine zweite Kopie, die auseinanderliefe. */
           return '<div class="bz-zeile bp">'
             + '<div class="sel"><select data-bp="'+i+'" data-f="slot">'+slotOptionen(r.slot)+'</select></div>'
