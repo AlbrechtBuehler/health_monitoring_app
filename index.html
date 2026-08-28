@@ -58,10 +58,18 @@
   .status[hidden]{display:none}
   .karte{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
   .wand{display:flex;flex-direction:column;gap:14px}
+  /* Die beiden Leitkacheln (Entscheid Albrecht vom 28.08.2026: Gewicht und Blutzucker sind
+     die wichtigsten zwei und stehen nebeneinander). auto-fit mit 300 px Mindestbreite: auf
+     dem Telefon fallen sie von selbst untereinander, ohne Media Query und ohne Schwelle,
+     die jemand pflegen muesste. */
+  .leitpaar{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
   .kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px}
   .kachel{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
     padding:20px 22px;cursor:pointer;display:flex;flex-direction:column;min-width:0}
   .kachel:hover{border-color:var(--akzent)}
+  /* «leit» heisst seit dem 28.08.2026 «eine der beiden oberen», nicht mehr «volle Breite».
+     Die Klasse behaelt den Namen, weil sie dieselbe Rolle traegt: die Kachel, auf die man
+     zuerst schaut. */
   .kachel.leit{padding:22px 24px;display:block;width:100%}
   .k-name{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
   .k-zahl{font-size:36px;font-weight:640;letter-spacing:-.03em;line-height:1.05}
@@ -725,7 +733,8 @@ function normFuer(slot){ return sollTyp(slot)==="pre" ? NORM.pre : NORM.post; }
 
 /* ══ Reihen ═════════════════════════════════════════════════════════════════════
    Eine Rechenstelle je Reihe. Wer eine Zahl braucht, holt sie hier - nicht in der
-   Ansicht. Es sind sieben: rGewicht, rKoerper, rBmi, rBzAlle, rBzTage, rBp und rHba1c.
+   Ansicht. Es sind acht: rGewicht, rKoerper, rBmi, rBzAlle, rBzTage, rBp, rBpTage und
+   rHba1c. Blutzucker und Blutdruck haben je ZWEI: die Einzelmessungen und die Tage.
    rBmi ist die erste ABGELEITETE Reihe - sie rechnet aus rGewicht und speichert nichts. */
 function rGewicht(){ return (STATE.weight.points||[]).filter(function(p){ return !p.hist && p.value!=null; })
   .map(function(p){ return {iso:p.date, v:+p.value, note:p.note||null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
@@ -743,6 +752,36 @@ function rBp(){ return (STATE.bloodpressure.points||[]).filter(function(p){ retu
   .map(function(p){ return {iso:p.iso, v:+p.sys, dia:p.dia!=null?+p.dia:null, pulse:p.pulse!=null?+p.pulse:null,
     slot:p.slot||null, time:p.time||null, note:p.note||null}; })
   .sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
+/* ── Blutdruck je Tag ────────────────────────────────────────────────────────────
+   Entscheid Albrecht vom 28.08.2026: im Verlauf steht ein Punkt je TAG, nicht je Messung.
+   Der Grund steht in seinem eigenen Bild: an einem Tag mit zwei oder drei Messungen faehrt
+   die Linie senkrecht von der einen zur anderen und zurueck. Diese Zacken sehen nach
+   Ausschlaegen aus, sind aber keine - sie sind der Abstand zwischen morgens und abends
+   desselben Tages. Der Verlauf, den das Bild zeigen soll, laeuft ueber Tage; die Streuung
+   INNERHALB eines Tages ist eine andere Frage und steht im Merkzettel.
+   Das ist derselbe Bau wie rBzTage, und aus demselben Grund. Die Einzelmessungen bleiben
+   unangetastet in rBp - Ø, Puls, Messtage und die Rohdaten rechnen weiter dort.
+   Mitgefuehrt wird alles, was der Merkzettel braucht: die Zahl der Messungen, die Spanne
+   der systolischen Werte und der Tagespuls. Ohne das stuende im Zettel nur noch eine
+   einzige Zahl, weil bild() an einem Tag mit EINEM Punkt nichts mehr zusammenfassen kann -
+   dort ist opt.sub die einzige Stelle, die noch etwas sagen darf. */
+function rBpTage(){
+  var m = {};
+  rBp().forEach(function(p){ (m[p.iso] = m[p.iso] || []).push(p); });
+  return Object.keys(m).sort().map(function(iso){
+    var g = m[iso];
+    var sys = g.map(function(p){ return p.v; });
+    var dia = g.filter(function(p){ return p.dia!=null; }).map(function(p){ return p.dia; });
+    var pul = g.filter(function(p){ return p.pulse!=null; }).map(function(p){ return p.pulse; });
+    var noten = g.map(function(p){ return p.note; }).filter(Boolean);
+    return { iso:iso, v:mittel(sys),
+      /* mittel([]) ist null, nicht 0 - ein Tag ohne diastolische Messung traegt hier
+         darum null und faellt aus der zweiten Linie, statt sie auf die Achse zu ziehen. */
+      dia:dia.length?mittel(dia):null, pulse:pul.length?mittel(pul):null,
+      n:g.length, min:Math.min.apply(null,sys), max:Math.max.apply(null,sys),
+      note:noten.length?noten.join(" · "):null };
+  });
+}
 /* HbA1c ist eine Laborreihe, keine Tagesreihe - aber die einzige Laborzahl, die auf
    «Heute» gehoert: sie ist der Wert, nach dem in der Praxis gefragt wird, und ihr ALTER
    ist selbst eine Aussage. Vier Monate sind der uebliche Abstand bei behandeltem Diabetes. */
@@ -833,6 +872,33 @@ function rBmi(){
    Absicht: der blosse Median bestraft jeden Kadenzwechsel - als im Juni wochentlich
    und im August taeglich gewogen wurde, sank er auf drei Tage und machte die voellig
    regelmaessige Wochenwaegung nachtraeglich zur Luecke. */
+/* ── Gleitendes Mittel ───────────────────────────────────────────────────────────
+   Entscheid Albrecht vom 28.08.2026, aus zwei gezeigten Varianten gewaehlt. Die verworfene
+   war ein waagrechter Ø-Strich; er haette die Zahl wiederholt, die im Kopf der Seite schon
+   gross steht, und dabei eine Falle aufgemacht: der Ø aller EINZELMESSUNGEN (die Kopfzahl)
+   und der Ø der gezeichneten TAGESMITTEL sind nicht dieselbe Zahl, sobald an manchen Tagen
+   oefter gemessen wird als an anderen. Zwei Zahlen, beide «Durchschnitt» genannt - genau
+   der Fehler, den dieses Werkzeug an anderer Stelle abgeschafft hat.
+   Die gleitende Linie behauptet keine einzelne Zahl, sondern zeigt die BEWEGUNG.
+
+   Gemittelt wird ueber n KALENDERTAGE, nicht ueber n Punkte: bei unregelmaessiger
+   Messkadenz sind das zwei verschiedene Dinge, und nur das erste ist ein «7-Tage-Mittel».
+   Der Wert eines Tages ist das Mittel aller Tagesmittel, die hoechstens n-1 Tage
+   zurueckliegen - also ein NACHlaufendes Fenster, kein zentriertes: ein zentriertes
+   Fenster braeuchte Werte aus der Zukunft und liesse die Linie vor dem letzten Messtag
+   enden. Genau dort schaut man aber hin. */
+function gleitend(reihe, n){
+  return (reihe||[]).map(function(p, i){
+    var ab = isoMinus(p.iso, n-1), teil = [];
+    for(var j=i; j>=0; j--){ if(reihe[j].iso < ab) break; teil.push(reihe[j].v); }
+    return {iso:p.iso, v:mittel(teil), n:teil.length};
+  });
+}
+/* Ab wann die Linie ueberhaupt etwas sagt. Unter dieser Zahl von Messtagen ist jeder ihrer
+   Punkte das Mittel fast aller bisherigen - sie laeuft dann nur ein und beschreibt keine
+   Bewegung. Dieselbe Schwelle wie im Tagesmuster, wo ab zehn Werten ein Quartilkasten
+   steht; darunter wird dort ebenfalls die einfachere Form gezeigt. */
+var GLEIT_TAGE = 7, GLEIT_AB = 10;
 function segmente(reihe, XY, schwellen){
   var pts = (reihe||[]).filter(function(x){ return x && x.v!=null; });
   if(!pts.length) return [];
@@ -1020,6 +1086,10 @@ function bild(reihen, opt){
       h += '<polyline points="'+s.p+'" fill="none" stroke="'+r.farbe+'" stroke-width="'+(s.strich?1:(r.dick||2))+'"'
         + (s.strich?' stroke-dasharray="'+s.strich+'" stroke-linecap="round" opacity=".55"':'') + ' stroke-linejoin="round"></polyline>';
     });
+    /* punkte:false ist fuer ABGELEITETE Linien - ein gleitendes Mittel ist keine Messung,
+       und ein Kreis darauf saehe aus wie eine. Fuer Messreihen gilt weiter: im grossen Bild
+       darf keine Messung fehlen, also nie punkte:false an einer echten Reihe. */
+    if(r.punkte===false) return;
     (r.pts||[]).forEach(function(p){ if(p.v==null) return;
       h += '<circle cx="'+X(p.iso).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+(r.r||2.6)+'" fill="'+r.farbe+'"></circle>'; });
   });
@@ -1084,7 +1154,10 @@ function bild(reihen, opt){
 
 /* ══ Kennzahlen ═════════════════════════════════════════════════════════════════
    Fuenf, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
-   alles Uebrige ist Nebenzahl und steht als Zeile im Vollbild. */
+   alles Uebrige ist Nebenzahl und steht als Zeile im Vollbild.
+   Auf der Wand stehen sie seit dem 28.08.2026 als ZWEI plus DREI: Gewicht und Blutzucker
+   oben nebeneinander, Blutdruck, THQ und BMI darunter. Wer eine Kennzahl hinzufuegt oder
+   entfernt, zieht beide Zahlen hier und in zeichneWand() nach. */
 function ampelFarbe(gut, warn){ return gut ? "var(--good)" : (warn ? "var(--warn)" : "var(--ink)"); }
 
 function KZ(){
@@ -1107,7 +1180,11 @@ function KZ(){
   var bzOe = mittel(BZ.map(function(x){return x.v;}));
   var imSoll = BZ.filter(function(x){ return sollTyp(x.slot)==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
   var pSoll = BZ.length ? Math.round(100*imSoll.length/BZ.length) : null;
-  var bpL = BP.length?BP[BP.length-1]:null;
+  /* Die Blutdruck-Kachel zeigt die TAGESREIHE - dieselbe, die im Vollbild gezeichnet wird
+     (Entscheid Albrecht vom 28.08.2026). Zeigte die Funke die Einzelmessungen und die
+     Kurve dahinter die Tage, waeren es zwei Bilder derselben Sache mit verschiedener Form. */
+  var BPT = imFenster(rBpTage(), fd);
+  var bpL = BPT.length?BPT[BPT.length-1]:null;
   var gL = G.length?G[G.length-1]:null;
 
   return {
@@ -1143,10 +1220,14 @@ function KZ(){
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:BZ.length?nf(bzOe,1):"—",
       zustand:BZ.length?ampelFarbe(pSoll>=90, pSoll<75):"var(--ink)" },
-    bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BP, farbe:"var(--akzent)", dez:0,
-      sub:function(p){ return [p.slot?slotLang(p.slot):"", p.dia!=null?"diastolisch "+Math.round(p.dia):"",
-        p.pulse!=null?"Puls "+Math.round(p.pulse):"", p.time||""].filter(Boolean).join(" · "); },
-      wert:bpL?(Math.round(bpL.v)+"/"+Math.round(bpL.dia)):"—",
+    bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BPT, farbe:"var(--akzent)", dez:0,
+      /* In der Kachel gibt es nur EINE Reihe, also formatiert diese Funktion alles - hier
+         gehoert das Ø an jede Zahl, anders als im Vollbild, wo es als Vorspann steht. */
+      sub:function(p){ var oe = p.n>1?"Ø ":"";
+        return [p.n>1?zahl(p.n,"Messung","Messungen"):"",
+          p.dia!=null?"diastolisch "+oe+Math.round(p.dia):"",
+          p.pulse!=null?"Puls "+oe+Math.round(p.pulse):""].filter(Boolean).join(" · "); },
+      wert:bpL?(Math.round(bpL.v)+(bpL.dia!=null?"/"+Math.round(bpL.dia):"")):"—",
       zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140) }
   };
 }
@@ -1163,7 +1244,13 @@ function zeichneStatus(){
 }
 
 function kachelHtml(d, leit){
-  var w = leit?700:260, hh = leit?90:46;
+  /* Die Funke traegt preserveAspectRatio="none" - die viewBox-Breite ist darum nur die
+     Aufloesung, nicht das Seitenverhaeltnis; die Hoehe in px entscheidet ueber die Optik.
+     520×70 statt 700×90, seit die Leitkachel nur noch die halbe Wand breit ist. (Mal-Zeichen
+     und nicht Schraegstrich: zwei Zahlen mit Schraegstrich sind das Blutdruckformat, und die
+     Personendaten-Probe sucht genau danach - ein Bildmass soll dort nicht als Fehlalarm
+     auftauchen.) */
+  var w = leit?520:260, hh = leit?70:46;
   var f = funke(d.reihe, d.farbe, w, hh);
   var hits = funkeHits(d.reihe, w, hh, {dez:d.dez, einheit:d.einheit, sub:d.sub});
   /* Die Funke folgt dem Zeitraum ihrer Kennzahl - sonst zeigten Kachel und Vollbild
@@ -1204,9 +1291,12 @@ function tempo(reihe){
 
 function zeichneWand(){
   var kz = KZ();
+  /* Zwei Leitkacheln, dann drei. Entscheid Albrecht vom 28.08.2026: Gewicht und Blutzucker
+     sind die wichtigsten zwei und stehen nebeneinander ganz oben. Vorher trug das Gewicht
+     allein die ganze Breite und der Blutzucker stand in der Viererreihe darunter. */
   return '<div class="wand">'
-    + kachelHtml(kz.gewicht, true)
-    + '<div class="kacheln">'+[kz.bz,kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
+    + '<div class="leitpaar">'+[kz.gewicht,kz.bz].map(function(d){ return kachelHtml(d, true); }).join("")+'</div>'
+    + '<div class="kacheln">'+[kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
     + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rohdaten</div>'
     +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
     + '</div>';
@@ -1242,6 +1332,18 @@ function zeichneVoll(){
       var g0=G[0], gL=G[G.length-1];
       var tF = tempo(G);
       var rest = w.goal1!=null ? gL.v-w.goal1 : null;
+      var rest2 = w.goal2!=null ? gL.v-w.goal2 : null;
+      /* Beide Ziele als Linien, und die Achse reicht bis zum tieferen (Entscheid Albrecht
+         vom 28.08.2026). Das kostet nichts an Mechanik: bild() zieht die Achse ohnehin ueber
+         jede uebergebene Linie - opt.linien geht in mn/mx ein. Genau diese Eigenschaft war
+         beim BMI der Grund, Grenzen ausserhalb des Wertebereichs WEGZULASSEN; hier ist sie
+         der Zweck. Der Unterschied: dort war die Grenze eine Nebensache, die den Ausschnitt
+         streckte, hier ist der Weg bis zum Ziel die Aussage.
+         Ziel 2 blass, damit die Reihenfolge sichtbar bleibt - das naehere Ziel steht
+         kraeftiger. Fehlt goal2 in den Daten, entsteht keine Linie und nichts bricht. */
+      var ziele = [];
+      if(w.goal1!=null) ziele.push({v:+w.goal1, label:"Ziel 1"});
+      if(w.goal2!=null) ziele.push({v:+w.goal2, label:"Ziel 2", blass:true});
       kopfWert = nf(gL.v,1);
       kopfEinheit = "kg · zuletzt "+dm(gL.iso);
       satz = "Im Zeitraum "+fl+" liegen "+zahl(G.length,"Messung","Messungen")+": von "+nf(g0.v,1)
@@ -1249,11 +1351,19 @@ function zeichneVoll(){
         + (tF!=null ? " Das Tempo "+fl+" liegt bei "+vz(tF,2)+" kg je Woche" : "")
         + (tF!=null && rest!=null && tF<0
             ? "; bei diesem Tempo sind die "+nf(rest,1)+" kg bis Ziel 1 in gut "
-              + Math.round(Math.abs(rest/tF))+" Wochen erreicht. Ein Datum nennt das Werkzeug bewusst nicht."
+              + Math.round(Math.abs(rest/tF))+" Wochen erreicht"
+              + (rest2!=null ? ", die "+nf(rest2,1)+" kg bis Ziel 2 in gut "
+                  + Math.round(Math.abs(rest2/tF))+" Wochen" : "")
+              + ". Ein Datum nennt das Werkzeug bewusst nicht."
             : (tF!=null ? "." : ""));
       inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
+        linien:ziele,
         text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" "+fl+" auf echter Zeitachse."
-          + (w.goal1!=null ? " Ziel 1 liegt bei "+nf(w.goal1,0)+" kg und damit unter dem Bildausschnitt." : "")});
+          + (ziele.length
+              ? " Gestrichelt "+(ziele.length>1
+                  ? "Ziel 1 bei "+nf(w.goal1,0)+" und Ziel 2 bei "+nf(w.goal2,0)+" kg; die Achse reicht bis dorthin."
+                  : "Ziel 1 bei "+nf(w.goal1,0)+" kg; die Achse reicht bis dorthin.")
+              : "")});
       /* Die GESAMTBILANZ stand bis zum 28.08.2026 in der Unterzeile der Kachel und war dort
          die eine benannte Ausnahme vom Zeitraum-Schalter. Mit der Unterzeile faellt sie
          nicht weg, sie zieht hierher - sonst waere sie im ganzen Werkzeug nicht mehr zu
@@ -1267,7 +1377,13 @@ function zeichneVoll(){
           u:gLa?("kg · seit "+dmy(Gall[0].iso)):"kein Startwert",
           f:(gStart!=null&&gLa&&gLa.v<gStart)?"var(--good)":null},
         {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl},
-        {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—", u:"kg · Ziel "+nf(w.goal1,0)+" kg"} ];
+        {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—",
+          u:w.goal1!=null?("kg · Ziel "+nf(w.goal1,0)+" kg"):"kein Ziel 1 in den Stammdaten"} ];
+      /* Ziel 2 nur, wenn es in den Daten steht - eine Nebenzahl «—» fuer ein Ziel, das es
+         nicht gibt, waere eine Luecke, die nach einem Fehler aussieht. */
+      if(w.goal2!=null)
+        neben.push({l:"Abstand zu Ziel 2", w:rest2!=null?nf(rest2,1):"—",
+          u:"kg · Ziel "+nf(w.goal2,0)+" kg"});
     }
   }
 
@@ -1404,13 +1520,25 @@ function zeichneVoll(){
         + ", in dem ein Wert unbedenklich ist; die gestrichelten Linien sind "+nf(NORM.pre,1)+" nüchtern und vor dem "
         + "Essen, "+nf(NORM.post,1)+" zwei Stunden danach. Gezeigt sind die Messungen "+fl+" an "
         + zahl(BZT.length,"Messtag","Messtagen")+".";
+      /* Die gleitende Linie kommt nur ins Bild, wenn sie eine Bewegung beschreiben kann -
+         siehe GLEIT_AB. Bleibt sie weg, wird das in der Bildunterschrift GESAGT und nicht
+         verschwiegen: eine Linie, die mal da ist und mal nicht, sieht sonst nach Fehler aus. */
+      var gleit = BZT.length >= GLEIT_AB ? gleitend(BZT, GLEIT_TAGE) : null;
       inhalt = UI.bzView==="verlauf"
-        ? bild([{pts:BZT, farbe:"var(--akzent)", name:"Ø"}], {dez:1, einheit:"mmol/l",
+        ? bild([{pts:BZT, farbe:"var(--akzent)", name:"Ø", r:2.2}]
+            .concat(gleit ? [{pts:gleit, farbe:"var(--good)", dick:2.4, punkte:false,
+              name:GLEIT_TAGE+"-Tage-Mittel"}] : []),
+          {dez:1, einheit:"mmol/l",
             zone:[th.critLow, th.postHigh],
             linien:[{v:NORM.pre, label:nf(NORM.pre,1)}, {v:NORM.post, label:nf(NORM.post,1), blass:true}],
             sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
             text:"Tagesmittel über "+zahl(BZT.length,"Messtag","Messtage")+" "+fl
-              + ". Die Fläche ist der Korridor, die Kanten sind seine Grenzen."})
+              + ". Die Fläche ist der Korridor, die Kanten sind seine Grenzen."
+              + (gleit
+                  ? " Die durchgehende grüne Linie ist das Mittel der jeweils letzten "
+                    + GLEIT_TAGE+" Tage — sie zeigt die Bewegung, nicht den einzelnen Tag."
+                  : " Für ein "+GLEIT_TAGE+"-Tage-Mittel sind es zu wenige Messtage; es steht "
+                    + "ab "+GLEIT_AB+" Tagen im Bild.")})
         : tagesmuster(BZ, th, fl);
       /* a.length && davor ist kein Schmuck: mittel([]) ist null, und «null < 5.6» ist in
          JavaScript WAHR - eine leere Gruppe faerbte sich gruen und meldete einen Erfolg,
@@ -1447,28 +1575,60 @@ function zeichneVoll(){
     var BP = imFenster(rBp(), f);
     if(!BP.length){ kopfWert = "—"; kopfEinheit = "mmHg · "+fl; satz = LEER_ZEITRAUM; }
     else{
-      var bpL = BP[BP.length-1];
-      var dia = BP.filter(function(p){ return p.dia!=null; }).map(function(p){ return {iso:p.iso, v:p.dia}; });
+      /* Gezeichnet wird die TAGESREIHE, gerechnet wird auf den Einzelmessungen. Ø, Puls
+         und die Zahl der Messungen sind Aussagen ueber Messungen, nicht ueber Tage - ein
+         Mittel der Tagesmittel gewichtete einen Tag mit einer Messung so schwer wie einen
+         mit vieren. */
+      var BPT = imFenster(rBpTage(), f);
+      var bpT = BPT[BPT.length-1];
+      var diaT = BPT.filter(function(p){ return p.dia!=null; }).map(function(p){ return {iso:p.iso, v:p.dia}; });
       var puls = BP.filter(function(p){ return p.pulse!=null; });
-      var tageN = Object.keys(BP.reduce(function(m,p){ m[p.iso]=1; return m; },{})).length;
       /* Math.round(null) ist 0 - ohne die Laengenpruefung stuende hier «0/0 mmHg»,
          sobald das Fenster keine diastolische Messung traegt. Das sieht auch der Arzt. */
       var oeS = Math.round(mittel(BP.map(function(p){ return p.v; })));
-      var oeD = dia.length ? Math.round(mittel(dia.map(function(p){ return p.v; }))) : null;
-      kopfWert = Math.round(bpL.v)+"/"+Math.round(bpL.dia);
-      kopfEinheit = "mmHg · zuletzt "+dm(bpL.iso);
-      satz = zahl(BP.length,"Messung","Messungen")+" an "+zahl(tageN,"Tag","Tagen")+" "+fl
-        + ", im Schnitt "+oeS+"/"+oeD+" mmHg. Die obere Linie ist systolisch, die blasse darunter diastolisch.";
-      inhalt = bild([{pts:BP, farbe:"var(--akzent)", name:"systolisch", dez:0},
-          {pts:dia, farbe:"var(--zweit)", dick:1.6, r:2.2, name:"diastolisch", dez:0}],
+      var diaAlle = BP.filter(function(p){ return p.dia!=null; });
+      var oeD = diaAlle.length ? Math.round(mittel(diaAlle.map(function(p){ return p.dia; }))) : null;
+      /* Die grosse Zahl zeigt denselben Punkt wie das Ende der Kurve. Vorher stand hier die
+         letzte EINZELmessung - mit einer Tagesreihe daneben lagen Zahl und Kurvenende an
+         zwei verschiedenen Orten, und das ist der Fehler «zwei Zahlen fuer dasselbe». */
+      kopfWert = Math.round(bpT.v)+(bpT.dia!=null?"/"+Math.round(bpT.dia):"");
+      kopfEinheit = "mmHg · "+(bpT.n>1?"Ø vom ":"")+dm(bpT.iso);
+      satz = zahl(BP.length,"Messung","Messungen")+" an "+zahl(BPT.length,"Tag","Tagen")+" "+fl
+        + ", im Schnitt "+oeS+"/"+oeD+" mmHg. Die Kurve zeigt je Tag EINEN Punkt: das Mittel "
+        + "dieses Tages. An Tagen mit mehreren Messungen nennt der Merkzettel ihre Zahl und, "
+        + "wenn sie weit auseinanderliegen, die Spanne. Die obere Linie ist systolisch, die "
+        + "blasse darunter diastolisch.";
+      inhalt = bild([{pts:BPT, farbe:"var(--akzent)", name:"systolisch", dez:0},
+          {pts:diaT, farbe:"var(--zweit)", dick:1.6, r:2.2, name:"diastolisch", dez:0}],
         {dez:0, einheit:"mmHg",
-          sub:function(p){ return [p.slot?slotLang(p.slot):"", p.pulse!=null?"Puls "+Math.round(p.pulse):"",
-            p.time||""].filter(Boolean).join(" · "); },
-          text:"Jede einzelne Messung "+fl+" an ihrem Tag — an manchen Tagen mehrere."});
+          /* An einem Tagespunkt hat bild() nichts mehr zusammenzufassen - hier steht, was
+             der Tag traegt. Die Spanne nur, wenn sie etwas sagt: dieselbe Schwelle von 8 %
+             wie im Merkzettel der Einzelreihen, damit nicht zwei Regeln nebeneinander
+             stehen. */
+          sub:function(p){
+            var t = [];
+            /* «Ø aus 2 Messungen» und nicht «2 Messungen»: der Zettel nennt danach noch den
+               diastolischen Wert, und den formatiert bild() selbst - dort steht bei einem
+               Punkt je Tag kein Ø davor. Ohne diesen Vorspann liest sich die diastolische
+               Zahl wie eine Einzelmessung, obwohl sie das Tagesmittel ist. So gilt der
+               Vorspann fuer den ganzen Zettel.
+               (Hier stand die Zahl als Beispiel. Sie war erfunden - und trotzdem falsch am
+               Platz: ein Zahlenpaar im Blutdruckformat ist im Kommentar nicht von einem
+               echten Wert zu unterscheiden, und genau diese Form hat die Probe gesucht.) */
+            if(p.n>1) t.push("Ø aus "+zahl(p.n,"Messung","Messungen"));
+            if(p.n>1 && p.v && (p.max-p.min)/Math.abs(p.v) > 0.08)
+              t.push("systolisch "+Math.round(p.min)+"–"+Math.round(p.max));
+            if(p.pulse!=null) t.push("Puls "+Math.round(p.pulse));
+            return t.join(" · ");
+          },
+          text:"Ein Punkt je Messtag "+fl+" — an Tagen mit mehreren Messungen ihr Mittel."});
       neben = [ {l:"Ø "+fl, w:oeS+"/"+oeD, u:zahl(BP.length,"Messung","Messungen")},
         {l:"Puls Ø", w:puls.length?Math.round(mittel(puls.map(function(p){return p.pulse;}))):"—", u:"/min "+fl},
-        {l:"Pulsdruck", w:Math.round(bpL.v-bpL.dia), u:"systolisch minus diastolisch · "+dm(bpL.iso)},
-        {l:"Messtage", w:tageN, u:zahl(BP.length,"Messung","Messungen")+" "+fl} ];
+        /* Der Pulsdruck folgt der Kopfzahl, nicht mehr der letzten Einzelmessung - sonst
+           stuenden oben und hier zwei verschiedene Tage. */
+        {l:"Pulsdruck", w:bpT.dia!=null?Math.round(bpT.v-bpT.dia):"—",
+          u:"systolisch minus diastolisch · "+dm(bpT.iso)},
+        {l:"Messtage", w:BPT.length, u:zahl(BP.length,"Messung","Messungen")+" "+fl} ];
     }
   }
 
