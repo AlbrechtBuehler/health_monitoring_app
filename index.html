@@ -1313,6 +1313,91 @@ function schalterHtml(items){
     return '<button class="sch'+(s.an?" an":"")+'" data-sch="'+s.k+'">'+esc(s.t)+'</button>'; }).join("")+'</div>';
 }
 
+/* ── Der Weg ─────────────────────────────────────────────────────────────────────
+   Eine ZWEITE Frage, und sie hat mit dem Zeitraum nichts zu tun: nicht «was hat sich
+   diese Woche bewegt», sondern «wie weit bin ich». Die Kurve kann sie nicht beantworten -
+   dort ist die Strecke bis zum Ziel eine Achsenlaenge, und je weiter das Ziel, desto
+   flacher die Bewegung. Gemessen am 28.08.2026: mit beiden Zielen in der Achse nutzt die
+   Gewichtskurve im Wochenfenster 3 % der Bildhoehe.
+   Darum eine eigene Darstellung ohne Zeitachse: eine Strecke vom Startwert zum fernsten
+   Ziel, der zurueckgelegte Teil gefuellt, die Ziele als Marken. Sie schrumpft nicht mit
+   dem Zeitraum-Schalter - so wenig wie die Gesamtbilanz, und aus demselben Grund.
+   Kein Fortschrittsbalken im Sinne einer Forderung: er zeigt einen Stand, mahnt nichts an
+   und wird nicht gruen, weil jemand fleissig war. */
+var WEG_VB = 720;
+function wegSvg(start, jetzt, ziele){
+  if(start==null || jetzt==null || !ziele.length) return "";
+  /* Dieselbe Stauchung wie im grossen Bild: die viewBox ist fest, die Darstellungsbreite
+     nicht. Ohne bildHoch() erscheint eine 11,5-px-Schrift bei 390 px Fensterbreite als
+     4,8 px - gemessen am 28.08.2026 am eigenen ersten Entwurf. Mit den Schriften waechst
+     die Hoehe der Box, sonst stossen die Etiketten oben und unten an. */
+  var hoch = bildHoch();
+  /* Die Skala laeuft vom Startwert zum FERNSTEN Ziel. Liegt der heutige Wert ueber dem
+     Start - zugenommen -, waere der zurueckgelegte Teil negativ; dann beginnt die Skala
+     beim heutigen Wert, und der Balken ist leer statt falsch. */
+  var ende = ziele.reduce(function(a,z){ return Math.min(a, z.v); }, ziele[0].v);
+  var von = Math.max(start, jetzt), spanne = von - ende;
+  if(!(spanne > 0)) return "";
+  var s1 = fz(11.5*hoch), s2 = fz(12*hoch), s3 = fz(14*hoch);
+  var L = 16, R = WEG_VB - 16;
+  /* Die Hoehe wird aus dem gerechnet, was tatsaechlich drinsteht - nicht geschaetzt. Ueber
+     der Linie: 16*hoch bis zur Grundlinie der Zahl, dazu ihre Oberlaenge. Darunter: die
+     Marke (11*hoch), der Abstand (3*hoch), die Etikettzeile und deren Unterlaenge.
+     Der erste Entwurf hatte hier eine feste Zahl - bei 390 px lagen drei Etiketten
+     ausserhalb der viewBox und wurden abgeschnitten. */
+  var B = fz(16*hoch + s3*1.05 + 4);
+  var WEG_H = fz(B + 14*hoch + s1*1.35 + 2);
+  function X(v){ return L + (von - v)/spanne * (R - L); }
+  var xj = X(jetzt);
+  var h = '<svg viewBox="0 0 '+WEG_VB+' '+fz(WEG_H)+'" style="width:100%;height:auto;display:block;margin-top:18px">';
+  var dick = fz(6*hoch);
+  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+R+'" y2="'+fz(B)+'" stroke="var(--line)" stroke-width="'+dick+'" stroke-linecap="round"></line>';
+  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+xj.toFixed(1)+'" y2="'+fz(B)+'" stroke="var(--good)" stroke-width="'+dick+'" stroke-linecap="round"></line>';
+  /* Ein Etikett am aeusseren Rand wird mittig gesetzt ueber die viewBox hinausgeschoben und
+     abgeschnitten - bei 390 px stand «Ziel 2» als «Ziel» da. Darum kippt die Ausrichtung
+     am Rand, wie es der Merkzettel schon macht. Die Schaetzbreite waechst mit der Schrift. */
+  function anker(x, txt, gr){
+    var halb = txt.length * gr * 0.3;
+    if(x + halb > R) return {a:"end", x:R};
+    if(x - halb < L) return {a:"start", x:L};
+    return {a:"middle", x:x};
+  }
+  ziele.forEach(function(z){
+    var x = X(z.v), lbl = anker(x, z.label, s1), zahl2 = anker(x, nf(z.v,0), s2);
+    h += '<line x1="'+x.toFixed(1)+'" y1="'+fz(B-11*hoch)+'" x2="'+x.toFixed(1)+'" y2="'+fz(B+11*hoch)+'" stroke="var(--faint)" stroke-width="'+fz(1.4*hoch)+'"></line>'
+      + '<text x="'+lbl.x.toFixed(1)+'" y="'+fz(B+11*hoch+s1+3*hoch)+'" text-anchor="'+lbl.a+'" font-size="'+s1+'" fill="var(--faint)">'+esc(z.label)+'</text>'
+      + '<text x="'+zahl2.x.toFixed(1)+'" y="'+fz(B-11*hoch-5*hoch)+'" text-anchor="'+zahl2.a+'" font-size="'+s2+'" fill="var(--muted)">'+nf(z.v,0)+'</text>';
+  });
+  h += '<circle cx="'+xj.toFixed(1)+'" cy="'+fz(B)+'" r="'+fz(6*hoch)+'" fill="var(--good)"></circle>'
+    + (function(){ var a = anker(xj, nf(jetzt,1), s3);
+        return '<text x="'+a.x.toFixed(1)+'" y="'+fz(B-11*hoch-5*hoch)+'" text-anchor="'+a.a+'" font-size="'+s3+'" font-weight="640" fill="var(--ink)">'+nf(jetzt,1)+'</text>'; })();
+  h += '<text x="'+L+'" y="'+fz(B+11*hoch+s1+3*hoch)+'" text-anchor="start" font-size="'+s1+'" fill="var(--faint)">Start '+nf(start,1)+'</text>';
+  return h + '</svg>';
+}
+/* Welche Ziellinien die KURVE traegt. Entscheid Albrecht vom 28.08.2026: die Linie kommt,
+   sobald das Ziel absehbar ist - und «absehbar» heisst hier in Kilogramm, nicht in Wochen.
+   Der Grund ist gemessen: die Kurve wird flach, weil das Ziel WEIT ist, nicht weil es lange
+   dauert. Mit beiden Zielen in der Achse nutzt sie im Wochenfenster 3 % der Bildhoehe, ohne
+   sie 66 %. Eine Regel an Wochen haette dasselbe Bild nicht gerettet.
+   Ein Ziel kommt also ins Bild, solange die Messkurve danach noch MINDEST der Hoehe nutzt.
+   Geprueft wird vom naechsten zum fernsten - das nahe soll nicht am fernen scheitern.
+   Dieselbe Bauart wie beim BMI, wo nur Kategoriegrenzen im Wertebereich gezeichnet werden.
+   Was hier wegfaellt, ist nicht verloren: der Weg darunter zeigt IMMER beide Ziele. */
+var ZIEL_MINDEST = 0.25;
+function zieleTragbar(reihe, ziele, mindest){
+  var vs = (reihe||[]).map(function(x){ return x.v; });
+  if(!vs.length) return [];
+  var mn = Math.min.apply(null,vs), mx = Math.max.apply(null,vs);
+  var eigen = mx-mn;
+  if(!(eigen>0)) return ziele.slice();
+  return ziele.slice()
+    .sort(function(a,bb){ return Math.abs(a.v-mn)-Math.abs(bb.v-mn); })
+    .filter(function(z){
+      var pmn = Math.min(mn,z.v), pmx = Math.max(mx,z.v);
+      if(eigen/(pmx-pmn) < mindest) return false;
+      mn = pmn; mx = pmx; return true;
+    });
+}
 function zeichneVoll(){
   var k = UI.kz, kz = KZ()[k], h = "";
   /* Eine Kennzahl, die es nicht mehr gibt - etwa weil UI.kz noch auf eine abgeraeumte
@@ -1341,6 +1426,8 @@ function zeichneVoll(){
          streckte, hier ist der Weg bis zum Ziel die Aussage.
          Ziel 2 blass, damit die Reihenfolge sichtbar bleibt - das naehere Ziel steht
          kraeftiger. Fehlt goal2 in den Daten, entsteht keine Linie und nichts bricht. */
+      var gStart = w.startRef!=null ? +w.startRef : (Gall.length?Gall[0].v:null);
+      var gLa = Gall.length ? Gall[Gall.length-1] : null;
       var ziele = [];
       if(w.goal1!=null) ziele.push({v:+w.goal1, label:"Ziel 1"});
       if(w.goal2!=null) ziele.push({v:+w.goal2, label:"Ziel 2", blass:true});
@@ -1356,21 +1443,31 @@ function zeichneVoll(){
                   + Math.round(Math.abs(rest2/tF))+" Wochen" : "")
               + ". Ein Datum nennt das Werkzeug bewusst nicht."
             : (tF!=null ? "." : ""));
+      /* Die Kurve zeigt die Bewegung und traegt nur die Ziele, die sie AUSHAELT. Der Weg
+         darunter zeigt die ganze Strecke und traegt immer beide - er hat keine Zeitachse,
+         also kann ihn kein fernes Ziel flach machen. */
+      var imBild = zieleTragbar(G, ziele, ZIEL_MINDEST);
+      var draussen = ziele.filter(function(z){ return imBild.indexOf(z)<0; });
       inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
-        linien:ziele,
+        linien:imBild,
         text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" "+fl+" auf echter Zeitachse."
-          + (ziele.length
-              ? " Gestrichelt "+(ziele.length>1
-                  ? "Ziel 1 bei "+nf(w.goal1,0)+" und Ziel 2 bei "+nf(w.goal2,0)+" kg; die Achse reicht bis dorthin."
-                  : "Ziel 1 bei "+nf(w.goal1,0)+" kg; die Achse reicht bis dorthin.")
-              : "")});
+          + (imBild.length
+              ? " Gestrichelt "+imBild.map(function(z){ return z.label+" bei "+nf(z.v,0); }).join(" und ")+" kg."
+              : "")
+          /* Kurz, nicht ausfuehrlich: die weggelassenen Ziele stehen als Strecke direkt
+             darunter. Zweimal dasselbe erklaeren waere genau die Unruhe, die aus diesem
+             Bild verschwinden sollte. */
+          + (draussen.length
+              ? " "+draussen.map(function(z){ return z.label; }).join(" und ")
+                + (draussen.length>1?" liegen":" liegt")+" ausserhalb dieses Ausschnitts — die ganze Strecke steht darunter."
+              : "")})
+        + (ziele.length ? wegSvg(gStart, gLa?gLa.v:null, ziele) : "");
       /* Die GESAMTBILANZ stand bis zum 28.08.2026 in der Unterzeile der Kachel und war dort
          die eine benannte Ausnahme vom Zeitraum-Schalter. Mit der Unterzeile faellt sie
          nicht weg, sie zieht hierher - sonst waere sie im ganzen Werkzeug nicht mehr zu
          sehen. Bezug bleibt der Startwert, nicht das Fenster; darum steht sie ausdruecklich
          mit ihrem eigenen Datum daneben und nicht neben «Veränderung». */
-      var gStart = w.startRef!=null ? +w.startRef : (Gall.length?Gall[0].v:null);
-      var gLa = Gall.length ? Gall[Gall.length-1] : null;
+
       neben = [ {l:"Im Zeitraum", w:nf(g0.v,1)+" → "+nf(gL.v,1), u:zahl(G.length,"Messung","Messungen")+" · kg"},
         {l:"Veränderung", w:vz(gL.v-g0.v,1), u:"kg "+fl, f:(gL.v<g0.v?"var(--good)":null)},
         {l:"seit dem Start", w:(gStart!=null&&gLa)?vz(gLa.v-gStart,1):"—",
