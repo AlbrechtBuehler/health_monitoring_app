@@ -881,6 +881,15 @@ function rBmi(){
    der Fehler, den dieses Werkzeug an anderer Stelle abgeschafft hat.
    Die gleitende Linie behauptet keine einzelne Zahl, sondern zeigt die BEWEGUNG.
 
+   Sie ist LEISER als die Messreihe, nicht lauter (Albrecht am 28.08.2026: «viel zu dick, zu
+   gruen, zu dominant»). Zwei Fehler steckten darin, und der zweite ist der schwerere:
+   sie war mit 2,4 px dicker als die Messlinie mit 2 - die Deutung lauter als die Sache -,
+   und sie stand in --good. Das ist eine AMPELFARBE: sie sagt «gut». Ein gleitendes Mittel
+   sagt nichts dergleichen, es sagt «hierhin bewegt es sich». Ampelfarben gehoeren auf
+   Messwerte, nicht auf Ableitungen.
+   Jetzt: --muted, 1,4 px, ohne Punkte. Erkennbar, aber zweitrangig - der Rang kommt aus
+   Staerke und Ton, nicht aus einer zweiten Signalfarbe.
+
    Gemittelt wird ueber n KALENDERTAGE, nicht ueber n Punkte: bei unregelmaessiger
    Messkadenz sind das zwei verschiedene Dinge, und nur das erste ist ein «7-Tage-Mittel».
    Der Wert eines Tages ist das Mittel aller Tagesmittel, die hoechstens n-1 Tage
@@ -1083,8 +1092,12 @@ function bild(reihen, opt){
     function XY(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }
     segmente(r.pts, XY, opt.schwellen).forEach(function(s){
       if(s.strich) bruecken++;
+      /* r.deckkraft macht eine ABGELEITETE Linie leiser, ohne dass dafuer eine zweite Farbe
+         noetig waere. Die Strichelung hat ihre eigene Deckkraft - sie bedeutet «Luecke» und
+         wird davon nicht beruehrt. */
       h += '<polyline points="'+s.p+'" fill="none" stroke="'+r.farbe+'" stroke-width="'+(s.strich?1:(r.dick||2))+'"'
-        + (s.strich?' stroke-dasharray="'+s.strich+'" stroke-linecap="round" opacity=".55"':'') + ' stroke-linejoin="round"></polyline>';
+        + (s.strich?' stroke-dasharray="'+s.strich+'" stroke-linecap="round" opacity=".55"'
+            : (r.deckkraft?' opacity="'+r.deckkraft+'"':'')) + ' stroke-linejoin="round"></polyline>';
     });
     /* punkte:false ist fuer ABGELEITETE Linien - ein gleitendes Mittel ist keine Messung,
        und ein Kreis darauf saehe aus wie eine. Fuer Messreihen gilt weiter: im grossen Bild
@@ -1338,21 +1351,25 @@ function wegSvg(start, jetzt, ziele){
   var ende = ziele.reduce(function(a,z){ return Math.min(a, z.v); }, ziele[0].v);
   var von = Math.max(start, jetzt), spanne = von - ende;
   if(!(spanne > 0)) return "";
-  var s1 = fz(11.5*hoch), s2 = fz(12*hoch), s3 = fz(14*hoch);
+  /* Dezent, nicht laut (Albrecht am 28.08.2026: «sehr dominant»). Der Weg ist eine
+     Nebenaussage zur Kurve, kein zweites Hauptbild - er steht darum einen Rang tiefer:
+     duennere Linie, kleinere Schrift, der heutige Wert nicht fett. Rang aus Groesse und
+     Gewicht, nicht aus Flaeche. */
+  var s1 = fz(10.5*hoch), s2 = fz(11*hoch), s3 = fz(12.5*hoch);
   var L = 16, R = WEG_VB - 16;
   /* Die Hoehe wird aus dem gerechnet, was tatsaechlich drinsteht - nicht geschaetzt. Ueber
      der Linie: 16*hoch bis zur Grundlinie der Zahl, dazu ihre Oberlaenge. Darunter: die
      Marke (11*hoch), der Abstand (3*hoch), die Etikettzeile und deren Unterlaenge.
      Der erste Entwurf hatte hier eine feste Zahl - bei 390 px lagen drei Etiketten
      ausserhalb der viewBox und wurden abgeschnitten. */
-  var B = fz(16*hoch + s3*1.05 + 4);
-  var WEG_H = fz(B + 14*hoch + s1*1.35 + 2);
+  var B = fz(12*hoch + s3*1.05 + 4);
+  var WEG_H = fz(B + 11*hoch + s1*1.35 + 2);
   function X(v){ return L + (von - v)/spanne * (R - L); }
   var xj = X(jetzt);
-  var h = '<svg viewBox="0 0 '+WEG_VB+' '+fz(WEG_H)+'" style="width:100%;height:auto;display:block;margin-top:18px">';
-  var dick = fz(6*hoch);
-  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+R+'" y2="'+fz(B)+'" stroke="var(--line)" stroke-width="'+dick+'" stroke-linecap="round"></line>';
-  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+xj.toFixed(1)+'" y2="'+fz(B)+'" stroke="var(--good)" stroke-width="'+dick+'" stroke-linecap="round"></line>';
+  var h = '<svg viewBox="0 0 '+WEG_VB+' '+fz(WEG_H)+'" style="width:100%;height:auto;display:block;margin-top:14px">';
+  var dick = fz(3.5*hoch);
+  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+R+'" y2="'+fz(B)+'" stroke="var(--line2)" stroke-width="'+dick+'" stroke-linecap="round"></line>';
+  h += '<line x1="'+L+'" y1="'+fz(B)+'" x2="'+xj.toFixed(1)+'" y2="'+fz(B)+'" stroke="var(--good)" stroke-width="'+dick+'" opacity=".7" stroke-linecap="round"></line>';
   /* Ein Etikett am aeusseren Rand wird mittig gesetzt ueber die viewBox hinausgeschoben und
      abgeschnitten - bei 390 px stand «Ziel 2» als «Ziel» da. Darum kippt die Ausrichtung
      am Rand, wie es der Merkzettel schon macht. Die Schaetzbreite waechst mit der Schrift. */
@@ -1364,39 +1381,15 @@ function wegSvg(start, jetzt, ziele){
   }
   ziele.forEach(function(z){
     var x = X(z.v), lbl = anker(x, z.label, s1), zahl2 = anker(x, nf(z.v,0), s2);
-    h += '<line x1="'+x.toFixed(1)+'" y1="'+fz(B-11*hoch)+'" x2="'+x.toFixed(1)+'" y2="'+fz(B+11*hoch)+'" stroke="var(--faint)" stroke-width="'+fz(1.4*hoch)+'"></line>'
-      + '<text x="'+lbl.x.toFixed(1)+'" y="'+fz(B+11*hoch+s1+3*hoch)+'" text-anchor="'+lbl.a+'" font-size="'+s1+'" fill="var(--faint)">'+esc(z.label)+'</text>'
-      + '<text x="'+zahl2.x.toFixed(1)+'" y="'+fz(B-11*hoch-5*hoch)+'" text-anchor="'+zahl2.a+'" font-size="'+s2+'" fill="var(--muted)">'+nf(z.v,0)+'</text>';
+    h += '<line x1="'+x.toFixed(1)+'" y1="'+fz(B-8*hoch)+'" x2="'+x.toFixed(1)+'" y2="'+fz(B+8*hoch)+'" stroke="var(--line)" stroke-width="'+fz(1*hoch)+'"></line>'
+      + '<text x="'+lbl.x.toFixed(1)+'" y="'+fz(B+8*hoch+s1+3*hoch)+'" text-anchor="'+lbl.a+'" font-size="'+s1+'" fill="var(--faint)">'+esc(z.label)+'</text>'
+      + '<text x="'+zahl2.x.toFixed(1)+'" y="'+fz(B-8*hoch-4*hoch)+'" text-anchor="'+zahl2.a+'" font-size="'+s2+'" fill="var(--muted)">'+nf(z.v,0)+'</text>';
   });
-  h += '<circle cx="'+xj.toFixed(1)+'" cy="'+fz(B)+'" r="'+fz(6*hoch)+'" fill="var(--good)"></circle>'
+  h += '<circle cx="'+xj.toFixed(1)+'" cy="'+fz(B)+'" r="'+fz(4*hoch)+'" fill="var(--good)" opacity=".85"></circle>'
     + (function(){ var a = anker(xj, nf(jetzt,1), s3);
-        return '<text x="'+a.x.toFixed(1)+'" y="'+fz(B-11*hoch-5*hoch)+'" text-anchor="'+a.a+'" font-size="'+s3+'" font-weight="640" fill="var(--ink)">'+nf(jetzt,1)+'</text>'; })();
-  h += '<text x="'+L+'" y="'+fz(B+11*hoch+s1+3*hoch)+'" text-anchor="start" font-size="'+s1+'" fill="var(--faint)">Start '+nf(start,1)+'</text>';
+        return '<text x="'+a.x.toFixed(1)+'" y="'+fz(B-8*hoch-4*hoch)+'" text-anchor="'+a.a+'" font-size="'+s3+'" fill="var(--muted)">'+nf(jetzt,1)+'</text>'; })();
+  h += '<text x="'+L+'" y="'+fz(B+8*hoch+s1+3*hoch)+'" text-anchor="start" font-size="'+s1+'" fill="var(--faint)">Start '+nf(start,1)+'</text>';
   return h + '</svg>';
-}
-/* Welche Ziellinien die KURVE traegt. Entscheid Albrecht vom 28.08.2026: die Linie kommt,
-   sobald das Ziel absehbar ist - und «absehbar» heisst hier in Kilogramm, nicht in Wochen.
-   Der Grund ist gemessen: die Kurve wird flach, weil das Ziel WEIT ist, nicht weil es lange
-   dauert. Mit beiden Zielen in der Achse nutzt sie im Wochenfenster 3 % der Bildhoehe, ohne
-   sie 66 %. Eine Regel an Wochen haette dasselbe Bild nicht gerettet.
-   Ein Ziel kommt also ins Bild, solange die Messkurve danach noch MINDEST der Hoehe nutzt.
-   Geprueft wird vom naechsten zum fernsten - das nahe soll nicht am fernen scheitern.
-   Dieselbe Bauart wie beim BMI, wo nur Kategoriegrenzen im Wertebereich gezeichnet werden.
-   Was hier wegfaellt, ist nicht verloren: der Weg darunter zeigt IMMER beide Ziele. */
-var ZIEL_MINDEST = 0.25;
-function zieleTragbar(reihe, ziele, mindest){
-  var vs = (reihe||[]).map(function(x){ return x.v; });
-  if(!vs.length) return [];
-  var mn = Math.min.apply(null,vs), mx = Math.max.apply(null,vs);
-  var eigen = mx-mn;
-  if(!(eigen>0)) return ziele.slice();
-  return ziele.slice()
-    .sort(function(a,bb){ return Math.abs(a.v-mn)-Math.abs(bb.v-mn); })
-    .filter(function(z){
-      var pmn = Math.min(mn,z.v), pmx = Math.max(mx,z.v);
-      if(eigen/(pmx-pmn) < mindest) return false;
-      mn = pmn; mx = pmx; return true;
-    });
 }
 function zeichneVoll(){
   var k = UI.kz, kz = KZ()[k], h = "";
@@ -1443,24 +1436,19 @@ function zeichneVoll(){
                   + Math.round(Math.abs(rest2/tF))+" Wochen" : "")
               + ". Ein Datum nennt das Werkzeug bewusst nicht."
             : (tF!=null ? "." : ""));
-      /* Die Kurve zeigt die Bewegung und traegt nur die Ziele, die sie AUSHAELT. Der Weg
-         darunter zeigt die ganze Strecke und traegt immer beide - er hat keine Zeitachse,
-         also kann ihn kein fernes Ziel flach machen. */
-      var imBild = zieleTragbar(G, ziele, ZIEL_MINDEST);
-      var draussen = ziele.filter(function(z){ return imBild.indexOf(z)<0; });
+      /* Die Kurve traegt KEINE Ziellinien - Entscheid Albrecht vom 28.08.2026, nach einem
+         Zwischenschritt mit einer Schwellenregel. Zwei Gruende, und der zweite wiegt mehr:
+         1. Gemessen: mit Ziel 1 in der Achse behaelt die Kurve im Vier-Wochen-Fenster 36 %
+            der Hoehe, mit beiden 15 %, im Wochenfenster 14 bzw. 5 %. Ohne Ziele immer 100 %.
+         2. Ein Ort pro Sache. Die Ziele stehen im Weg darunter, vollstaendig und immer.
+            Eine Schwelle, ab der sie ZUSAETZLICH in der Kurve auftauchen, macht aus einer
+            Regel eine Mechanik, die niemand sieht: die Linie ist mal da und mal nicht, und
+            keine Zahl der Welt begruendet, warum die Grenze bei 25 oder 40 Prozent liegt.
+         Die Kurve beantwortet damit in JEDEM Zeitraum dieselbe Frage - was hat sich bewegt -
+         und der Weg die andere. */
       inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
-        linien:imBild,
         text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" "+fl+" auf echter Zeitachse."
-          + (imBild.length
-              ? " Gestrichelt "+imBild.map(function(z){ return z.label+" bei "+nf(z.v,0); }).join(" und ")+" kg."
-              : "")
-          /* Kurz, nicht ausfuehrlich: die weggelassenen Ziele stehen als Strecke direkt
-             darunter. Zweimal dasselbe erklaeren waere genau die Unruhe, die aus diesem
-             Bild verschwinden sollte. */
-          + (draussen.length
-              ? " "+draussen.map(function(z){ return z.label; }).join(" und ")
-                + (draussen.length>1?" liegen":" liegt")+" ausserhalb dieses Ausschnitts — die ganze Strecke steht darunter."
-              : "")})
+          + (ziele.length ? " Der Weg zu den Zielen steht darunter, ohne Zeitachse." : "")})
         + (ziele.length ? wegSvg(gStart, gLa?gLa.v:null, ziele) : "");
       /* Die GESAMTBILANZ stand bis zum 28.08.2026 in der Unterzeile der Kachel und war dort
          die eine benannte Ausnahme vom Zeitraum-Schalter. Mit der Unterzeile faellt sie
@@ -1623,7 +1611,7 @@ function zeichneVoll(){
       var gleit = BZT.length >= GLEIT_AB ? gleitend(BZT, GLEIT_TAGE) : null;
       inhalt = UI.bzView==="verlauf"
         ? bild([{pts:BZT, farbe:"var(--akzent)", name:"Ø", r:2.2}]
-            .concat(gleit ? [{pts:gleit, farbe:"var(--good)", dick:2.4, punkte:false,
+            .concat(gleit ? [{pts:gleit, farbe:"var(--muted)", dick:1.4, punkte:false,
               name:GLEIT_TAGE+"-Tage-Mittel"}] : []),
           {dez:1, einheit:"mmol/l",
             zone:[th.critLow, th.postHigh],
