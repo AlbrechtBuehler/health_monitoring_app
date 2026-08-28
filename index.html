@@ -79,6 +79,28 @@
   .b-zahl{font-size:42px;font-weight:640;letter-spacing:-.03em;line-height:1.05}
   .satz{margin:14px 0 0;font-size:15.5px;color:var(--muted);max-width:80ch;text-wrap:pretty}
   .bildtext{font-size:13px;color:var(--faint);margin-top:10px}
+  /* Das Fragezeichen am Titel. Es steht AM TITEL, nicht in der Knopfreihe rechts - am
+     14.08.2026 hing genau dieses Zeichen mitten im Modalkopf statt am Namen, war in jeder
+     Messung gruen und auf dem ersten Bild sofort falsch. Es ist ein Kreis mit Kontur, wie
+     ihn das Designsystem fuer «Hilfe» vorsieht, und traegt die Groesse der Versalzeile. */
+  .hilfe{position:relative;width:19px;height:19px;padding:0;margin-left:7px;flex:0 0 auto;
+    border:1px solid var(--line);background:none;border-radius:50%;
+    font-family:var(--sans);font-size:11.5px;line-height:1;color:var(--faint);cursor:pointer;
+    vertical-align:middle;transition:color .14s,border-color .14s}
+  /* Der Kreis ist 19 px, die KLICKFLAECHE 46 - dieselbe Zahl wie bei den Eingabefeldern.
+     Ein 19-px-Ziel ist mit dem Daumen nicht zu treffen, und ein 46-px-Kreis waere neben
+     einer 10,5-px-Versalzeile ein Fremdkoerper. Darum ein unsichtbares Feld darueber. */
+  .hilfe::after{content:"";position:absolute;left:50%;top:50%;
+    width:46px;height:46px;transform:translate(-50%,-50%)}
+  .hilfe:hover{color:var(--ink);border-color:var(--akzent)}
+  .hilfe:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+  /* Der Erklaertext im Modal: derselbe Rang wie frueher auf der Buehne, nur an einem Ort.
+     Der erste Absatz ist der Satz, die weiteren sind die Bildunterschriften. */
+  .erkl p{margin:0 0 14px;font-size:15px;color:var(--muted);text-wrap:pretty}
+  .erkl p:last-child{margin-bottom:0}
+  .erkl p.zu-bild{font-size:13.5px;color:var(--faint)}
+  .erkl .erkl-kopf{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);margin:0 0 6px}
   .schalter{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
   .sch{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 14px;
     font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer}
@@ -491,6 +513,22 @@ var ZEIT_STUFEN = [ {k:"7", t:"1 Woche", tage:7}, {k:"14", t:"2 Wochen", tage:14
    ein Fehler, dieser Satz sagt, was los ist. */
 var LEER_ZEITRAUM = "In diesem Zeitraum liegt keine Messung.";
 function fenster(kzk){
+  /* In der Arztkopie gibt es nur EIN Fenster: das, mit dem exportiert wurde - und es ist
+     ein Paar fester Kalendertage, keine Spanne ab heute. Der Grund ist gemessen (28.08.2026):
+     eine auf vier Wochen exportierte Kopie zeigte am Exporttag 27 von 27 Messtagen, zwei
+     Wochen spaeter 13 und fuenf Wochen spaeter KEINEN einzigen - «In diesem Zeitraum liegt
+     keine Messung», obwohl alle 27 in der Datei stehen. «Die letzten 4 Wochen» wanderte mit
+     dem Tag, an dem der Arzt die Datei oeffnete.
+     Damit ist der Entscheid vom 01.08.2026 («der Zeitraum-Schalter innerhalb der Kopie
+     bleibt bedienbar») AUFGEHOBEN - Entscheid Albrecht vom 28.08.2026: was mit vier Wochen
+     exportiert wird, zeigt vier Wochen, an jedem Tag, an dem die Kopie geoeffnet wird.
+     Dass hier gekappt wird und nicht bloss der Schalter verschwindet, ist Absicht: die
+     Daten in der Kopie sind schon gekappt, aber die Startwerte von UI.zeit (Blutzucker und
+     Blutdruck stehen auf 4 Wochen) kaeppten ein ZWEITES Mal, gegen den Oeffnungstag. */
+  if(FROZEN){
+    var z = (STATE.__export && STATE.__export.zeitraum) || {};
+    return {k:"fix", tage:null, von:z.von||null, bis:z.bis||null};
+  }
   var s = UI.zeit[kzk];
   if(s==="frei"){ var w = UI.zeitFrei[kzk]||{};
     return {k:"frei", tage:null, von:w.von||null, bis:w.bis||null}; }
@@ -508,7 +546,11 @@ function imFenster(reihe, f){
 /* Der Bezug wird ausgeschrieben, nie abgekuerzt: «Ø der letzten 4 Wochen» sagt, wofuer die
    Zahl gilt, «Ø» allein sagt es nicht. */
 function fensterLang(f){
-  if(f.k==="frei"){
+  /* «fix» ist das eingefrorene Fenster der Arztkopie und wird wie «frei» ausgeschrieben -
+     mit KALENDERDATEN. «der letzten 4 Wochen» waere in einer Kopie, die im Oktober geoeffnet
+     wird, eine Falschaussage: der Satz bezoege sich auf einen Zeitraum, aus dem kein Wert in
+     der Datei steht. */
+  if(f.k==="frei" || f.k==="fix"){
     if(f.von && f.bis) return "vom "+dmy(f.von)+" bis "+dmy(f.bis);
     if(f.von) return "seit dem "+dmy(f.von);
     if(f.bis) return "bis zum "+dmy(f.bis);
@@ -529,6 +571,11 @@ function zeitEntwurf(kzk){
    Schalter unbedingt fuer jedes k baut; wer eine Kennzahl hinzufuegt, muss hier nichts
    aendern. */
 function zeitschalterHtml(kzk){
+  /* In der Arztkopie steht kein Schalter. Er waere dort kein Werkzeug, sondern eine Falle:
+     die Daten sind auf den Exportzeitraum gekappt, ein engeres Fenster zeigte weniger als
+     mitgegeben, ein weiteres nichts Zusaetzliches - und «alles» sagte «alles», wo ein
+     Ausschnitt liegt. Was der Ausschnitt IST, steht im Kopf der Kopie und in jedem Satz. */
+  if(FROZEN) return "";
   var h = '<div class="schalter no-print">'+ZEIT_STUFEN.map(function(s){
       return '<button class="sch'+(UI.zeit[kzk]===s.k?" an":"")+'" data-zeitstufe="'+s.k
         + '" data-zeitkz="'+kzk+'">'+esc(s.t)+'</button>'; }).join("")+'</div>';
@@ -548,6 +595,39 @@ function zeitschalterHtml(kzk){
    wird bei jedem zeichne() geleert - sonst waechst es mit jeder Mausbewegung. */
 var TIPS = {}, TIPN = 0;
 function tipReg(o){ var id = "t"+(++TIPN); TIPS[id] = o; return id; }
+
+/* ══ Erklaertexte ═══════════════════════════════════════════════════════════════
+   Entscheid Albrecht vom 28.08.2026: die Hilfs- und Erklaertexte stehen nicht mehr in der
+   Flaeche, sondern hinter EINEM Fragezeichen am Titel. Sie sind nicht geloescht - sie
+   tragen die Begruendung der Zahl daneben und werden weiter gerechnet, aus demselben
+   Fenster und denselben Reihen wie die Zahlen selbst.
+   Wie TIPS ist das hier ein Register des LAUFENDEN Bildes: bei jedem zeichne() geleert und
+   von dem gefuellt, was gerade gezeichnet wird. Eine zweite Rechenstelle fuer dieselben
+   Saetze waere der Fehler Nummer eins dieses Werkzeugs - darum sammelt es, was ohnehin
+   entsteht, statt es ein zweites Mal auszurechnen.
+   ERKL.satz ist der Satz, der frueher ueber dem Bild stand; ERKL.bilder sind die
+   Bildunterschriften, in der Reihenfolge ihrer Bilder. Eine Seite kann mehrere tragen. */
+var ERKL = {titel:"", satz:"", bilder:[]};
+function erklLeeren(titel){ ERKL = {titel:titel||"", satz:"", bilder:[]}; }
+function erklHat(){ return !!(ERKL.satz || ERKL.bilder.length); }
+/* Der Knopf wird nur gebaut, wenn es etwas zu sagen gibt - ein Fragezeichen, hinter dem
+   nichts steht, ist schlimmer als keines. Er wird AM TITEL gesetzt, nicht in der
+   Knopfreihe. */
+function hilfeKnopf(){
+  return erklHat() ? '<button class="hilfe no-print" data-hilfe="1" title="Was diese Zahl sagt">?</button>' : "";
+}
+function hilfeModal(){
+  return '<div class="modal-bg" id="hilfeBg"><div class="modal"><div class="modal-kopf">'
+    + '<h2>'+esc(ERKL.titel||"Was diese Zahl sagt")+'</h2>'
+    + '<button class="btn rund" data-modalzu="1">×</button></div>'
+    + '<div class="modal-koerper"><div class="erkl">'
+    + (ERKL.satz ? '<p>'+esc(ERKL.satz)+'</p>' : '')
+    + (ERKL.bilder.length
+        ? '<div class="erkl-kopf">Zum Bild</div>'
+          + ERKL.bilder.map(function(t){ return '<p class="zu-bild">'+esc(t)+'</p>'; }).join("")
+        : '')
+    + '</div></div></div></div>';
+}
 
 /* ══ Blutzucker: acht Messpunkte und zwei Massstaebe ════════════════════════════
    NORM sind die Werte eines Nicht-Diabetikers - sie stehen als gestrichelte Linie im
@@ -625,8 +705,11 @@ function slotKanon(s){
 }
 /* EINE Stelle fuer die Typfrage. Vorher lasen zwei Stellen STATE.glucose.slotType[slot]
    unmittelbar - und ein Name, der in dieser Tabelle FEHLT, galt dort still als «post».
-   «vor Frühstück» waere so gegen 10,0 gemessen worden statt gegen 7,2: eine stille
-   Beschoenigung, die den Anteil «im Soll» zu gut ausfallen laesst und niemandem auffaellt.
+   «vor Frühstück» waere so gegen die NACH-Essen-Grenze gemessen worden statt gegen die
+   davor: eine stille Beschoenigung, die den Anteil «im Soll» zu gut ausfallen laesst und
+   niemandem auffaellt. (Hier standen bis zum 28.08.2026 die beiden Grenzwerte als Zahlen -
+   sie kommen aus glucose.th und sind ein Personendatum. Gefunden von der Formprobe, nicht
+   von einer Suche nach vermuteten Werten: eine Zahl mit Komma im Kommentar.)
    Der Code muss den Typ SELBST wissen. Die Tabelle in der Datei ist Beleg, nicht Quelle -
    sie kann veralten, der eigene Messpunkt nicht. Reihenfolge: SLOT8, dann die Datei,
    dann «post» als letzte Notloesung (die strengere Annahme waere «pre» - aber sie machte
@@ -988,8 +1071,15 @@ function bild(reihen, opt){
   var text = opt.text||"";
   if(bruecken) text += " Wo fein gestrichelt, liegt zwischen zwei Messungen kein Wert — die Linie verbindet sie trotzdem.";
   if(notizen) text += " Der kleine gelbe Punkt unter der Achse heisst: an diesem Tag steht eine Notiz.";
+  /* Die Bildunterschrift wandert ins Erklaer-Register statt unter das Bild (Entscheid
+     Albrecht vom 28.08.2026). Sie wird weiter HIER gerechnet, weil nur hier bekannt ist,
+     ob eine Bruecke oder ein Notizpunkt gezeichnet wurde - eine zweite Stelle, die das
+     nachrechnet, waere beim ersten Randfall falsch.
+     opt.textZeigen ist die Ausnahme fuer die Akten: dort gibt es kein Fragezeichen, und ohne
+     die Unterschrift stuende das Referenzband unerklaert im Bild. */
+  if(text && !opt.textZeigen) ERKL.bilder.push(text);
   return '<svg viewBox="0 0 '+BILD_VB+' '+VBH+'" style="width:100%;height:auto;display:block;margin-top:18px">'+h+'</svg>'
-    + (text?'<div class="bildtext">'+text+'</div>':'');
+    + ((text && opt.textZeigen)?'<div class="bildtext">'+text+'</div>':'');
 }
 
 /* ══ Kennzahlen ═════════════════════════════════════════════════════════════════
@@ -999,7 +1089,7 @@ function ampelFarbe(gut, warn){ return gut ? "var(--good)" : (warn ? "var(--warn
 
 function KZ(){
   var Gall=rGewicht(), BZall=rBzAlle(), BZTall=rBzTage(), BPall=rBp();
-  var th=STATE.glucose.th||{}, wt=STATE.weight||{};
+  var th=STATE.glucose.th||{};
   /* Ein Fenster je Kennzahl - und dasselbe Fenster fuer Bild UND Zahl. Vorher stand in der
      Blutzucker-Kachel die Zahl fuer 14 Messtage und der Prozentsatz fuer alle Messungen der
      Periode, in EINER Zeile. Genau das schafft der Schalter ab. */
@@ -1007,89 +1097,57 @@ function KZ(){
   var G=imFenster(Gall,fg), BZ=imFenster(BZall,fb), BZT=imFenster(BZTall,fb), BP=imFenster(BPall,fd);
   /* Der THQ hat sein eigenes Fenster, seine eigene Kennzahl und seit dem 21.08.2026 eine
      eigene Kachel auf der Kachelwand. */
-  var Kall=rKoerper(), K=imFenster(Kall,fq);
-  var kL=K.length?K[K.length-1]:null, kLa=Kall.length?Kall[Kall.length-1]:null;
+  var K=imFenster(rKoerper(),fq);
+  var kL=K.length?K[K.length-1]:null;
   /* Der BMI hat sein eigenes Fenster, weil er seine eigene Frage stellt. Startwert
      «alles» wie beim Gewicht: im Vier-Wochen-Fenster liegt zwischen erstem und letztem
      Wert gut ein Punkt, ueber die ganze Periode sind es zwei Kategoriegrenzen. */
-  var Ball=rBmi(), B=imFenster(Ball,fm);
+  var B=imFenster(rBmi(),fm);
   var bL=B.length?B[B.length-1]:null;
   var bzOe = mittel(BZ.map(function(x){return x.v;}));
-  var HB = rHba1c(), hbL = HB.length?HB[HB.length-1]:null;
   var imSoll = BZ.filter(function(x){ return sollTyp(x.slot)==="pre" ? x.v<=th.preHigh : x.v<=th.postHigh; });
   var pSoll = BZ.length ? Math.round(100*imSoll.length/BZ.length) : null;
   var bpL = BP.length?BP[BP.length-1]:null;
-  var bpD = BP.filter(function(p){ return p.dia!=null; });
-  var bpOe = BP.length ? Math.round(mittel(BP.map(function(p){return p.v;}))) : null;
-  var bpOeD = bpD.length ? Math.round(mittel(bpD.map(function(p){return p.dia;}))) : null;
-  var bpTageN = Object.keys(BP.reduce(function(m,p){ m[p.iso]=1; return m; },{})).length;
-  var gL = G.length?G[G.length-1]:null, gLa = Gall.length?Gall[Gall.length-1]:null;
-  var start = wt.startRef!=null ? +wt.startRef : (Gall.length?Gall[0].v:null);
+  var gL = G.length?G[G.length-1]:null;
 
   return {
+    /* Kein «unter», kein «unter2», kein «meta» mehr: die Kachel traegt seit dem 28.08.2026
+       Name, Zahl, Einheit und Funke, sonst nichts (siehe kachelHtml). Die Felder sind
+       ENTFERNT und nicht bloss ungenutzt liegen geblieben - ein Feld, das niemand liest,
+       wird beim naechsten Umbau fuer eine Quelle gehalten. Was sie sagten, steht als
+       Nebenzahl im jeweiligen Vollbild. */
     gewicht:{ key:"gewicht", label:"Gewicht", einheit:"kg", reihe:G, farbe:"var(--good)", dez:1,
-      wert:gL?nf(gL.v,1):"—", zustand:"var(--ink)", tempo:tempo(G),
-      /* DIE Ausnahme, und die einzige: die Kachel traegt die GESAMTBILANZ seit dem
-         Startwert. Das ist eine Bilanz, kein Fensterausschnitt - sie schrumpft nicht mit
-         dem Schalter, sonst schrumpfte die Gesamtabnahme auf das Vier-Wochen-Fenster. */
-      unter:(gLa ? "seit "+dm(Gall[0].iso)+" "+vz(gLa.v-start,1)+" kg" : "")
-        /* Der BMI stand hier als drittes Anhaengsel. Er hat seit dem 22.08.2026 eine
-           eigene Kachel - ein Ort pro Sache, genau wie beim THQ am Tag davor. */
-        + (gLa && wt.goal1!=null ? " · Ziel 1: "+nf(wt.goal1,0)+" kg · Abstand "+nf(gLa.v-wt.goal1,1)+" kg" : ""),
-      meta:zahl(G.length,"Messung","Messungen")+" · "+fensterLang(fg) },
+      wert:gL?nf(gL.v,1):"—", zustand:"var(--ink)", tempo:tempo(G) },
     /* Eigene Kachel, Entscheid Albrecht vom 21.08.2026. Zuerst stand der THQ als Zahl in
        der Unterzeile des Gewichts - das war zu vorsichtig. Er hat den zweitlaengsten
-       Verlauf im Werkzeug (16 Messungen ueber acht Jahre) und sagt etwas, das keine andere
-       Zahl sagt: das Gewicht fiel deutlich, der THQ STIEG. Dass er nur alle paar Wochen
-       gemessen wird, spricht nicht dagegen - der HbA1c auf «Heute» ist 16 Monate alt, und
-       dort ist das Alter die Aussage. Genau darum traegt die Kachel ihr Messdatum. */
+       Verlauf im Werkzeug und sagt etwas, das keine andere Zahl sagt: das Gewicht fiel
+       deutlich, der THQ STIEG. Dass er nur alle paar Wochen gemessen wird, spricht nicht
+       dagegen - beim HbA1c auf «Heute» ist das Alter selbst die Aussage. */
     thq:{ key:"thq", label:"Taille-Hüft-Quotient", einheit:"Taille ÷ Hüfte", reihe:K,
       farbe:"var(--akzent)", dez:2,
       sub:function(p){ return "Taille "+nf(p.waist,0)+" · Hüfte "+nf(p.hip,0)+" cm"; },
       wert:kL?nf(kL.v,2):"—",
-      zustand:kL?ampelFarbe(kL.v<THQ_GRENZE, kL.v>=THQ_GRENZE):"var(--ink)",
-      unter:K.length ? "zuletzt "+dm(kL.iso)+" · Taille "+nf(kL.waist,0)+" zu Hüfte "+nf(kL.hip,0)
-                       +" cm · Grenze "+nf(THQ_GRENZE,1) : "",
-      meta:zahl(K.length,"Messung","Messungen")+" · "+fensterLang(fq) },
+      zustand:kL?ampelFarbe(kL.v<THQ_GRENZE, kL.v>=THQ_GRENZE):"var(--ink)" },
     /* Eigene Kachel, Entscheid Albrecht vom 22.08.2026. Der BMI war beim Vereinfachen am
        21.08. zur Nebenzahl geworden - derselbe Fehler wie beim THQ, und aus demselben
        Reflex heraus. Er beantwortet eine Frage, die das Gewicht nicht beantwortet: nicht
-       «wie viel», sondern «in welcher Kategorie». Auf dem bisherigen Weg hat der BMI zwei
-       Kategoriegrenzen unterschritten; die Gewichtskurve zeigt an denselben Stellen nichts.
-       (Die Zahlen dazu stehen NICHT hier: dieser Code ist oeffentlich, und ein Messwert im
-       Kommentar ist derselbe Verstoss wie einer im Fliesstext. Das ist am 14.08. und am
-       21.08.2026 schon zweimal passiert.)
-       Die Kachel traegt darum die KATEGORIE als Untertitel, nicht nur die Zahl. */
+       «wie viel», sondern «in welcher Kategorie».
+       (Zahlen dazu stehen NICHT hier: dieser Code ist oeffentlich, und ein Messwert im
+       Kommentar ist derselbe Verstoss wie einer im Fliesstext.)
+       Die KATEGORIE steht seit dem 28.08.2026 im Vollbild, nicht mehr auf der Kachel. */
     bmi:{ key:"bmi", label:"BMI", einheit:"kg/m²", reihe:B, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return nf(p.kg,1)+" kg · "+bmiStufe(p.v); },
       wert:bL?nf(bL.v,1):"—",
-      zustand:bL?bmiFarbe(bL.v):"var(--ink)",
-      unter:B.length ? bmiStufe(bL.v)+" · zuletzt "+dm(bL.iso)
-        + (B.length>1 ? " · seit "+dm(B[0].iso)+" "+vz(bL.v-B[0].v,1) : "") : "",
-      meta:zahl(B.length,"Messung","Messungen")+" · "+fensterLang(fm) },
+      zustand:bL?bmiFarbe(bL.v):"var(--ink)" },
     bz:{ key:"bz", label:"Blutzucker", einheit:"mmol/l", reihe:BZT, farbe:"var(--akzent)", dez:1,
       sub:function(p){ return zahl(p.n||1,"Messung","Messungen"); },
       wert:BZ.length?nf(bzOe,1):"—",
-      zustand:BZ.length?ampelFarbe(pSoll>=90, pSoll<75):"var(--ink)",
-      /* Ohne Messung im Fenster steht hier NICHTS: die Leermeldung traegt die Kachel
-         unten als Bildplatzhalter, so wie es das Gewicht macht. Stand sie zusaetzlich
-         als Untertitel, sagte die Kachel denselben Satz zweimal. */
-      unter:BZ.length ? "Ø "+fensterLang(fb)+" · im Soll: "+pSoll+" % dieser "+BZ.length+" Messungen"
-                      : "",
-      unter2: hbL
-        ? '<span style="color:var(--faint)">HbA1c</span> <b style="font-weight:640;color:var(--ink)">'
-          + nf(hbL.v,1)+' %</b> <span style="color:var(--faint)">vom '+dmy(hbL.iso)+' — '
-          + zahl(hba1cAlter(hbL.iso),"Monat","Monate")+' alt</span>'
-        : '<span style="color:var(--faint)">Kein HbA1c im Labor erfasst.</span>',
-      meta:BZ.length+" Messungen · "+zahl(BZT.length,"Tag","Tage")+" · "+fensterLang(fb) },
+      zustand:BZ.length?ampelFarbe(pSoll>=90, pSoll<75):"var(--ink)" },
     bd:{ key:"bd", label:"Blutdruck", einheit:"mmHg", reihe:BP, farbe:"var(--akzent)", dez:0,
       sub:function(p){ return [p.slot?slotLang(p.slot):"", p.dia!=null?"diastolisch "+Math.round(p.dia):"",
         p.pulse!=null?"Puls "+Math.round(p.pulse):"", p.time||""].filter(Boolean).join(" · "); },
       wert:bpL?(Math.round(bpL.v)+"/"+Math.round(bpL.dia)):"—",
-      zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140),
-      unter:BP.length ? "zuletzt "+dm(bpL.iso)+" · Ø "+fensterLang(fd)+" "+bpOe+"/"+bpOeD+" mmHg"
-                      : "",
-      meta:BP.length+" Messungen · "+zahl(bpTageN,"Tag","Tage")+" · "+fensterLang(fd) }
+      zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140) }
   };
 }
 
@@ -1114,18 +1172,22 @@ function kachelHtml(d, leit){
   var zusatz = (leit && d.tempo!=null)
     ? '<div style="font-size:16px;color:var(--good);font-weight:600;margin-left:6px">'+vz(d.tempo,2)+' kg/Woche</div>'
     : '';
+  /* Die Kachel traegt seit dem 28.08.2026 nur noch Name, Zahl, Einheit und die Funke
+     (Entscheid Albrecht: «mir ist das zu unruhig»). Untertitel, HbA1c-Zeile und Meta-Zeile
+     sind weg - sie brachen auf schmalen Kacheln zwei- und dreizeilig um und machten aus
+     einer Wand aus Zahlen eine Wand aus Text.
+     WEGGELASSEN heisst weggelassen, nicht versteckt: was sie sagten, steht eine
+     Tippbewegung entfernt im Vollbild als Nebenzahl - die Gesamtbilanz beim Gewicht, der
+     HbA1c beim Blutzucker, Kategorie und Datum beim BMI, Taille und Huefte beim THQ, der
+     Durchschnitt beim Blutdruck. Beim Gewicht und beim HbA1c ist diese Nebenzahl im selben
+     Zug NEU gebaut worden; ohne sie waeren beide Angaben aus dem Werkzeug verschwunden.
+     Die Leermeldung bleibt: eine Kachel ohne Funke und ohne Satz saehe aus wie ein Fehler. */
   return '<button class="kachel'+(leit?" leit":"")+'" data-kz="'+d.key+'">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">'
-    +   '<div class="k-name">'+esc(d.label)+'</div>'
-    +   (leit?'<div class="k-meta" style="margin:0">'+esc(d.meta)+'</div>':'')
-    + '</div>'
+    + '<div class="k-name">'+esc(d.label)+'</div>'
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
-    + '<div class="k-unter">'+esc(d.unter||"")+'</div>'
-    + (d.unter2?'<div class="k-unter" style="margin-top:2px">'+d.unter2+'</div>':'')
     + (d.reihe.length ? funkeSvg(f, w, hh, hits)
         : '<div class="bildtext" style="margin-top:12px">'+esc(LEER_ZEITRAUM)+'</div>')
-    + (leit?'':'<div class="k-meta">'+esc(d.meta)+'</div>')
     + '</button>';
 }
 
@@ -1192,8 +1254,18 @@ function zeichneVoll(){
       inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
         text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" "+fl+" auf echter Zeitachse."
           + (w.goal1!=null ? " Ziel 1 liegt bei "+nf(w.goal1,0)+" kg und damit unter dem Bildausschnitt." : "")});
+      /* Die GESAMTBILANZ stand bis zum 28.08.2026 in der Unterzeile der Kachel und war dort
+         die eine benannte Ausnahme vom Zeitraum-Schalter. Mit der Unterzeile faellt sie
+         nicht weg, sie zieht hierher - sonst waere sie im ganzen Werkzeug nicht mehr zu
+         sehen. Bezug bleibt der Startwert, nicht das Fenster; darum steht sie ausdruecklich
+         mit ihrem eigenen Datum daneben und nicht neben «Veränderung». */
+      var gStart = w.startRef!=null ? +w.startRef : (Gall.length?Gall[0].v:null);
+      var gLa = Gall.length ? Gall[Gall.length-1] : null;
       neben = [ {l:"Im Zeitraum", w:nf(g0.v,1)+" → "+nf(gL.v,1), u:zahl(G.length,"Messung","Messungen")+" · kg"},
         {l:"Veränderung", w:vz(gL.v-g0.v,1), u:"kg "+fl, f:(gL.v<g0.v?"var(--good)":null)},
+        {l:"seit dem Start", w:(gStart!=null&&gLa)?vz(gLa.v-gStart,1):"—",
+          u:gLa?("kg · seit "+dmy(Gall[0].iso)):"kein Startwert",
+          f:(gStart!=null&&gLa&&gLa.v<gStart)?"var(--good)":null},
         {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl},
         {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—", u:"kg · Ziel "+nf(w.goal1,0)+" kg"} ];
     }
@@ -1359,6 +1431,15 @@ function zeichneVoll(){
         {l:"Vorperiode", w:bl?nf(bl.avg,1):"—",
           u:bl?(bl.label?bl.label.replace(/^Vorperiode\s*/,""):"früher")+" · "+fl+" "+nf(jetztOe,1):"kein Vergleichswert",
           f:(bl&&jetztOe<bl.avg)?"var(--good)":"var(--faint)"} ];
+      /* Der HbA1c stand bis zum 28.08.2026 als zweite Unterzeile der Kachel. Mit den
+         Unterzeilen faellt er nicht weg - er zieht hierher. Sein ALTER ist die Aussage,
+         darum steht es als Zahl daneben und nicht bloss das Datum. Er folgt dem
+         Zeitraum-Schalter NICHT: er ist ein Laborwert und kann Monate alt sein; ein
+         Vier-Wochen-Fenster loeschte ihn, obwohl in der Praxis genau nach ihm gefragt wird. */
+      var hbAlle = rHba1c(), hbL = hbAlle.length?hbAlle[hbAlle.length-1]:null;
+      neben.push({ l:"HbA1c", w:hbL?nf(hbL.v,1):"—",
+        u:hbL ? "% · "+dmy(hbL.iso)+" · "+zahl(hba1cAlter(hbL.iso),"Monat","Monate")+" alt"
+              : "kein HbA1c im Labor erfasst" });
     }
   }
 
@@ -1391,16 +1472,27 @@ function zeichneVoll(){
     }
   }
 
+  /* Der Satz steht nicht mehr auf der Buehne, sondern hinter dem Fragezeichen am Titel.
+     Gerechnet wird er unveraendert oben - er traegt die Zahlen dieses Fensters. Das
+     Register ist zu diesem Zeitpunkt bereits mit den Bildunterschriften gefuellt, weil
+     inhalt vor dieser Zeile gebaut wurde.
+     EINE Ausnahme, und sie ist zwingend: gibt es kein Bild - leeres Zeitfenster, fehlende
+     Koerpergroesse -, dann traegt der Satz die einzige Auskunft der ganzen Seite. Hinter
+     einem Fragezeichen versteckt saehe die Buehne aus wie ein Fehler, und genau das
+     verhindert LEER_ZEITRAUM seit dem 21.08.2026. Er bleibt also stehen. */
+  var ohneBild = !inhalt;
+  ERKL.titel = kz.label;
+  ERKL.satz = ohneBild ? "" : satz;
   return '<div class="buehne">'
     + '<div class="b-kopf"><div style="min-width:0;flex:1 1 260px">'
-    +   '<div class="k-name">'+esc(kz.label)+'</div>'
+    +   '<div class="k-name" style="display:flex;align-items:center">'+esc(kz.label)+hilfeKnopf()+'</div>'
     +   '<div style="display:flex;align-items:baseline;gap:10px;margin-top:7px;flex-wrap:wrap">'
     +     '<div class="b-zahl" style="white-space:nowrap;color:'+kz.zustand+'">'+kopfWert+'</div>'
     +     '<div class="k-einheit">'+esc(kopfEinheit)+'</div></div></div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">'
     +   (FROZEN?'':'<button class="btn stark" id="btnErf2">✎ Erfassen</button>')
     +   '<button class="btn rund" data-zu="1">×</button></div></div>'
-    + '<p class="satz">'+esc(satz)+'</p>'
+    + (ohneBild ? '<p class="satz">'+esc(satz)+'</p>' : '')
     + zeitschalterHtml(k)
     + (schalter?schalterHtml(schalter):"")
     + inhalt
@@ -1493,15 +1585,17 @@ function tagesmuster(BZ, th, fl){
       + '<div class="mono" style="font-size:11px;color:var(--faint);white-space:nowrap">'+esc(rechts)+'</div></div>'
       + bett(soll, 26, innen) + '</div>';
   });
-  h += achse + '</div>'
-    /* Auch das Tagesmuster folgt dem Zeitraum. Im Vier-Wochen-Fenster erreicht keine Gruppe
-       zehn Werte - dort steht dann kein Kasten, sondern Median und Spanne. Das ist gewollt:
-       die Form der Zeile haengt an der Zahl der Werte, und die haengt am Fenster. */
-    + '<div class="bildtext">Alle '+zahl(BZ.length,"Messung","Messungen")+' '+(fl||"")+'. '
+  h += achse + '</div>';
+  /* Auch das Tagesmuster folgt dem Zeitraum. Im Vier-Wochen-Fenster erreicht keine Gruppe
+     zehn Werte - dort steht dann kein Kasten, sondern Median und Spanne. Das ist gewollt:
+     die Form der Zeile haengt an der Zahl der Werte, und die haengt am Fenster.
+     Die Legende dazu steht seit dem 28.08.2026 hinter dem Fragezeichen, nicht unter dem
+     Bild - sie ist der laengste Erklaertext des Werkzeugs und war der unruhigste. */
+  ERKL.bilder.push('Alle '+zahl(BZ.length,"Messung","Messungen")+' '+(fl||"")+'. '
     + 'Kasten = mittlere Hälfte, heller Strich = Median, feine Linie = Spanne. '
     + 'Wo weniger als zehn Werte vorliegen, steht statt des Kastens nur Median und Spanne; bei bis zu vier '
     + 'Werten stehen die Werte selbst. Die Fläche ist der Korridor '+nf(lo,1)+' bis '+nf(th.postHigh||10,1)
-    + ', die gestrichelte Kante der Massstab eines Nicht-Diabetikers für diesen Messpunkt.</div>';
+    + ', die gestrichelte Kante der Massstab eines Nicht-Diabetikers für diesen Messpunkt.');
   return h;
 }
 
@@ -1757,7 +1851,7 @@ function akteLabor(){
     untertitel:dmy(pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
     ansichten:ans,
     links: chips + bild([{pts:pts, farbe:"var(--akzent)", r:3}],
-      {dez:1, zone:ref, schwellen:{voll:400},
+      {dez:1, zone:ref, schwellen:{voll:400}, textZeigen:true,
        text:"Das grüne Band ist der Referenzbereich. Zuletzt "+nf(le.v,1)+(cur.pa.unit?" "+cur.pa.unit:"")+" am "+dmy(le.iso)+"."}) });
 }
 
@@ -2693,6 +2787,13 @@ function exportZustand(){
      mit derselben Funktion, aus der der Dialog seine Mengen liest - was dort steht, steht
      danach in der Datei. Ohne Einschraenkung (Startwert «alles») laeuft hier nichts. */
   var fz = fenster("export");
+  /* Die Obergrenze wird beim Export AUSGESCHRIEBEN. Die Stufen liefern nur ein «von» und
+     lassen oben offen - im Werkzeug richtig, denn dort kommt morgen ein Wert dazu. In der
+     Kopie kommt nichts mehr dazu: dort ist der Exporttag das Ende, und nur mit beiden
+     Grenzen laesst sich der Ausschnitt als Datum ausschreiben statt als «letzte 4 Wochen».
+     Gekappt wird mit denselben Grenzen, die danach in __export.zeitraum stehen - eine
+     zweite Rechnung liefe beim ersten Randfall auseinander. */
+  if((fz.von || fz.bis) && !fz.bis) fz.bis = isoVon(new Date(heuteMs()));
   if(fz.von || fz.bis){
     S.weight.points        = expKappen(S.weight.points, "date", fz);
     if(S.body) S.body.points = expKappen(S.body.points, "date", fz);
@@ -2706,7 +2807,10 @@ function exportZustand(){
     /* Eine Kopie, die einen Ausschnitt zeigt, muss sagen, dass sie einer ist - darum steht
        der Zeitraum in der Datei und im Kopf der Kopie. */
     zeitraum:{ stufe:fz.k, von:fz.von||null, bis:fz.bis||null,
-      gekappt:!!(fz.von||fz.bis), text:fensterLang(fz) } };
+      gekappt:!!(fz.von||fz.bis),
+      /* Als «fix» ausgeschrieben, nicht als «der letzten 4 Wochen»: dieser Text steht im
+         Kopf der Kopie und muss auch in einem halben Jahr noch stimmen. */
+      text:fensterLang({k:"fix", von:fz.von||null, bis:fz.bis||null}) } };
   if(!EXP_DOCS){
     var putzen = function(arr){ (arr||[]).forEach(function(x){ if(x.docs) delete x.docs; }); };
     putzen(S.history.events); putzen(S.lab.panels);
@@ -2821,6 +2925,9 @@ function zeichne(){
   /* Das Merkzettel-Register gehoert zu DIESEM Bild. Wer es nicht leert, sammelt bei
      jedem Neuzeichnen Eintraege an, die auf nichts mehr zeigen. */
   TIPS = {}; TIPN = 0; tipWeg();
+  /* Dasselbe fuer die Erklaertexte: sie gehoeren zu DIESEM Bild. Wer sie nicht leert, zeigt
+     hinter dem Fragezeichen den Satz der zuletzt geoeffneten Kennzahl. */
+  erklLeeren();
   /* Die Breite, mit der die Bilder dieses Durchgangs gerechnet werden. Der Resize-Haken
      vergleicht dagegen und zeichnet nur bei einer ANDEREN Breite neu. */
   bildBreiteMerk = bildBreitePx();
@@ -2895,6 +3002,9 @@ document.addEventListener("click", function(e){
   if(t.id==="btnConn" || t.id==="btnStart"){ document.getElementById("modale").innerHTML = connModal(); return; }
   if(t.id==="btnExp"){ document.getElementById("modale").innerHTML = exportModal(); return; }
   if(t.dataset.modalzu){ document.getElementById("modale").innerHTML = ""; return; }
+  /* Das Fragezeichen liest aus dem Register des laufenden Bildes - es rechnet nichts nach
+     und braucht darum auch keine Kennzahl im Attribut. */
+  if(t.dataset.hilfe){ document.getElementById("modale").innerHTML = hilfeModal(); return; }
 
   if(t.id==="ghGo"){
     cfgSchreiben({ repo:document.getElementById("ghRepo").value.trim(),
