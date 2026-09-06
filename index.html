@@ -177,6 +177,17 @@
     .leiste{overflow:visible}
   }
   .buehne{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 24px 26px}
+  /* Ebene 2 und die Erfassung bekommen eine eigene, engere Obergrenze (Entscheid Albrecht
+     vom 06.09.2026: «zu breit, optisch nicht ausgewogen»). Die Kachelwand nutzt die ganze
+     Breite - dort stehen fuenf Kacheln nebeneinander, und jede zusaetzliche Spalte bringt
+     etwas. Auf Ebene 2 steht EIN Bild mit Text darunter; jenseits von rund 1240 px wird
+     die Kurve nur flacher und der Satz darunter reisst auf 80 Zeichen ohnehin um.
+     Verengt wird die GANZE Seite, nicht bloss die Buehne: Kopf, Inhalt und Fusszeile
+     fluchten dadurch weiter miteinander. Eine zentrierte Buehne unter einem linksbuendigen
+     Titel sieht aus, als haette jemand zwei Seiten uebereinandergelegt.
+     Die Zahl steht als SEITE_SCHMAL im Skript und wird von zeichne() an .wrap gesetzt -
+     hier steht nur die weite Voreinstellung. bildBreitePx() misst #haupt und bekommt die
+     Grenze damit von selbst mit. */
   .b-kopf{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
   .b-zahl{font-size:42px;font-weight:640;letter-spacing:-.03em;line-height:1.05}
   .satz{margin:14px 0 0;font-size:15.5px;color:var(--muted);max-width:80ch;text-wrap:pretty}
@@ -391,6 +402,31 @@
   .med-weg{width:34px;height:34px;padding:0;font-size:15px;border:1px solid var(--line);background:var(--surface2);
     border-radius:9px;color:var(--faint);cursor:pointer}
   .med-weg:hover{border-color:var(--high);color:var(--high)}
+  /* Eine Eingabemaske ist EIN Gegenstand und bekommt darum dieselbe Enge wie Ebene 2:
+     ein Textfeld ueber 1400 px hilft beim Tippen niemandem, und das Auge verliert beim
+     Zeilenwechsel den Anschluss. Die Akten selbst bleiben breit - dort stehen Tabellen. */
+  .maske{max-width:720px}
+  /* Eine Zeile des Laborblatts beim Bearbeiten: Name, Wert, Referenz von-bis. Flex mit
+     Umbruch, aus demselben Grund wie bei den Blutzucker-Zeilen weiter oben - feste
+     Rasterspalten koennen nicht schrumpfen, und auf dem Telefon scrollte die Seite quer. */
+  .lab-z{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 0;
+    border-bottom:1px solid var(--line2)}
+  .lab-z .n{flex:1 1 190px;min-width:0;font-size:14.5px}
+  .lab-z .n i{font-style:normal;color:var(--faint)}
+  .lab-z input[type=text]{height:40px;font-size:14.5px;flex:0 1 106px;min-width:76px}
+  .lab-z .bis{color:var(--faint);flex:0 0 auto;font-size:14px}
+  .lab-grp{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--faint);padding:16px 0 4px}
+  /* Ein Eintrag der Krankengeschichte beim Bearbeiten. Kopfzeile aus Feldern, darunter
+     die beiden Freitexte - Notiz und Lernpunkt stehen im Lesen ebenfalls untereinander. */
+  .his-z{padding:14px 0;border-bottom:1px solid var(--line2)}
+  .his-kopf{display:flex;flex-wrap:wrap;align-items:flex-end;gap:9px}
+  .his-kopf .feld{flex:1 1 150px}
+  .his-kopf .feld.gross{flex:3 1 240px}
+  .his-kopf select{width:100%;height:46px;font-size:15px;font-family:inherit;background:var(--bg);
+    border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:0 10px}
+  .his-kopf select:focus{outline:none;border-color:var(--akzent)}
+  .his-z textarea.notiz{margin-top:9px;min-height:48px;font-size:14.5px}
   /* Modale */
   .modal-bg{position:fixed;inset:0;background:rgba(8,10,13,.72);display:flex;align-items:center;
     justify-content:center;padding:24px;z-index:40}
@@ -425,7 +461,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="wrap">
 
   <header class="kopf">
     <div>
@@ -479,7 +515,10 @@ var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:nu
   zeit:{gewicht:"alles", bz:"28", bd:"28", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
   erfBp:[neueBpZeile()], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
-  medEdit:false, medListe:null, medKopf:null };
+  /* edit nennt den Aktenbereich, der gerade bearbeitet wird, arbeit haelt dessen
+     Arbeitskopie. Bis zum 06.09.2026 hiessen die beiden medEdit/medListe/medKopf und
+     konnten nur die Medikation - siehe AKTEN_EDIT. */
+  edit:null, arbeit:null };
 
 /* Kuerzel: der wiederkehrende Teil einer Notiz als Knopf, der Rest als Freitext. Deine
    Blutdruck-Notizen zeigen, warum - «Linker Arm | Sitzt» steht vier Mal woertlich gleich
@@ -1158,12 +1197,23 @@ function kachelBild(reihe, opt){
    bildHoch() hochgerechnet - eine viewBox schmaler als 720 machte die Achsenzahlen und
    die Datumsmarken zu Nachbarn. */
 var BILD_VB_MIN = 720;
+/* Die Obergrenze der schmalen Seiten. Sie steht hier und nur hier: zeichne() setzt sie an
+   .wrap, und alles Weitere - auch bildBreitePx() - misst danach den Behaelter. Stuende sie
+   zusaetzlich im Stilblock, liefe das Bild beim ersten Ändern der einen Stelle gegen die
+   andere. Schmal sind die Ebenen mit EINEM Gegenstand: das grosse Bild und die Erfassung.
+   Breit bleiben Kachelwand und Akten - dort stehen Spalten nebeneinander. */
+var SEITE_SCHMAL = 1240;
+var SEITEN_SCHMAL = { voll:1, erf:1 };
 function bildVb(){ return Math.max(BILD_VB_MIN, Math.round(bildBreitePx())); }
 var BILD_ZEICHEN = 0.64;        // Zeichenbreite der Monospace, in Vielfachen der Schrifthoehe
 var bildBreiteMerk = 0, bildZweiterLauf = false, bildTakt = null;
 function bildBreitePx(){
   var n = document.getElementById("haupt");
   var b = n ? n.clientWidth - 50 : 0;
+  /* Kein Sonderfall je Ebene mehr: seit die Verengung an .wrap haengt, ist #haupt auf
+     Ebene 2 selbst schon schmal, und clientWidth sagt die Wahrheit. Frueher stand hier
+     ein Abzug fuer die enge Buehne - vergisst man ihn beim naechsten Umbau, staucht der
+     Browser das Bild und die Achsenschrift faellt unter 10 px. */
   return b > 40 ? b : BILD_VB_MIN;
 }
 function bildHoch(){
@@ -1178,7 +1228,15 @@ function bild(reihen, opt){
      Gebrauch neu gemessen - sonst rechnete dieselbe Zeichnung mit zwei Breiten, wenn
      sich das Fenster mitten im Bauen aendert. */
   var VB = bildVb();
-  var L=46,R=VB-30,T=16,B=222, alle=[];
+  /* Die Zeichenhoehe folgt der Breite, nicht einer festen Zahl (06.09.2026). Bei fester
+     Hoehe war das Bild auf einem breiten Fenster 1710 zu 250 - fast 7 zu 1, und das liest
+     sich als Band, nicht als Kurve. Das Verhaeltnis 1 zu 3,6 haelt die Zeichnung in dem
+     Bereich, in dem eine Linie noch eine Form hat.
+     Nach unten bei 206 gedeckelt: das ist die alte Hoehe, und darunter beruehren sich
+     die fuenf Achsenzahlen. Nach oben bei 340, sonst uebertreibt eine Reihe mit kleiner
+     Spanne ihre Ausschlaege - derselbe Grund wie beim Deckel der Kacheln. */
+  var zeichenHoehe = Math.max(206, Math.min(340, Math.round(VB/3.6)));
+  var L=46,R=VB-30,T=16,B=16+zeichenHoehe, alle=[];
   reihen.forEach(function(r){ (r.pts||[]).forEach(function(p){ if(p.v!=null) alle.push(p); }); });
   if(!alle.length) return '<div class="bildtext">Noch nicht gemessen.</div>';
   var xs=alle.map(function(p){return ms(p.iso);});
@@ -2007,6 +2065,8 @@ function zeichneVoll(){
   var ohneBild = !inhalt;
   ERKL.titel = kz.label;
   ERKL.satz = ohneBild ? "" : satz;
+  /* Die Breite dieser Ebene setzt zeichne() an .wrap - hier steht nichts davon. Die
+     Buehne fuellt einfach, was sie bekommt, und flieht mit Kopf und Fusszeile. */
   return '<div class="buehne">'
     + '<div class="b-kopf"><div style="min-width:0;flex:1 1 260px">'
     +   '<div class="k-name" style="display:flex;align-items:center">'+esc(kz.label)+hilfeKnopf()+'</div>'
@@ -2212,40 +2272,68 @@ function zeichneAkten(){
   return akteLabor();
 }
 
+/* Ein Laborblatt zum Lesen. Steht als eigene Funktion da, weil «Alle Blätter» dieselbe
+   Darstellung braucht - einmal untereinander statt einmal allein. */
+function blattHtml(p, P){
+  var vals = p.values||{}, refs = p.refs||{}, grp = {};
+  P.forEach(function(pa){ if(vals[pa.key]==null) return;
+    (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
+  var h = '<div class="blatt">';
+  Object.keys(grp).forEach(function(g){
+    h += '<div class="bz-row grp"><div>'+esc(g)+'</div><div></div><div></div></div>';
+    grp[g].forEach(function(pa){
+      var v = vals[pa.key], ref = refs[pa.key] || pa.ref;
+      var kl = ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
+      h += '<div class="bz-row"><div>'+esc(pa.label)
+        + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'')+'</div>'
+        + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
+        + '<div class="r">'+(ref?nf(ref[0],1)+"–"+nf(ref[1],1):"—")+'</div></div>';
+    });
+  });
+  return h + '</div>';
+}
+
 function akteLabor(){
+  if(UI.edit==="labor") return laborEdit();
   var P = STATE.lab.params||[];
   var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
-  if(!PA.length) return aktenRahmen({k:"labor", bereich:"Labor", titel:"Noch keine Laborblätter", links:'<p class="satz">Sobald ein Blatt erfasst ist, steht es hier.</p>'});
+  if(!PA.length) return aktenRahmen({k:"labor", bereich:"Labor", titel:"Noch keine Laborblätter",
+    aktion:editKnopf("labor"),
+    links:'<p class="satz">Sobald ein Blatt erfasst ist, steht es hier. Mit ✎ lässt sich das erste von Hand anlegen.</p>'});
   var sicht = UI.sicht || "blatt";
   var ans = schalter([ {k:"blatt", t:"Ein Blatt", an:sicht==="blatt"},
     {k:"verlauf", t:"Ein Wert über die Jahre", an:sicht==="verlauf"} ]);
 
   if(sicht==="blatt"){
-    var i = Math.min(UI.blatt||0, PA.length-1), p = PA[i]||{}, vals = p.values||{}, refs = p.refs||{};
-    var grp = {};
-    P.forEach(function(pa){ if(vals[pa.key]==null) return;
-      (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
-    var links = '<div class="blatt">';
-    Object.keys(grp).forEach(function(g){
-      links += '<div class="bz-row grp"><div>'+esc(g)+'</div><div></div><div></div></div>';
-      grp[g].forEach(function(pa){
-        var v = vals[pa.key], ref = refs[pa.key] || pa.ref;
-        var kl = ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
-        links += '<div class="bz-row"><div>'+esc(pa.label)
-          + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'')+'</div>'
-          + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
-          + '<div class="r">'+(ref?nf(ref[0],1)+"–"+nf(ref[1],1):"—")+'</div></div>';
-      });
-    });
-    links += '</div><div class="bildtext">Rot heisst über dem Referenzbereich dieses Blattes, blau darunter. '
-      + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.</div>'
-      + docsBlock(p.docs);
+    /* «Alle Blätter» steht als erste Zeile in der Liste rechts - so wie «Alle Messtage»
+       bei den Rohdaten (Entscheid Albrecht vom 06.09.2026: «Bei allen möchte ich die Wahl
+       haben, auch alles anzuzeigen»). Die Erklärzeile unter den Werten steht dann EINMAL
+       unter dem Ganzen, nicht unter jedem Blatt. */
+    var alleBl = (UI.blatt === "alle");
+    var hinweis = '<div class="bildtext">Rot heisst über dem Referenzbereich dieses Blattes, blau darunter. '
+      + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.</div>';
+    var liste = lz("Alle Blätter", String(PA.length), alleBl, 'data-blatt="alle"')
+      + PA.map(function(x,n){
+          return lz(dmy(x.date), (x.docs&&x.docs.length?"PDF ":"")+Object.keys(x.values||{}).length,
+            !alleBl && n===(Math.min(UI.blatt||0, PA.length-1)), 'data-blatt="'+n+'"'); }).join("");
+
+    if(alleBl){
+      return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Alle Laborblätter",
+        untertitel:zahl(PA.length,"Blatt","Blätter")+" · "+dmy(PA[PA.length-1].date)+" → "+dmy(PA[0].date),
+        aktion:editKnopf("labor"), ansichten:ans,
+        links: PA.map(function(x){
+            return '<div style="margin-top:22px"><div class="k-name">Blatt '+esc(dmy(x.date))
+              + ' <span style="color:var(--faint);font-weight:400">'+esc(x.source||"Quelle nicht vermerkt")+'</span></div>'
+              + blattHtml(x, P)+docsBlock(x.docs)+'</div>'; }).join("")
+          + hinweis,
+        listeKopf:PA.length+" Laborblätter", liste:liste });
+    }
+    var i = Math.min(UI.blatt||0, PA.length-1), p = PA[i]||{};
     return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Laborblatt "+dmy(p.date),
-      untertitel:(p.source||"Quelle nicht vermerkt")+" · "+zahl(Object.keys(vals).length,"Wert","Werte"),
-      ansichten:ans, links:links, listeKopf:PA.length+" Laborblätter",
-      liste:PA.map(function(x,n){
-        return lz(dmy(x.date), (x.docs&&x.docs.length?"PDF ":"")+Object.keys(x.values||{}).length,
-          n===i, 'data-blatt="'+n+'"'); }).join("") });
+      untertitel:(p.source||"Quelle nicht vermerkt")+" · "+zahl(Object.keys(p.values||{}).length,"Wert","Werte"),
+      aktion:editKnopf("labor"), ansichten:ans,
+      links: blattHtml(p, P) + hinweis + docsBlock(p.docs),
+      listeKopf:PA.length+" Laborblätter", liste:liste });
   }
 
   /* Ein Wert über die Jahre — die Frage, für die ein Laborarchiv da ist. Ueber 400 Tage
@@ -2257,61 +2345,262 @@ function akteLabor(){
     return {pa:pa, pts:pts};
   }).filter(function(x){ return x.pts.length>=3; });
   if(!mit.length) return aktenRahmen({k:"labor", bereich:"Labor", titel:"Kein Wert mit genug Messungen",
-    ansichten:ans, links:'<p class="satz">Für einen Verlauf braucht es denselben Wert auf mindestens drei Blättern.</p>'});
-  var aktiv = UI.wahl || mit[0].pa.key;
-  var cur = mit.filter(function(x){ return x.pa.key===aktiv; })[0] || mit[0];
-  var pts = cur.pts, ref = pts[pts.length-1].ref, le = pts[pts.length-1];
-  var chips = '<div class="akten-liste no-print">'+mit.map(function(x){
-      return '<button class="sch'+(x.pa.key===cur.pa.key?" an":"")+'" data-wahl="'+x.pa.key+'" '
+    aktion:editKnopf("labor"), ansichten:ans,
+    links:'<p class="satz">Für einen Verlauf braucht es denselben Wert auf mindestens drei Blättern.</p>'});
+  var alleW = (UI.wahl === "alle");
+  var chips = '<div class="akten-liste no-print">'
+    + '<button class="sch'+(alleW?" an":"")+'" data-wahl="alle" style="font-size:12.5px;padding:6px 11px">Alle Werte</button>'
+    + mit.map(function(x){
+      return '<button class="sch'+(!alleW && x.pa.key===(UI.wahl||mit[0].pa.key)?" an":"")+'" data-wahl="'+x.pa.key+'" '
         + 'style="font-size:12.5px;padding:6px 11px">'+esc(x.pa.label)+'</button>'; }).join("")+'</div>';
-  return aktenRahmen({ k:"labor", bereich:"Labor", titel:cur.pa.label+" über "+pts.length+" Blätter",
-    untertitel:dmy(pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
-    ansichten:ans,
-    links: chips + bild([{pts:pts, farbe:"var(--akzent)", r:3}],
-      {dez:1, zone:ref, schwellen:{voll:400}, textZeigen:true,
-       text:"Das grüne Band ist der Referenzbereich. Zuletzt "+nf(le.v,1)+(cur.pa.unit?" "+cur.pa.unit:"")+" am "+dmy(le.iso)+"."}) });
+  /* Eine Reihe zeichnen - einmal für den gewählten Wert, N-mal für «Alle Werte». */
+  function verlaufBild(x){
+    var pts = x.pts, le = pts[pts.length-1];
+    return bild([{pts:pts, farbe:"var(--akzent)", r:3}],
+      {dez:1, zone:le.ref, schwellen:{voll:400}, textZeigen:true,
+       text:"Das grüne Band ist der Referenzbereich. Zuletzt "+nf(le.v,1)+(x.pa.unit?" "+x.pa.unit:"")+" am "+dmy(le.iso)+"."});
+  }
+  if(alleW) return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Alle Werte über die Jahre",
+    untertitel:zahl(mit.length,"Wert","Werte")+" mit mindestens drei Messungen",
+    aktion:editKnopf("labor"), ansichten:ans,
+    links: chips + mit.map(function(x){
+      return '<div style="margin-top:24px"><div class="k-name">'+esc(x.pa.label)
+        + ' <span style="color:var(--faint);font-weight:400">'+esc(x.pa.unit||"")+' · '+x.pts.length+' Blätter</span></div>'
+        + verlaufBild(x)+'</div>'; }).join("") });
+  var cur = mit.filter(function(x){ return x.pa.key===(UI.wahl||mit[0].pa.key); })[0] || mit[0];
+  var le = cur.pts[cur.pts.length-1];
+  return aktenRahmen({ k:"labor", bereich:"Labor", titel:cur.pa.label+" über "+cur.pts.length+" Blätter",
+    untertitel:dmy(cur.pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
+    aktion:editKnopf("labor"), ansichten:ans,
+    links: chips + verlaufBild(cur) });
 }
 
+/* Ein Laborblatt von Hand berichtigen. Bearbeitet wird immer EIN Blatt - das in der Liste
+   rechts gewählte -, denn ein Blatt ist ein Dokument: Datum, Quelle und die Werte darauf
+   gehören zusammen. Die Referenzgrenzen stehen daneben, weil sie zum Blatt gehören und
+   nicht zu einer allgemeinen Tabelle - dasselbe sagt die Erklärzeile im Lesen. */
+/* Eine Zahl fuer ein Eingabefeld: Komma statt Punkt, wie sie auch eingetippt wird.
+   num() liest beides zurueck. */
+function kf(v){ return String(v).replace(".", ","); }
+function laborBlatt(){
+  var L = arbeit().liste;
+  if(!L.length) L.push(AKTEN_EDIT.labor.neu());
+  var i = (typeof UI.blatt === "number" && UI.blatt >= 0) ? Math.min(UI.blatt, L.length-1) : 0;
+  UI.blatt = i;
+  return L[i];
+}
+function laborEdit(){
+  var P = STATE.lab.params||[], L = arbeit().liste, p = laborBlatt(), i = UI.blatt;
+  var vals = p.values||(p.values={}), refs = p.refs||(p.refs={});
+  var grp = {};
+  P.forEach(function(pa){ (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
+  var felder = "";
+  Object.keys(grp).forEach(function(g){
+    felder += '<div class="lab-grp">'+esc(g)+'</div>';
+    grp[g].forEach(function(pa){
+      /* Die Referenz des BLATTES steht im Feld, die allgemeine nur als blasser Vorschlag
+         dahinter. Stünde sie als Wert drin, machte das erste Speichern aus einer
+         allgemeinen Tabelle eine Grenze «dieses Blattes» - und genau das behauptet die
+         Erklärzeile im Lesen ausdrücklich nicht. */
+      var r = refs[pa.key] || [], vor = pa.ref || [];
+      felder += '<div class="lab-z"><div class="n">'+esc(pa.label)
+        + (pa.unit?' <i>'+esc(pa.unit)+'</i>':'')+'</div>'
+        + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="v" value="'+(vals[pa.key]!=null?esc(kf(vals[pa.key])):"")+'" placeholder="Wert">'
+        + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="lo" value="'+(r[0]!=null?esc(kf(r[0])):"")+'" placeholder="'+(vor[0]!=null?esc(kf(vor[0])):"Ref von")+'">'
+        + '<span class="bis">–</span>'
+        + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="hi" value="'+(r[1]!=null?esc(kf(r[1])):"")+'" placeholder="'+(vor[1]!=null?esc(kf(vor[1])):"bis")+'"></div>';
+    });
+  });
+  return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Laborblatt bearbeiten",
+    untertitel:"Änderungen gehen erst beim Speichern in die Datei.",
+    aktion:editAktion(),
+    links:'<div class="maske"><div class="felder" style="margin-bottom:6px">'
+      +   '<div class="feld"><div class="lbl">Datum des Blattes</div>'
+      +     '<input type="text" data-labkopf="date" value="'+esc(p.date||"")+'" placeholder="2026-08-15"></div>'
+      +   '<div class="feld" style="grid-column:span 2"><div class="lbl">Quelle</div>'
+      +     '<input type="text" data-labkopf="source" value="'+esc(p.source||"")+'" placeholder="Praxis, Labor…"></div>'
+      + '</div>'
+      + felder
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
+      +   '<button class="btn" id="labPlus" style="color:var(--akzent)">+ Blatt</button>'
+      +   (L.length>1?'<button class="btn" id="labWeg" style="color:var(--high)">Dieses Blatt entfernen</button>':'')
+      + '</div>'
+      + '<div class="bildtext">Ein leeres Wertfeld heisst «auf diesem Blatt nicht gemessen» und wird nicht '
+      + 'gespeichert. Eine Referenz zählt nur, wenn von UND bis gesetzt sind. Ein Blatt ohne Datum wird beim '
+      + 'Speichern verworfen; angehängte Dokumente bleiben erhalten.</div></div>',
+    listeKopf:L.length+" Laborblätter",
+    liste: L.map(function(x,n){
+      return lz(x.date?dmy(x.date):"ohne Datum", String(Object.keys(x.values||{}).length),
+        n===i, 'data-blatt="'+n+'"'); }).join("") });
+}
+
+var HIS_ART = {op:"Eingriff", labor:"Labor", diag:"Diagnose", ereignis:"Ereignis", befund:"Befund", start:"Start"};
 function akteHistory(){
+  if(UI.edit==="history") return historyEdit();
   var E = (STATE.history.events||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
-  var KIND = {op:"Eingriff", labor:"Labor", diag:"Diagnose", ereignis:"Ereignis", befund:"Befund", start:"Start"};
   var jahre = [];
   E.forEach(function(e){ var j=String(e.date||"").slice(0,4); if(j && jahre.indexOf(j)<0) jahre.push(j); });
-  var j = UI.wahl || jahre[0];
-  var drin = E.filter(function(e){ return String(e.date||"").slice(0,4)===j; });
-  return aktenRahmen({ k:"history", bereich:"Krankengeschichte", titel:j||"—",
-    untertitel:zahl(drin.length,"Eintrag","Einträge")+" in diesem Jahr",
+  if(!E.length) return aktenRahmen({k:"history", bereich:"Krankengeschichte", titel:"Noch keine Einträge",
+    aktion:editKnopf("history"),
+    links:'<p class="satz">Mit ✎ lässt sich der erste Eintrag anlegen.</p>'});
+  /* «Alle Jahre» steht als erste Zeile in der Liste rechts (Entscheid Albrecht vom
+     06.09.2026: «auch alles anzeigen, nicht nur Jahre einzeln»). Die Jahreszahl bleibt
+     dabei als Zwischenüberschrift stehen - sonst laufen zwanzig Jahre ohne Halt durch. */
+  var alleJ = (UI.wahl === "alle");
+  var j = alleJ ? null : (UI.wahl || jahre[0]);
+  var drin = alleJ ? E : E.filter(function(e){ return String(e.date||"").slice(0,4)===j; });
+  var letztes = null;
+  return aktenRahmen({ k:"history", bereich:"Krankengeschichte",
+    titel: alleJ ? "Alle Jahre" : (j||"—"),
+    untertitel: alleJ
+      ? (zahl(E.length,"Eintrag","Einträge")+" · "+jahre[jahre.length-1]+" bis "+jahre[0])
+      : (zahl(drin.length,"Eintrag","Einträge")+" in diesem Jahr"),
+    aktion:editKnopf("history"),
     links: drin.map(function(e){
-      return '<div class="ev"'+(e.mark?' style="background:var(--surface2)"':'')+'>'
+      var jj = String(e.date||"").slice(0,4), kopf = "";
+      if(alleJ && jj!==letztes){ letztes = jj; kopf = '<div class="lab-grp" style="padding-top:20px">'+esc(jj)+'</div>'; }
+      return kopf + '<div class="ev"'+(e.mark?' style="background:var(--surface2)"':'')+'>'
         + '<div class="d">'+dmy(e.date)+'</div><div>'
-        + '<h4>'+esc(e.title)+'<span class="kind">'+esc((e.kind&&KIND[e.kind])||"Eintrag")+'</span></h4>'
+        + '<h4>'+esc(e.title)+'<span class="kind">'+esc((e.kind&&HIS_ART[e.kind])||"Eintrag")+'</span></h4>'
         + (e.note?'<p>'+esc(e.note)+'</p>':'')
         + (e.learning?'<div class="lern">'+esc(e.learning)+'</div>':'')
         + docsAm(e.docs)+'</div></div>'; }).join(""),
     listeKopf:zahl(jahre.length,"Jahr","Jahre"),
-    liste: jahre.map(function(x){
-      return lz(x, String(E.filter(function(e){ return String(e.date||"").slice(0,4)===x; }).length),
-        x===j, 'data-wahl="'+x+'"'); }).join("") });
+    liste: lz("Alle Jahre", String(E.length), alleJ, 'data-wahl="alle"')
+      + jahre.map(function(x){
+        return lz(x, String(E.filter(function(e){ return String(e.date||"").slice(0,4)===x; }).length),
+          x===j, 'data-wahl="'+x+'"'); }).join("") });
 }
 
-/* Die Medikation ist die einzige Akte, die sich ändert, ohne dass ein Blatt dazukommt:
-   eine Dosis wird angepasst, ein Präparat abgesetzt. Darum ist sie hier auch schreibbar -
-   auf einer Arbeitskopie, die erst beim Speichern in die Datei geht. Die Arztkopie ist
-   eingefroren und zeigt den Knopf nicht. */
-function medArbeit(){
-  if(!UI.medListe) UI.medListe = JSON.parse(JSON.stringify(((STATE.meds||{}).liste)||[]));
-  if(!UI.medKopf) UI.medKopf = {stand:(STATE.meds||{}).stand||"", quelle:(STATE.meds||{}).quelle||""};
-  return UI.medListe;
+/* Die Krankengeschichte von Hand berichtigen. Alle Einträge auf einmal, nicht Jahr für
+   Jahr: wer ein falsches Datum korrigiert, verschiebt den Eintrag sonst in ein Jahr, das
+   die Maske gerade nicht zeigt, und sucht ihn danach. */
+function historyEdit(){
+  var L = arbeit().liste.slice().sort(function(a,b){ return a.date<b.date?1:-1; });
+  /* Ist noch nichts da, steht die erste Zeile schon offen - wie beim Labor. Eine leere
+     Maske mit einem einzigen Knopf sieht aus, als fehlte etwas. */
+  if(!L.length) L.push(AKTEN_EDIT.history.neu());
+  arbeit().liste = L;
+  return aktenRahmen({ k:"history", bereich:"Krankengeschichte", titel:"Krankengeschichte bearbeiten",
+    untertitel:"Änderungen gehen erst beim Speichern in die Datei.",
+    aktion:editAktion(),
+    links: '<div class="maske">' + L.map(function(e,i){
+      return '<div class="his-z"><div class="his-kopf">'
+        + '<div class="feld" style="flex:0 1 160px"><div class="lbl">Datum</div>'
+        +   '<input type="text" data-his="'+i+'" data-f="date" value="'+esc(e.date||"")+'" placeholder="2026-08-15"></div>'
+        + '<div class="feld"><div class="lbl">Art</div><select data-his="'+i+'" data-f="kind">'
+        +   Object.keys(HIS_ART).map(function(k){
+              return '<option value="'+k+'"'+(e.kind===k?" selected":"")+'>'+esc(HIS_ART[k])+'</option>'; }).join("")
+        + '</select></div>'
+        + '<div class="feld gross"><div class="lbl">Titel</div>'
+        +   '<input type="text" data-his="'+i+'" data-f="title" value="'+esc(e.title||"")+'" placeholder="Worum es geht"></div>'
+        + '<button class="med-weg" data-hisweg="'+i+'" title="Eintrag entfernen">×</button>'
+        + '</div>'
+        + '<textarea class="notiz" data-his="'+i+'" data-f="note" placeholder="Notiz">'+esc(e.note||"")+'</textarea>'
+        + '<textarea class="notiz" data-his="'+i+'" data-f="learning" placeholder="Was ich daraus mitnehme">'+esc(e.learning||"")+'</textarea>'
+        + '</div>'; }).join("")
+      + '<button class="btn" id="hisPlus" style="margin-top:14px;color:var(--akzent)">+ Eintrag</button>'
+      + '<div class="bildtext">Ein Eintrag ohne Titel oder ohne Datum wird beim Speichern verworfen. '
+      + 'Angehängte Dokumente bleiben erhalten.</div></div>' });
 }
+
+/* ══ Akten bearbeiten ═══════════════════════════════════════════════════════════
+   Bis zum 06.09.2026 liess sich nur die Medikation ändern; Labor und Krankengeschichte
+   konnte man ansehen und sonst nichts (Meldung Albrecht: «Ich kann alles einsehen, aber
+   nichts bearbeiten. Das ist eine Fehlfunktion.»). Drei Masken nebeneinander wären drei
+   Orte für dieselbe Sache gewesen, darum gibt es EINE Mechanik: UI.edit nennt den offenen
+   Bereich, UI.arbeit hält dessen Arbeitskopie, aktenSpeichern() legt sie unter dem
+   Schlüssel des Bereichs in die Datei. Bis zum bestätigten Schreiben bleibt STATE
+   unangetastet - ein abgebrochenes Bearbeiten darf nichts hinterlassen.
+   Die Rohdaten stehen NICHT in dieser Tabelle: dort führt das ✎ jeder Zeile in die
+   Erfassung dieses Tages, und ein zweiter Weg zu denselben Zahlen wäre eine zweite
+   Wahrheit. Die Arztkopie ist eingefroren und zeigt keinen der Knöpfe. */
+var AKTEN_EDIT = {
+  labor: {
+    wort:["Laborblatt","Laborblätter"],
+    /* Dieselbe Reihenfolge wie im Lesen - jüngstes Blatt oben. Stünde die Arbeitskopie in
+       der Reihenfolge der Datei, öffnete «Bearbeiten» nach einem Klick auf das dritte
+       Blatt der Liste ein anderes drittes Blatt. */
+    holen:function(){ return { liste:((STATE.lab||{}).panels||[]).slice()
+      .sort(function(a,b){ return a.date<b.date?1:-1; }), kopf:{} }; },
+    neu:function(){ return {date:isoVon(new Date(heuteMs())), source:"", values:{}, refs:{}}; },
+    gueltig:function(p){ return String(p.date||"").trim()!==""; },
+    /* Eine halb getippte Referenz («ab 3,5», das «bis» noch leer) ist keine Grenze und
+       geht nicht in die Datei - sonst rechnete das Blatt beim nächsten Öffnen gegen
+       undefined und färbte jeden Wert rot. */
+    sichern:function(N,A){
+      N.lab = N.lab||{};
+      N.lab.panels = A.liste.map(function(p){
+        var q = JSON.parse(JSON.stringify(p)), r = {};
+        Object.keys(p.refs||{}).forEach(function(k){
+          var x = p.refs[k];
+          if(x && x[0]!=null && x[1]!=null) r[k] = [+x[0], +x[1]];
+        });
+        q.refs = r; return q;
+      }).sort(function(a,b){ return a.date<b.date?1:-1; });
+    }
+  },
+  history: {
+    wort:["Eintrag","Einträge"],
+    holen:function(){ return { liste:((STATE.history||{}).events||[]).slice(), kopf:{} }; },
+    neu:function(){ return {date:isoVon(new Date(heuteMs())), kind:"ereignis", title:"", note:"", learning:""}; },
+    gueltig:function(e){ return String(e.title||"").trim()!=="" && String(e.date||"").trim()!==""; },
+    sichern:function(N,A){
+      N.history = N.history||{};
+      N.history.events = A.liste.slice().sort(function(a,b){ return a.date<b.date?1:-1; });
+    }
+  },
+  meds: {
+    wort:["Präparat","Präparate"],
+    holen:function(){ return { liste:((STATE.meds||{}).liste)||[],
+      kopf:{stand:(STATE.meds||{}).stand||"", quelle:(STATE.meds||{}).quelle||""} }; },
+    neu:function(){ return {name:"", wirkstoff:"", dosis:"", verordner:""}; },
+    gueltig:function(m){ return String(m.name||"").trim()!==""; },
+    sichern:function(N,A){
+      N.meds = N.meds||{};
+      N.meds.liste = A.liste;
+      if(String(A.kopf.stand||"").trim())  N.meds.stand  = String(A.kopf.stand).trim();
+      if(String(A.kopf.quelle||"").trim()) N.meds.quelle = String(A.kopf.quelle).trim();
+    }
+  }
+};
+/* Die Arbeitskopie wird beim ersten Zugriff gezogen und ist eine echte Kopie: ein
+   flaches slice() reichte nicht, die Werte eines Laborblatts liegen zwei Ebenen tief. */
+function arbeit(){
+  if(!UI.arbeit) UI.arbeit = JSON.parse(JSON.stringify(AKTEN_EDIT[UI.edit].holen()));
+  return UI.arbeit;
+}
+function editKnopf(k){
+  return FROZEN ? "" : '<button class="btn" data-edit="'+k+'" style="color:var(--akzent)">✎ Bearbeiten</button>';
+}
+function editAktion(){
+  return '<button class="btn" id="editAbbruch">Abbrechen</button>'
+    + '<button class="btn stark" id="editSpeichern">Speichern</button>';
+}
+async function aktenSpeichern(){
+  var d = AKTEN_EDIT[UI.edit], A = arbeit();
+  A.liste = A.liste.filter(d.gueltig);
+  var N = JSON.parse(JSON.stringify(STATE));
+  d.sichern(N, A);
+  N.updated = dmy(isoVon(new Date(heuteMs())));
+  var ok;
+  try{ ok = await ghSchreiben(N, false); }
+  catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
+  if(ok!==true) return false;
+  var n = A.liste.length;
+  UI.edit = null; UI.arbeit = null;
+  zustandSetzen(N);
+  return meldung(zahl(n, d.wort[0], d.wort[1])+" gespeichert.");
+}
+
 function akteMeds(){
   var M = STATE.meds||{}, L = M.liste||[];
-  if(UI.medEdit){
-    var A = medArbeit(), K = UI.medKopf;
+  if(UI.edit==="meds"){
+    var A = arbeit().liste, K = arbeit().kopf;
     return aktenRahmen({ k:"meds", bereich:"Medikation", titel:"Plan bearbeiten",
       untertitel:"Änderungen gehen erst beim Speichern in die Datei.",
-      aktion:'<button class="btn" id="medAbbruch">Abbrechen</button>'
-        + '<button class="btn stark" id="medSpeichern">Speichern</button>',
-      links:'<div class="med-z" style="border-bottom:1px solid var(--line);padding-bottom:9px">'
+      aktion:editAktion(),
+      links:'<div class="maske"><div class="med-z" style="border-bottom:1px solid var(--line);padding-bottom:9px">'
         + '<div class="lbl">Präparat</div><div class="lbl">Wirkstoff</div><div class="lbl">M–Mi–A–N</div><div></div></div>'
         + A.map(function(m,i){
             return '<div class="med-z">'
@@ -2328,14 +2617,14 @@ function akteMeds(){
         +   '<div class="feld" style="flex:2 1 260px"><div class="lbl">Quelle</div>'
         +     '<input type="text" data-medkopf="quelle" value="'+esc(K.quelle||"")+'" placeholder="eMediplan, Praxis…"></div>'
         + '</div>'
-        + '<div class="bildtext">Ein Präparat ohne Namen wird beim Speichern verworfen. «i. R.» steht für «in Reserve».</div>' });
+        + '<div class="bildtext">Ein Präparat ohne Namen wird beim Speichern verworfen. «i. R.» steht für «in Reserve».</div></div>' });
   }
   if(!L.length) return aktenRahmen({k:"meds", bereich:"Medikation", titel:"Kein Plan erfasst",
-    aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
+    aktion:editKnopf("meds"),
     links:'<p class="satz">Sobald ein eMediplan erfasst ist, steht er hier.</p>'});
   return aktenRahmen({ k:"meds", bereich:"Medikation", titel:zahl(L.length,"Präparat","Präparate"),
     untertitel:(M.stand?"Stand "+dmy(M.stand)+" · ":"")+(M.quelle||""),
-    aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
+    aktion:editKnopf("meds"),
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
       + '<th>Präparat</th><th style="text-align:left">Wirkstoff</th><th>M–Mi–A–N</th><th>Verordnung</th>'
       + '</tr></thead><tbody>'
@@ -2344,24 +2633,6 @@ function akteMeds(){
           + '<td class="mono" style="color:var(--akzent)">'+esc(m.dosis||"")+'</td>'
           + '<td style="color:var(--faint)">'+esc(m.verordner||"")+'</td></tr>'; }).join("")
       + '</tbody></table></div>' });
-}
-
-async function medSpeichern(){
-  var A = (UI.medListe||[]).filter(function(m){ return String(m.name||"").trim()!==""; });
-  var K = UI.medKopf||{};
-  var N = JSON.parse(JSON.stringify(STATE));
-  N.meds = N.meds||{};
-  N.meds.liste = A;
-  if(String(K.stand||"").trim()) N.meds.stand = String(K.stand).trim();
-  if(String(K.quelle||"").trim()) N.meds.quelle = String(K.quelle).trim();
-  N.updated = dmy(isoVon(new Date(heuteMs())));
-  var ok;
-  try{ ok = await ghSchreiben(N, false); }
-  catch(e){ return meldung("Speichern fehlgeschlagen: "+(e&&e.message||e)+". Es wurde nichts geändert.", true); }
-  if(ok!==true) return false;
-  UI.medEdit = false; UI.medListe = null; UI.medKopf = null;
-  zustandSetzen(N);
-  return meldung(zahl(A.length,"Präparat","Präparate")+" gespeichert.");
 }
 
 function rohTage(){
@@ -3385,6 +3656,12 @@ function zeichne(){
   /* Dasselbe fuer die Erklaertexte: sie gehoeren zu DIESEM Bild. Wer sie nicht leert, zeigt
      hinter dem Fragezeichen den Satz der zuletzt geoeffneten Kennzahl. */
   erklLeeren();
+  /* Die Seitenbreite ZUERST, vor jeder Messung: Ebene 2 und die Erfassung tragen einen
+     Gegenstand und werden auf SEITE_SCHMAL gehalten, Kachelwand und Akten behalten die
+     weite Voreinstellung aus dem Stilblock (leerer Wert = Regel greift wieder). Stuende
+     das weiter unten, rechnete bildBreitePx() noch mit der Breite der VORIGEN Ebene. */
+  var wrapN = document.getElementById("wrap");
+  if(wrapN) wrapN.style.maxWidth = SEITEN_SCHMAL[UI.seite] ? (SEITE_SCHMAL+"px") : "";
   /* Die Breite, mit der die Bilder dieses Durchgangs gerechnet werden. Der Resize-Haken
      vergleicht dagegen und zeichnet nur bei einer ANDEREN Breite neu. */
   bildBreiteMerk = bildBreitePx();
@@ -3504,27 +3781,41 @@ document.addEventListener("click", function(e){
   if(t.dataset.kz){ UI.kz = t.dataset.kz; UI.seite = "voll"; zeichne(); window.scrollTo(0,0); return; }
   /* × heisst überall dasselbe: zurück zu «Heute». Seit dem Wegfall des Akten-Deckblatts
      gibt es dazwischen keine Ebene mehr, auf die es sonst zeigen könnte. */
-  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; UI.medEdit = false;
-    UI.blatt = 0; UI.sicht = null; UI.wahl = null; UI.medListe = null; UI.medKopf = null;
+  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null;
+    UI.blatt = 0; UI.sicht = null; UI.wahl = null; UI.edit = null; UI.arbeit = null;
     zeichne(); window.scrollTo(0,0); return; }
   /* Ein Aktenbereich - aus der Leiste auf «Heute» oder aus der Reiterzeile in den Akten.
      Beide Wege brauchen dasselbe, also gibt es einen. UI.seite wird mitgesetzt: von der
      Leiste aus kommt man von der Kachelwand, nicht aus den Akten. */
   if(t.dataset.akte){ UI.seite = "akten"; UI.akte = t.dataset.akte;
     UI.blatt = 0; UI.sicht = null; UI.wahl = null;
-    UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.blatt!==undefined){ UI.blatt = +t.dataset.blatt; zeichne(); return; }
+    UI.edit = null; UI.arbeit = null; zeichne(); window.scrollTo(0,0); return; }
+  /* «alle» ist eine Wahl wie jede andere und steht darum in derselben Ablage - nur eben
+     als Wort statt als Nummer. Ohne diese Zeile wuerde +"alle" zu NaN, und die Liste
+     zeigte gar nichts mehr. */
+  if(t.dataset.blatt!==undefined){
+    UI.blatt = (t.dataset.blatt==="alle") ? "alle" : +t.dataset.blatt; zeichne(); return; }
   if(t.dataset.sicht){ UI.sicht = t.dataset.sicht; UI.wahl = null; zeichne(); return; }
   if(t.dataset.wahl){ UI.wahl = t.dataset.wahl; zeichne(); return; }
   if(t.id==="btnCsv"){ csvExport(); return; }
 
-  /* Medikation bearbeiten. Die Arbeitskopie wird beim Oeffnen gezogen und beim Abbrechen
-     verworfen - STATE bleibt bis zum bestaetigten Schreiben unangetastet. */
-  if(t.id==="medEdit"){ UI.medEdit = true; UI.medListe = null; UI.medKopf = null; UI.erfMeldung = null; zeichne(); return; }
-  if(t.id==="medAbbruch"){ UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); return; }
-  if(t.id==="medPlus"){ medArbeit().push({name:"", wirkstoff:"", dosis:"", verordner:""}); zeichne(); return; }
-  if(t.dataset.medweg!==undefined){ medArbeit().splice(+t.dataset.medweg, 1); zeichne(); return; }
-  if(t.id==="medSpeichern"){ medSpeichern(); return; }
+  /* Eine Akte bearbeiten. Die Arbeitskopie wird beim Oeffnen gezogen und beim Abbrechen
+     verworfen - STATE bleibt bis zum bestaetigten Schreiben unangetastet. Drei Bereiche,
+     ein Weg: welcher es ist, steht am Knopf. */
+  if(t.dataset.edit){ UI.edit = t.dataset.edit; UI.arbeit = null; UI.erfMeldung = null;
+    if(UI.blatt==="alle") UI.blatt = 0;
+    zeichne(); window.scrollTo(0,0); return; }
+  if(t.id==="editAbbruch"){ UI.edit = null; UI.arbeit = null; zeichne(); return; }
+  if(t.id==="editSpeichern"){ aktenSpeichern(); return; }
+  /* Zeile hinzufuegen und entfernen bleibt je Bereich eigen: die Medikation haengt neue
+     Praeparate unten an, Krankengeschichte und Labor stellen das Neue nach vorn - dort
+     ist «neu» das juengste Datum und steht oben. */
+  if(t.id==="medPlus"){ arbeit().liste.push(AKTEN_EDIT.meds.neu()); zeichne(); return; }
+  if(t.dataset.medweg!==undefined){ arbeit().liste.splice(+t.dataset.medweg, 1); zeichne(); return; }
+  if(t.id==="hisPlus"){ arbeit().liste.unshift(AKTEN_EDIT.history.neu()); zeichne(); return; }
+  if(t.dataset.hisweg!==undefined){ arbeit().liste.splice(+t.dataset.hisweg, 1); zeichne(); return; }
+  if(t.id==="labPlus"){ arbeit().liste.unshift(AKTEN_EDIT.labor.neu()); UI.blatt = 0; zeichne(); return; }
+  if(t.id==="labWeg"){ arbeit().liste.splice(UI.blatt, 1); UI.blatt = 0; zeichne(); return; }
   if(t.dataset.sch){ UI.bzView = t.dataset.sch; zeichne(); return; }
   /* Der Zeitraum haengt an DIESER Kennzahl, nicht an der Seite: wer den Blutzucker auf
      eine Woche stellt, hat damit nichts ueber das Gewicht gesagt. */
@@ -3601,10 +3892,25 @@ document.addEventListener("input", function(e){
   }
   if(i.dataset.bp!==undefined){ UI.erfBp[+i.dataset.bp][i.dataset.f] = i.value; fussAuffrischen(); return; }
   if(i.dataset.bpalt!==undefined){ UI.erfBpNote[i.dataset.bpalt] = i.value; fussAuffrischen(); return; }
-  /* Die Medikationsfelder schreiben in die Arbeitskopie, nicht in STATE - und ohne
-     Neuzeichnen, sonst verliert das Feld bei jedem Zeichen den Fokus. */
-  if(i.dataset.med!==undefined){ medArbeit()[+i.dataset.med][i.dataset.f] = i.value; return; }
-  if(i.dataset.medkopf){ medArbeit(); UI.medKopf[i.dataset.medkopf] = i.value; return; }
+  /* Die Aktenfelder schreiben in die Arbeitskopie, nicht in STATE - und ohne Neuzeichnen,
+     sonst verliert das Feld bei jedem Zeichen den Fokus. Auch das Auswahlfeld «Art»
+     zeichnet nicht neu: an der Art haengt in dieser Maske nichts weiter. */
+  if(i.dataset.med!==undefined){ arbeit().liste[+i.dataset.med][i.dataset.f] = i.value; return; }
+  if(i.dataset.medkopf){ arbeit().kopf[i.dataset.medkopf] = i.value; return; }
+  if(i.dataset.his!==undefined){ arbeit().liste[+i.dataset.his][i.dataset.f] = i.value; return; }
+  if(i.dataset.labkopf){ laborBlatt()[i.dataset.labkopf] = i.value; return; }
+  /* Ein leeres Wertfeld heisst «nicht gemessen», nicht «null»: der Schluessel verschwindet
+     aus dem Blatt. Stuende dort eine 0, faerbte das Blatt sie beim naechsten Oeffnen als
+     Wert unter dem Referenzbereich - blau, und frei erfunden. */
+  if(i.dataset.lab){
+    var b = laborBlatt(), k = i.dataset.lab, v = num(i.value);
+    b.values = b.values||{}; b.refs = b.refs||{};
+    if(i.dataset.f==="v"){ if(v==null) delete b.values[k]; else b.values[k] = v; return; }
+    var r = b.refs[k] ? b.refs[k].slice() : [null,null];
+    r[i.dataset.f==="lo" ? 0 : 1] = v;
+    if(r[0]==null && r[1]==null) delete b.refs[k]; else b.refs[k] = r;
+    return;
+  }
 });
 
 /* ══ Start ══════════════════════════════════════════════════════════════════════ */
