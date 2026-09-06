@@ -1145,23 +1145,40 @@ function kachelBild(reihe, opt){
    Schrift im Bild hochgerechnet wird. Nach oben gedeckelt bei 1, damit auf breiten
    Fenstern nichts waechst; nach unten bei 4, damit die Raender ein sehr schmales
    Element nicht auffressen. */
-var BILD_VB = 720;              // viewBox-Breite, unveraendert
+/* ── Die viewBox-Breite waechst mit dem Fenster ───────────────────────────────────
+   Bis zum 06.09.2026 stand hier eine feste 720. Das SVG traegt width:100% und
+   height:auto, also skaliert der Browser das GANZE Bild proportional - auf 1710 px
+   Darstellungsbreite wurde es 594 px hoch statt der frueheren 371. Auf einem
+   Vollbildfenster passte die Buehne damit nicht mehr auf den Schirm, und die Kurve
+   uebertrieb ihre Ausschlaege, weil Hoehe und Breite gemeinsam wuchsen.
+   Jetzt ist die viewBox so breit wie die Darstellung: der Massstab ist 1:1, die Hoehe
+   bleibt bei rund 250 px, und die zusaetzliche Breite geht dorthin, wo sie etwas nuetzt -
+   in den Abstand zwischen den Messpunkten.
+   Unter 720 px bleibt alles wie gehabt: dort wird weiter gestaucht und die Schrift ueber
+   bildHoch() hochgerechnet - eine viewBox schmaler als 720 machte die Achsenzahlen und
+   die Datumsmarken zu Nachbarn. */
+var BILD_VB_MIN = 720;
+function bildVb(){ return Math.max(BILD_VB_MIN, Math.round(bildBreitePx())); }
 var BILD_ZEICHEN = 0.64;        // Zeichenbreite der Monospace, in Vielfachen der Schrifthoehe
 var bildBreiteMerk = 0, bildZweiterLauf = false, bildTakt = null;
 function bildBreitePx(){
   var n = document.getElementById("haupt");
   var b = n ? n.clientWidth - 50 : 0;
-  return b > 40 ? b : BILD_VB;
+  return b > 40 ? b : BILD_VB_MIN;
 }
 function bildHoch(){
-  var f = BILD_VB / bildBreitePx();
+  var f = bildVb() / bildBreitePx();
   return f<=1 ? 1 : (f>4 ? 4 : f);
 }
 function fz(x){ return +x.toFixed(2); }
 
 function bild(reihen, opt){
   opt = opt||{};
-  var L=46,R=690,T=16,B=222, alle=[];
+  /* Die viewBox dieses Durchgangs. Einmal gelesen und weitergereicht, nicht bei jedem
+     Gebrauch neu gemessen - sonst rechnete dieselbe Zeichnung mit zwei Breiten, wenn
+     sich das Fenster mitten im Bauen aendert. */
+  var VB = bildVb();
+  var L=46,R=VB-30,T=16,B=222, alle=[];
   reihen.forEach(function(r){ (r.pts||[]).forEach(function(p){ if(p.v!=null) alle.push(p); }); });
   if(!alle.length) return '<div class="bildtext">Noch nicht gemessen.</div>';
   var xs=alle.map(function(p){return ms(p.iso);});
@@ -1204,7 +1221,7 @@ function bild(reihen, opt){
      die halbe erste Datumsmarke, die genau ueber L sitzt. Rechts Platz fuer das Etikett
      der Ziellinie UND fuer die halbe letzte Datumsmarke, die genau ueber R sitzt. */
   L = +Math.max(46, breitAchse+12, halbDatum).toFixed(1);
-  R = +Math.min(690, BILD_VB-halbDatum, breitLinie ? BILD_VB-5-breitLinie : 690).toFixed(1);
+  R = +Math.min(VB-30, VB-halbDatum, breitLinie ? VB-5-breitLinie : VB-30).toFixed(1);
   /* Die Datumszeile haelt Abstand zur untersten Achsenzahl, und der Abstand waechst mit
      der Schrift: die unterste Achsenzahl haengt 0,55 Schrifthoehen unter die Grundachse,
      die Datumsmarke ragt 0,905 ueber ihre eigene Grundlinie, dazu 0,45 Luft. Mit fester
@@ -1322,7 +1339,7 @@ function bild(reihen, opt){
      opt.textZeigen ist die Ausnahme fuer die Akten: dort gibt es kein Fragezeichen, und ohne
      die Unterschrift stuende das Referenzband unerklaert im Bild. */
   if(text && !opt.textZeigen) ERKL.bilder.push(text);
-  return '<svg viewBox="0 0 '+BILD_VB+' '+VBH+'" style="width:100%;height:auto;display:block;margin-top:18px">'+h+'</svg>'
+  return '<svg viewBox="0 0 '+VB+' '+VBH+'" style="width:100%;height:auto;display:block;margin-top:18px">'+h+'</svg>'
     + ((text && opt.textZeigen)?'<div class="bildtext">'+text+'</div>':'');
 }
 
@@ -1581,9 +1598,12 @@ function schalterHtml(items){
    dem Zeitraum-Schalter - so wenig wie die Gesamtbilanz, und aus demselben Grund.
    Kein Fortschrittsbalken im Sinne einer Forderung: er zeigt einen Stand, mahnt nichts an
    und wird nicht gruen, weil jemand fleissig war. */
-var WEG_VB = 720;
 function wegSvg(start, jetzt, ziele){
   if(start==null || jetzt==null || !ziele.length) return "";
+  /* Dieselbe viewBox wie das grosse Bild darueber - sonst waeren die beiden Bilder in
+     einer Buehne verschieden stark gestaucht, und die Schrift im einen kleiner als im
+     anderen. Seit dem 06.09.2026 waechst sie mit dem Fenster (siehe bildVb). */
+  var WEG_VB = bildVb();
   /* Dieselbe Stauchung wie im grossen Bild: die viewBox ist fest, die Darstellungsbreite
      nicht. Ohne bildHoch() erscheint eine 11,5-px-Schrift bei 390 px Fensterbreite als
      4,8 px - gemessen am 28.08.2026 am eigenen ersten Entwurf. Mit den Schriften waechst
