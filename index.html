@@ -51,11 +51,6 @@
   .btn.rund{width:38px;height:38px;padding:0;font-size:17px}
   .ampel{width:9px;height:9px;border-radius:50%;background:var(--high);display:inline-block;margin-right:7px}
   .ampel.an{background:var(--good)} .ampel.busy{background:var(--warn)}
-  .status{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;padding:13px 0 16px;
-    border-bottom:1px solid var(--line2);margin-bottom:20px;font-size:14.5px}
-  /* Ohne diese Regel bliebe die Leiste stehen: .status setzt display:flex und schlaegt
-     damit die UA-Regel [hidden]{display:none} - das Attribut allein blendet nichts aus. */
-  .status[hidden]{display:none}
   .karte{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
   .wand{display:flex;flex-direction:column;gap:14px}
   /* Die beiden Leitkacheln (Entscheid Albrecht vom 28.08.2026: Gewicht und Blutzucker sind
@@ -346,7 +341,6 @@
   </header>
 
   <section class="karte stamm" id="stamm" hidden></section>
-  <div class="status" id="status"></div>
 
   <main id="haupt"></main>
 
@@ -542,6 +536,19 @@ function fenster(kzk){
     return {k:"frei", tage:null, von:w.von||null, bis:w.bis||null}; }
   var st = ZEIT_STUFEN.filter(function(x){ return x.k===s; })[0] || ZEIT_STUFEN[3];
   return {k:st.k, tage:st.tage, von:(st.tage!=null?isoMinus(heuteIso(), st.tage):null), bis:null};
+}
+/* Zeigt diese Ansicht nur einen Ausschnitt? Entscheid Albrecht vom 06.09.2026: eine
+   Arztkopie MIT Zeitraum zeigt der Fachperson die Zahlen dieser Periode - und sonst keine.
+   Der Startwert, die Vorperiode, der Weg zu den Zielen, ein aelterer HbA1c: das sind
+   Auskuenfte fuer Albrecht selbst. In der Kopie stuenden sie neben den Zahlen der Periode
+   mit einem Bezug, den die Kopie gar nicht mehr traegt - die Daten dazu sind gekappt, die
+   Zahl daneben nicht. Zwei Zahlen mit verschiedenem Bezug in einer Zeile ist genau der
+   Fehler, den dieses Werkzeug an anderer Stelle abgeschafft hat.
+   Nur in der Kopie und nur mit Ausschnitt: im Werkzeug selbst und in einer Kopie ueber
+   «alles» bleibt jede dieser Zahlen stehen - dort ist ihr Bezug gedeckt. */
+function nurPeriode(){
+  var z = STATE.__export && STATE.__export.zeitraum;
+  return FROZEN && !!(z && z.gekappt);
 }
 /* DIE Stelle, an der eine Reihe auf ein Fenster gekappt wird. Es gibt keine zweite - zwei
    Grenzwertlogiken laufen auseinander, und dann zeigt das Bild einen anderen Zeitraum als
@@ -1245,16 +1252,14 @@ function KZ(){
   };
 }
 
-/* ══ Ebene 1 · Heute ════════════════════════════════════════════════════════════ */
-function zeichneStatus(){
-  var t = (STATE.termine||[]).filter(function(x){ return x.date && ms(x.date)>heuteMs(); })
-    .sort(function(a,b){ return a.date<b.date?-1:1; })[0];
-  var termin = t ? (t.wer||"Termin")+" am "+dm(t.date)+", in "+Math.abs(tage(t.date))+" Tagen." : "";
-  /* Steht kein Termin an, bleibt keine leere Leiste stehen: die Zeile wird ausgeblendet. */
-  var st = document.getElementById("status");
-  st.hidden = !termin;
-  st.innerHTML = termin ? '<div style="color:var(--faint)">'+esc(termin)+'</div>' : "";
-}
+/* ══ Ebene 1 · Heute ════════════════════════════════════════════════════════════
+   Die Terminleiste ist am 06.09.2026 ersatzlos gestrichen worden (Entscheid Albrecht) -
+   im Werkzeug UND in der Arztkopie. Sie stand ueber der Kachelwand und meldete den
+   naechsten Termin; ein Werkzeug fuer Messwerte ist kein Kalender, und in der Kopie war
+   sie schlicht die falsche Auskunft an die falsche Person.
+   Gestrichen heisst gestrichen: die Leiste, ihre Stilregeln und ihre Funktion sind weg,
+   und `termine` faellt beim Export aus der Kopie - wie `review` am 21.08.2026. In der
+   monitoring.json bleibt der Block unangetastet; das Werkzeug liest ihn nur nicht mehr. */
 
 function kachelHtml(d, leit){
   /* Die Funke traegt preserveAspectRatio="none" - die viewBox-Breite ist darum nur die
@@ -1421,15 +1426,20 @@ function zeichneVoll(){
          kraeftiger. Fehlt goal2 in den Daten, entsteht keine Linie und nichts bricht. */
       var gStart = w.startRef!=null ? +w.startRef : (Gall.length?Gall[0].v:null);
       var gLa = Gall.length ? Gall[Gall.length-1] : null;
+      /* Startwert und Ziele liegen ausserhalb des Fensters - in einer Kopie mit Ausschnitt
+         sind sie darum nicht da (siehe nurPeriode). Ohne ziele entsteht kein Weg-Balken,
+         keine Zielzeile und kein Ziel-Halbsatz; alle drei haengen an dieser einen Liste. */
       var ziele = [];
-      if(w.goal1!=null) ziele.push({v:+w.goal1, label:"Ziel 1"});
-      if(w.goal2!=null) ziele.push({v:+w.goal2, label:"Ziel 2", blass:true});
+      if(!nurPeriode()){
+        if(w.goal1!=null) ziele.push({v:+w.goal1, label:"Ziel 1"});
+        if(w.goal2!=null) ziele.push({v:+w.goal2, label:"Ziel 2", blass:true});
+      }
       kopfWert = nf(gL.v,1);
       kopfEinheit = "kg · zuletzt "+dm(gL.iso);
       satz = "Im Zeitraum "+fl+" liegen "+zahl(G.length,"Messung","Messungen")+": von "+nf(g0.v,1)
         + " auf "+nf(gL.v,1)+" kg, "+vz(gL.v-g0.v,1)+" kg."
         + (tF!=null ? " Das Tempo "+fl+" liegt bei "+vz(tF,2)+" kg je Woche" : "")
-        + (tF!=null && rest!=null && tF<0
+        + (tF!=null && rest!=null && tF<0 && ziele.length
             ? "; bei diesem Tempo sind die "+nf(rest,1)+" kg bis Ziel 1 in gut "
               + Math.round(Math.abs(rest/tF))+" Wochen erreicht"
               + (rest2!=null ? ", die "+nf(rest2,1)+" kg bis Ziel 2 in gut "
@@ -1458,17 +1468,23 @@ function zeichneVoll(){
 
       neben = [ {l:"Im Zeitraum", w:nf(g0.v,1)+" → "+nf(gL.v,1), u:zahl(G.length,"Messung","Messungen")+" · kg"},
         {l:"Veränderung", w:vz(gL.v-g0.v,1), u:"kg "+fl, f:(gL.v<g0.v?"var(--good)":null)},
-        {l:"seit dem Start", w:(gStart!=null&&gLa)?vz(gLa.v-gStart,1):"—",
+        {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl} ];
+      /* Die GESAMTBILANZ hat als einzige Zahl dieser Seite ihren Bezug ausserhalb des
+         Fensters - in einer Kopie mit Ausschnitt faellt sie darum weg, samt den beiden
+         Zielabstaenden. Eingefuegt wird sie an zweiter Stelle, damit die Reihenfolge
+         «was im Zeitraum · was insgesamt · wie schnell» erhalten bleibt. */
+      if(!nurPeriode()){
+        neben.splice(2, 0, {l:"seit dem Start", w:(gStart!=null&&gLa)?vz(gLa.v-gStart,1):"—",
           u:gLa?("kg · seit "+dmy(Gall[0].iso)):"kein Startwert",
-          f:(gStart!=null&&gLa&&gLa.v<gStart)?"var(--good)":null},
-        {l:"Ø Tempo", w:tF!=null?vz(tF,2):"—", u:"kg je Woche "+fl},
-        {l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—",
-          u:w.goal1!=null?("kg · Ziel "+nf(w.goal1,0)+" kg"):"kein Ziel 1 in den Stammdaten"} ];
-      /* Ziel 2 nur, wenn es in den Daten steht - eine Nebenzahl «—» fuer ein Ziel, das es
-         nicht gibt, waere eine Luecke, die nach einem Fehler aussieht. */
-      if(w.goal2!=null)
-        neben.push({l:"Abstand zu Ziel 2", w:rest2!=null?nf(rest2,1):"—",
-          u:"kg · Ziel "+nf(w.goal2,0)+" kg"});
+          f:(gStart!=null&&gLa&&gLa.v<gStart)?"var(--good)":null});
+        neben.push({l:"Abstand zu Ziel 1", w:rest!=null?nf(rest,1):"—",
+          u:w.goal1!=null?("kg · Ziel "+nf(w.goal1,0)+" kg"):"kein Ziel 1 in den Stammdaten"});
+        /* Ziel 2 nur, wenn es in den Daten steht - eine Nebenzahl «—» fuer ein Ziel, das es
+           nicht gibt, waere eine Luecke, die nach einem Fehler aussieht. */
+        if(w.goal2!=null)
+          neben.push({l:"Abstand zu Ziel 2", w:rest2!=null?nf(rest2,1):"—",
+            u:"kg · Ziel "+nf(w.goal2,0)+" kg"});
+      }
     }
   }
 
@@ -1638,21 +1654,25 @@ function zeichneVoll(){
           f:post.length ? (mittel(wV(post))<NORM.post?"var(--good)":"var(--warn)") : null},
         {l:"im Soll der Therapie", w:pSoll+" %", u:imSoll.length+" von "+BZ.length+" "+fl, f:"var(--good)"},
         {l:"unter Nicht-Diabetiker", w:pNorm+" %", u:unterNorm.length+" von "+BZ.length+" "+fl,
-          f:pNorm>=70?"var(--good)":"var(--warn)"},
-        /* Die Vorperiode ist der Beleg, dass sich etwas geaendert hat - ohne sie ist jede
-           Zahl hier nur ein Zustand, kein Weg. */
-        {l:"Vorperiode", w:bl?nf(bl.avg,1):"—",
+          f:pNorm>=70?"var(--good)":"var(--warn)"} ];
+      /* Die beiden Zahlen mit Bezug ausserhalb des Fensters. In einer Kopie mit Ausschnitt
+         stehen sie nicht (siehe nurPeriode):
+         - Die Vorperiode ist der Beleg, dass sich etwas geaendert hat - ohne sie ist jede
+           Zahl hier nur ein Zustand, kein Weg. Sie ist damit genau das, was die Fachperson
+           NICHT erfragt hat: der Weg dorthin statt der Stand jetzt.
+         - Der HbA1c folgt dem Zeitraum-Schalter nicht, er ist ein Laborwert und kann Monate
+           alt sein. In der Kopie geht er trotzdem nicht verloren: die Laborakte geht seit
+           dem 06.09.2026 immer vollstaendig mit, und dort steht er mit seinem Datum, seinem
+           Referenzbereich und seiner ganzen Reihe - vollstaendiger als hier. */
+      if(!nurPeriode()){
+        neben.push({l:"Vorperiode", w:bl?nf(bl.avg,1):"—",
           u:bl?(bl.label?bl.label.replace(/^Vorperiode\s*/,""):"früher")+" · "+fl+" "+nf(jetztOe,1):"kein Vergleichswert",
-          f:(bl&&jetztOe<bl.avg)?"var(--good)":"var(--faint)"} ];
-      /* Der HbA1c stand bis zum 28.08.2026 als zweite Unterzeile der Kachel. Mit den
-         Unterzeilen faellt er nicht weg - er zieht hierher. Sein ALTER ist die Aussage,
-         darum steht es als Zahl daneben und nicht bloss das Datum. Er folgt dem
-         Zeitraum-Schalter NICHT: er ist ein Laborwert und kann Monate alt sein; ein
-         Vier-Wochen-Fenster loeschte ihn, obwohl in der Praxis genau nach ihm gefragt wird. */
-      var hbAlle = rHba1c(), hbL = hbAlle.length?hbAlle[hbAlle.length-1]:null;
-      neben.push({ l:"HbA1c", w:hbL?nf(hbL.v,1):"—",
-        u:hbL ? "% · "+dmy(hbL.iso)+" · "+zahl(hba1cAlter(hbL.iso),"Monat","Monate")+" alt"
-              : "kein HbA1c im Labor erfasst" });
+          f:(bl&&jetztOe<bl.avg)?"var(--good)":"var(--faint)"});
+        var hbAlle = rHba1c(), hbL = hbAlle.length?hbAlle[hbAlle.length-1]:null;
+        neben.push({ l:"HbA1c", w:hbL?nf(hbL.v,1):"—",
+          u:hbL ? "% · "+dmy(hbL.iso)+" · "+zahl(hba1cAlter(hbL.iso),"Monat","Monate")+" alt"
+                : "kein HbA1c im Labor erfasst" });
+      }
     }
   }
 
@@ -2942,6 +2962,18 @@ function expKappen(arr, feld, f){
     return (!f.von || d>=f.von) && (!f.bis || d<=f.bis);
   });
 }
+/* WELCHE Bereiche der Zeitraum ueberhaupt kappt - Entscheid Albrecht vom 06.09.2026.
+   Der Zeitraum gibt der Fachperson den Ueberblick ueber eine MESSPERIODE; Diagnosen,
+   Laborblaetter und Krankengeschichte sind kein Verlauf, sondern die Akte, und gehen
+   IMMER vollstaendig mit. Gemessen an der eigenen Kopie vom 06.09.2026: mit vier Wochen
+   exportiert, trug sie «0 Blätter» und «0 Einträge» - die Akte, die in der Praxis als
+   erstes aufgeschlagen wird, war leer, und ein Laborarchiv von 2013 bis heute laesst
+   sich mit keinem Wochenfenster sinnvoll beschneiden.
+   Diese Liste ist die EINE Stelle, an der das steht: exportZustand() kappt danach, und
+   der Dialog liest daraus, was er unter jedem Bereich meldet. Zwei getrennte Listen
+   liefen beim ersten neuen Bereich auseinander - und dann verspraeche der Dialog eine
+   andere Menge, als die Datei traegt. */
+var EXP_GEKAPPT = { gewicht:true, bz:true, bd:true };
 /* Was in welchem Bereich ein Datum traegt. body steht bei «Gewicht»: es hat keinen eigenen
    Schalter und geht mit dem Gewicht an oder aus. Die Medikation traegt kein Datum je Zeile -
    ein Plan ist ein Stand, kein Verlauf. */
@@ -2950,33 +2982,44 @@ var EXP_TEILE = {
             {q:function(){ return (STATE.body||{}).points; }, feld:"date", e:"Körpermass", m:"Körpermassen"} ],
   bz:[ {q:function(){ return (STATE.glucose||{}).days; }, feld:"iso", e:"Messtag", m:"Messtagen"} ],
   bd:[ {q:function(){ return (STATE.bloodpressure||{}).points; }, feld:"iso", e:"Messung", m:"Messungen"} ],
-  labor:[ {q:function(){ return (STATE.lab||{}).panels; }, feld:"date", e:"Blatt", m:"Blättern"} ],
-  history:[ {q:function(){ return (STATE.history||{}).events; }, feld:"date", e:"Eintrag", m:"Einträgen"} ],
+  /* mVoll ist der Plural OHNE «von»: «29 Blätter» statt «3 von 29 Blättern». Diese beiden
+     Bereiche kappt der Zeitraum nicht mehr, also steht dort nie ein Dativ. */
+  labor:[ {q:function(){ return (STATE.lab||{}).panels; }, feld:"date", e:"Blatt", m:"Blättern", mVoll:"Blätter"} ],
+  history:[ {q:function(){ return (STATE.history||{}).events; }, feld:"date", e:"Eintrag", m:"Einträgen", mVoll:"Einträge"} ],
   meds:[],
   stamm:[]
 };
 function expMengen(){
   var f = fenster("export");
   return EXP_BEREICHE.map(function(b){
-    return { k:b.k, teile:(EXP_TEILE[b.k]||[]).map(function(t){
+    /* Ein Bereich, den der Zeitraum nicht kappt, meldet seine volle Menge - nicht «x von y».
+       Die Zahl bleibt stehen, weil sie beantwortet, wie viel mitgeht; nur die Auswahl
+       daran faellt weg. */
+    var kappt = !!EXP_GEKAPPT[b.k];
+    return { k:b.k, kappt:kappt, teile:(EXP_TEILE[b.k]||[]).map(function(t){
       var arr = t.q()||[];
-      var drin = expKappen(arr, t.feld, f).length;
-      var ohne = arr.filter(function(x){ return !expDatum(x, t.feld); }).length;
+      var drin = kappt ? expKappen(arr, t.feld, f).length : arr.length;
+      var ohne = kappt ? arr.filter(function(x){ return !expDatum(x, t.feld); }).length : 0;
       return { drin:drin, gesamt:arr.length, ohne:ohne,
-        text:(t.vor||"")+drin+" von "+zahl(arr.length, t.e, t.m) };
+        text:kappt ? (t.vor||"")+drin+" von "+zahl(arr.length, t.e, t.m)
+                   : zahl(arr.length, t.e, t.mVoll||t.m) };
     }) };
   });
 }
 /* Ein Bereich, der durch den Zeitraum leer wird, wird BENANNT, nicht versteckt: «0 von 29
-   Blättern» in gedaempfter Warnfarbe. Wer mit vier Wochen ein leeres Labor mitschickt, muss
-   das sehen, bevor die Datei entsteht - nicht, wenn der Arzt sie oeffnet. */
+   Blättern» in gedaempfter Warnfarbe. Wer mit vier Wochen ein leeres Blutzuckerfenster
+   mitschickt, muss das sehen, bevor die Datei entsteht - nicht, wenn der Arzt sie oeffnet.
+   Ein Bereich, den der Zeitraum nicht anfasst, sagt das ausdruecklich: «vollständig». Es
+   stillschweigend wegzulassen hiesse, den Leser raten zu lassen, wofuer der Schalter oben
+   ueberhaupt gilt. */
 function expMengeZeile(mz, an, gekappt){
   if(!an) return '<span style="color:var(--faint)">nicht enthalten</span>';
   if(!mz.teile.length) return gekappt ? '<span style="color:var(--faint)">ohne Datum — bleibt vollständig</span>' : "";
   return mz.teile.map(function(t){
-    var leer = t.gesamt>0 && t.drin===0;
+    var leer = mz.kappt && t.gesamt>0 && t.drin===0;
     return '<span style="color:'+(leer?"var(--warn);opacity:.8":"var(--faint)")+'">'+esc(t.text)+'</span>'
-      + ((gekappt && t.ohne) ? '<span style="color:var(--faint)"> ('+t.ohne+' ohne Datum)</span>' : "");
+      + ((gekappt && mz.kappt && t.ohne) ? '<span style="color:var(--faint)"> ('+t.ohne+' ohne Datum)</span>' : "")
+      + ((gekappt && !mz.kappt) ? '<span style="color:var(--faint)"> · vollständig</span>' : "");
   }).join('<span style="color:var(--faint)"> · </span>');
 }
 
@@ -2988,11 +3031,15 @@ function exportModal(){
     + '<p style="margin:0 0 16px;font-size:14px;color:var(--muted)">Eine einzelne HTML-Datei mit dem heutigen Datenstand — dieselbe Ansicht, ohne Erfassen und ohne Zugang zum Datenspeicher. Abgewählte Bereiche sind in der Kopie nicht enthalten.</p>'
     + '<div class="abschnitt" style="padding-top:0">Zeitraum</div>'
     + zeitschalterHtml("export")
-    /* «Einträge» und nicht «Messungen»: gekappt werden auch Laborblätter und die
-       Krankengeschichte. Und der Bezug steht im Genitiv, wie ihn fensterLang liefert -
+    /* «Messungen» und nicht «Einträge»: seit dem 06.09.2026 kappt der Zeitraum nur noch
+       Gewicht, Blutzucker und Blutdruck. Labor, Krankengeschichte und Medikation gehen
+       vollständig mit, und der Satz sagt das - sonst liest sich der Schalter wie eine
+       Einschränkung auf alles. Der Bezug steht im Genitiv, wie ihn fensterLang liefert -
        «was der letzten Woche erfasst wurde» ist kein Satz. */
     + '<div class="bildtext">'+(gekappt
-        ? esc("Die Kopie enthält nur Einträge "+fensterLang(f)+". Unter jedem Bereich steht, wie viel davon übrig bleibt.")
+        ? esc("Die Kopie enthält die Messungen "+fensterLang(f)+". Diagnosen, Labor, "
+            + "Krankengeschichte und Medikation gehen immer vollständig mit — sie sind die "
+            + "Akte, kein Verlauf. Unter jedem Bereich steht, wie viel das ist.")
         : "Ohne Einschränkung geht der ganze Bestand mit. Unter jedem Bereich steht, wie viel das ist.")+'</div>'
     + '<div class="abschnitt">Bereiche</div>'
     + EXP_BEREICHE.map(function(b,bi){
@@ -3017,7 +3064,11 @@ function exportZustand(){
      sie waeren unsichtbar, aber im Dateitext enthalten, samt ihrer Notizen.
      body steht NICHT mehr in dieser Liste: der Taille-Hueft-Quotient wird wieder gezeigt,
      und die Aufraeumliste warf ihn sonst genau dann weg, wenn er gebraucht wird. */
-  ["befinden","fitbit","fluid","digestion","wellbeing","nutrition","notes","hba1cLab","markers"]
+  ["befinden","fitbit","fluid","digestion","wellbeing","nutrition","notes","hba1cLab","markers",
+   /* `termine` seit dem 06.09.2026: die Terminleiste ist gestrichen, also zeigt in der Kopie
+      nichts mehr darauf - und der naechste Arzttermin ist ohnehin keine Auskunft fuer die
+      Praxis, die ihn selbst vergeben hat. */
+   "termine"]
     .forEach(function(k){ if(S[k]!==undefined) delete S[k]; });
   /* body hat keinen eigenen Bereichsschalter - die Umfaenge gehoeren zum Gewicht und gehen
      mit ihm an oder aus. Ein achter Schalter fuer drei Zahlen waere eine Frage zu viel. */
@@ -3039,13 +3090,16 @@ function exportZustand(){
      Gekappt wird mit denselben Grenzen, die danach in __export.zeitraum stehen - eine
      zweite Rechnung liefe beim ersten Randfall auseinander. */
   if((fz.von || fz.bis) && !fz.bis) fz.bis = isoVon(new Date(heuteMs()));
+  /* Gekappt werden NUR die Messreihen - die drei aus EXP_GEKAPPT, dazu die Koerpermasse,
+     die am Gewicht haengen. Laborblaetter und Krankengeschichte standen bis zum 06.09.2026
+     mit in dieser Liste; sie sind hier ersatzlos weg. Was dabei herauskam, stand in der
+     eigenen Kopie: «0 Blätter», «0 Einträge», und die Diagnosenzeile im Kopf ohne einen
+     einzigen Befund dahinter. */
   if(fz.von || fz.bis){
     S.weight.points        = expKappen(S.weight.points, "date", fz);
     if(S.body) S.body.points = expKappen(S.body.points, "date", fz);
     S.glucose.days         = expKappen(S.glucose.days, "iso", fz);
     S.bloodpressure.points = expKappen(S.bloodpressure.points, "iso", fz);
-    S.lab.panels           = expKappen(S.lab.panels, "date", fz);
-    S.history.events       = expKappen(S.history.events, "date", fz);
   }
   S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN,
     bereiche:JSON.parse(JSON.stringify(EXP_AN)),
@@ -3079,7 +3133,13 @@ function exportZustand(){
 
 function exportErzeugen(){
   var klon = document.documentElement.cloneNode(true);
-  ["haupt","status","stamm","modale"].forEach(function(id){
+  /* Geleert wird JEDER Behaelter, in dem gezeichneter Inhalt stehen kann - der Klon nimmt
+     den Bildschirm mit, wie er im Moment des Klicks aussieht.
+     «tip» steht seit dem 06.09.2026 in dieser Liste, gefunden an einer echten Kopie: dort
+     stand der zuletzt angezeigte Merkzettel samt Datum, Wert und Messpunkt im Dateitext.
+     Das ist der Weg an den Notizschaltern vorbei - wer die Notizen abwaehlt und vorher
+     einen Merkzettel offen hatte, gibt genau die eine Notiz doch mit. */
+  ["haupt","stamm","modale","tip"].forEach(function(id){
     var n = klon.querySelector("#"+id); if(n) n.innerHTML = "";
   });
   var html = klon.outerHTML;
@@ -3185,10 +3245,18 @@ function zeichne(){
   kopfE.textContent = kopie
     ? ("Arztkopie · reine Ansicht" + ((zr && zr.gekappt) ? " · Ausschnitt "+zr.text : ""))
     : "Monitoring";
-  kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+((STATE.__export&&STATE.__export.made)?dmy(STATE.__export.made):stand) : "MOPP+ | "+heute;
+  var gemacht = (STATE.__export && STATE.__export.made) ? dmy(STATE.__export.made) : null;
+  kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+(gemacht||stand) : "MOPP+ | "+heute;
   document.getElementById("werkzeuge").hidden = kopie;
+  /* Die Fusszeile sagte in der Kopie dasselbe wie der Kopf: «Arztkopie», «reine Ansicht»
+     und das Datum standen zweimal auf der Seite (Entscheid Albrecht vom 06.09.2026).
+     Uebrig bleibt die eine Angabe, die der Kopf NICHT macht - und auch die nur, wenn sie
+     etwas sagt: «Kopie vom» ist der Tag, an dem die Datei entstand, «Datenstand» der Tag
+     der letzten Erfassung. Meist derselbe, dann ist die zweite Nennung Wiederholung. Wo
+     sie auseinanderfallen, ist sie eine Auskunft: die Kopie ist von heute, gemessen wurde
+     zuletzt vor zwei Wochen. */
   document.getElementById("fussText").textContent = kopie
-    ? "Arztkopie · Datenstand "+stand+" · reine Ansicht, keine Erfassung"
+    ? ((gemacht && stand && stand!==gemacht) ? "Datenstand "+stand : "")
     : "Ebene 1 bis 3 · Datenstand "+stand;
 
   var st = document.getElementById("stamm");
@@ -3204,14 +3272,12 @@ function zeichne(){
 
   var haupt = document.getElementById("haupt");
   if(!rGewicht().length && !rBzAlle().length && !STATE.updated){
-    document.getElementById("status").innerHTML = "";
     haupt.innerHTML = '<div class="karte leer"><div class="k-name">Erster Start</div>'
       + '<div style="font-size:20px;font-weight:640">Willkommen bei MOPP+</div>'
       + '<p style="margin:0;font-size:14.5px;color:var(--muted)">Deine Messwerte liegen in Deinem privaten Datenspeicher. MOPP+ holt sie von dort und schreibt sie dorthin zurück — auf diesem Gerät bleibt nichts ausser dem Zugang.</p>'
       + '<button class="btn stark" id="btnStart" style="align-self:flex-start;margin-top:6px">Datenspeicher verbinden</button></div>';
     return;
   }
-  zeichneStatus();
   if(UI.seite==="wand") haupt.innerHTML = zeichneWand();
   if(UI.seite==="voll") haupt.innerHTML = zeichneVoll();
   if(UI.seite==="akten") haupt.innerHTML = zeichneAkten();
