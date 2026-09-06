@@ -13,24 +13,41 @@
      ACHTUNG: dieser Kommentar steht im Style-Block, nicht beim Skript. Proben, die nur
      den Skriptteil schneiden, sehen ihn nicht - er ist darum dreimal falsch stehen
      geblieben. Wer Kommentare prueft, prueft die GANZE Datei.
-     Farben: Palette «Mitternacht». Ampel nur fuer ZUSTAND, --akzent fuer eine Datenreihe,
-     --zweit nur dort, wo zwei echte Reihen in einem Bild liegen (Blutdruck). */
+     Farben: Palette «Zinn» (Entscheid Albrecht vom 06.09.2026, loest «Mitternacht» ab).
+     Der Akzent ist GRAU, nicht blau - er faerbt Datenreihen, Knoepfe und Raender, also
+     alles, was keine Aussage ueber einen Zustand macht.
+     Die AMPEL bleibt farbig und ist damit das Einzige, was noch Farbe traegt: gruen, gelb
+     und rot sagen etwas ueber den WERT. Genau darum wurde grau gewaehlt und nicht ein
+     zweiter Buntton - ein blauer Akzent neben einem gruenen Messwert laesst offen, ob das
+     Blau auch etwas bedeutet. Jetzt ist die Antwort: was farbig ist, ist eine Aussage.
+     Gewaehlt wurde Zinn und nicht das gruenstichige «Schiefer», obwohl das schoener war:
+     ein Grau mit Gruenstich sitzt neben dem gruenen «im Soll» und schwaecht genau die
+     Unterscheidung, auf die es hier ankommt. */
   :root{
-    --bg:#0F1216; --surface:#171B21; --surface2:#13171C; --line:#272E38; --line2:#1F242B;
-    --ink:#F1F4F7; --muted:#A9B3BE; --faint:#7E8894;
-    --akzent:#8FB8E8; --akzent-hell:#B6D2F2; --akzent-fg:#0F1216; --zweit:#6FA8E0;
+    --bg:#0A0C0D; --surface:#15181A; --surface2:#101314; --line:#2C3134; --line2:#202426;
+    --ink:#F4F6F7; --muted:#AFB6BA; --faint:#828A8E;
+    --akzent:#C6CDD2; --akzent-hell:#E2E7EA; --akzent-fg:#0A0C0D; --zweit:#96A0A6;
     --good:#5FC08C; --warn:#E0B25C; --high:#E8735E;
     --zone:rgba(95,192,140,.12); --zone-kante:rgba(95,192,140,.45); --grid:rgba(255,255,255,.07);
     --marke:#F08C1A;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --r:15px;
+    /* Die Leiste rechts und der Abstand zu ihr - an EINER Stelle, weil beide
+       Zahlen im Raster und in der Hoehenrechnung vorkommen. */
+    --leiste:264px; --spalt:22px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg)}
+  /* Die Seite spannt sich ueber die Fensterhoehe, damit die Kachelwand sie fuellen kann
+     (Entscheid Albrecht vom 06.09.2026: «die Hoehe der Seite wird nicht genutzt»). Ohne
+     diese Kette aus min-height und flex haengt jede Kachel an ihrem Inhalt, und unter der
+     Wand bleibt auf einem 1000-px-Fenster ein Viertel des Bildschirms leer. */
   body{color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;
-    font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding:22px 18px 60px}
-  .wrap{max-width:1120px;margin:0 auto}
+    font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding:22px 18px 26px;
+    min-height:100vh;display:flex;flex-direction:column}
+  .wrap{max-width:1760px;margin:0 auto;width:100%;flex:1 1 auto;min-height:0;
+    display:flex;flex-direction:column}
   a{color:var(--akzent);text-decoration:none;border-bottom:1px solid var(--line)}
   a:hover{color:var(--ink);border-bottom-color:var(--good)}
   button{font-family:inherit;color:inherit}
@@ -38,10 +55,7 @@
   .mono{font-family:var(--mono)}
   h1{font-size:25px;font-weight:660;letter-spacing:-.015em;margin:3px 0 0}
   .kopf{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
-  .werkzeuge{display:flex;gap:8px;flex-wrap:wrap}
-  /* display:flex schlaegt die Browser-Regel [hidden]{display:none} - ohne diese
-     Zeile zeigt die Arztkopie Zahnrad, Erfassen und Export weiter an. */
-  .werkzeuge[hidden]{display:none}
+  /* .werkzeuge ist am 06.09.2026 weggefallen - die Knopfreihe im Kopf gibt es nicht mehr. */
   .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 13px;
     font-size:14px;color:var(--muted);cursor:pointer}
   .btn:hover{border-color:var(--akzent)}
@@ -52,20 +66,64 @@
   .ampel{width:9px;height:9px;border-radius:50%;background:var(--high);display:inline-block;margin-right:7px}
   .ampel.an{background:var(--good)} .ampel.busy{background:var(--warn)}
   .karte{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
-  .wand{display:flex;flex-direction:column;gap:14px}
+  /* Die Kette, mit der die Kachelwand die Fensterhoehe erreicht: haupt spannt sich,
+     die Wand darin, die beiden Reihen darin, und ganz unten dehnt sich das BILD - nicht
+     die Zahl. Wer eine dieser Zeilen entfernt, bekommt die alte Seite zurueck, bei der
+     unten ein Viertel des Bildschirms leer bleibt.
+     min-height:0 ist an jedem Glied noetig: ein Flex-Kind ist von sich aus mindestens so
+     hoch wie sein Inhalt und laesst sich sonst nicht kleiner rechnen als das SVG, das
+     darin steckt. */
+  #haupt{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  /* «Heute» ist zweispaltig: Kachelwand und rechts die Leiste. Der Kopf steht UEBER
+     beiden - stuende er in der linken Spalte, begaenne die Leiste weiter oben als die
+     erste Kachel und ragte darueber hinaus. */
+  .heute{display:grid;grid-template-columns:minmax(0,1fr) var(--leiste);gap:var(--spalt);
+    flex:1 1 auto;min-height:0;align-items:stretch}
+  .wand{display:flex;flex-direction:column;gap:14px;flex:1 1 auto;min-height:0}
   /* Die beiden Leitkacheln (Entscheid Albrecht vom 28.08.2026: Gewicht und Blutzucker sind
      die wichtigsten zwei und stehen nebeneinander). auto-fit mit 300 px Mindestbreite: auf
      dem Telefon fallen sie von selbst untereinander, ohne Media Query und ohne Schwelle,
      die jemand pflegen muesste. */
-  .leitpaar{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-  .kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px}
+  .leitpaar{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;
+    flex:1 1 auto;min-height:0}
+  .kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px;
+    flex:1 1 auto;min-height:0}
   .kachel{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-    padding:20px 22px;cursor:pointer;display:flex;flex-direction:column;min-width:0}
+    padding:20px 22px;cursor:pointer;display:flex;flex-direction:column;min-width:0;min-height:0}
   .kachel:hover{border-color:var(--akzent)}
   /* «leit» heisst seit dem 28.08.2026 «eine der beiden oberen», nicht mehr «volle Breite».
      Die Klasse behaelt den Namen, weil sie dieselbe Rolle traegt: die Kachel, auf die man
      zuerst schaut. */
-  .kachel.leit{padding:22px 24px;display:block;width:100%}
+  /* «leit» heisst weiter «eine der beiden oberen». display:block ist am 06.09.2026
+     gefallen: die Kachel muss eine Flex-Spalte sein, damit das Bild darin waechst. */
+  .kachel.leit{padding:22px 24px;width:100%}
+
+  /* ── Das Bild in der Kachel: Kurve mit Achsen ──────────────────────────────────
+     Entscheid Albrecht vom 06.09.2026. Bis dahin trug die Kachel eine Funke ohne jede
+     Beschriftung - bei 46 px Hoehe war das richtig, vier Zahlen waeren dort Unruhe
+     gewesen. Bei 200 px ist es umgekehrt: eine Flaeche, die eine Bewegung zeigt und den
+     Massstab verschweigt, laesst die Amplitude raten. Mit Achse ist dieselbe gedehnte
+     Kurve ehrlich - man sieht, ueber welche Spanne sie laeuft.
+     Die Beschriftung steht als HTML NEBEN dem Bild, nicht darin: das SVG traegt
+     preserveAspectRatio="none" und wird gestreckt; Schrift darin wuerde mitverzerrt.
+     Linien duerfen sich strecken, Ziffern nicht. */
+  .k-bild{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;
+    gap:5px 9px;margin-top:12px;flex:1 1 auto;min-height:0}
+  .k-bild svg{margin-top:0;height:100%}
+  .k-y{display:flex;flex-direction:column;justify-content:space-between;text-align:right;
+    font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap;padding:1px 0}
+  .k-x{grid-column:2;display:flex;justify-content:space-between;
+    font-family:var(--mono);font-size:10px;color:var(--faint);white-space:nowrap}
+  .k-flaeche{min-width:0;min-height:30px;display:flex}
+  .k-flaeche svg{flex:1 1 auto}
+  /* Nach oben gedeckelt. Das Bild soll die Fensterhoehe fuellen, aber nicht jede Hoehe:
+     eine Gewichtsreihe, die real um zwei Kilo schwankt, wird auf 500 px zu einem Gebirge -
+     die Deutung lauter als die Sache, derselbe Fehler, den das gleitende Mittel vermeidet.
+     Auf einem gewoehnlichen Fenster greift die Grenze nicht; sie schuetzt den grossen
+     Monitor. Was darueber uebrig bleibt, wird Polster in der Kachel und nicht Leere unter
+     der Wand. */
+  .kachel.leit .k-flaeche{max-height:360px}
+  .kacheln .k-flaeche{max-height:250px}
   .k-name{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
   .k-zahl{font-size:36px;font-weight:640;letter-spacing:-.03em;line-height:1.05}
   .kachel.leit .k-zahl{font-size:46px}
@@ -73,10 +131,51 @@
   .k-unter{font-size:13.5px;color:var(--faint);margin-top:6px;min-height:20px}
   .k-meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-top:9px}
   .k-reihe{display:flex;align-items:baseline;gap:9px;margin-top:8px;flex-wrap:wrap}
-  .aktenknopf{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
-    width:100%;text-align:left;padding:16px 22px;background:var(--surface);border:1px solid var(--line);
-    border-radius:13px;cursor:pointer;font-size:14.5px;color:var(--muted)}
-  .aktenknopf:hover{border-color:var(--akzent)}
+  /* ══ Die Leiste rechts ════════════════════════════════════════════════════════════
+     Entscheid Albrecht vom 06.09.2026. Sie ersetzt die Knopfreihe im Kopf UND den
+     Aktenknopf unter der Wand.
+     Sie traegt zuerst eine Frage, die das Werkzeug taeglich stellt und bis dahin nirgends
+     beantwortete: was ist heute noch offen. Die Auskunft steckte schon im Code - erfHat()
+     weiss fuer jede Reihe, ob der heutige Tag darin vorkommt -, sie lag nur hinter dem
+     Erfassen-Knopf. Eine Leiste mit Datenstand und Zaehlwerten waere Rahmen gewesen und
+     haette keine Spalte verdient; diese hier beantwortet etwas.
+     Die drei Gruppen verteilen sich ueber die Hoehe, die Zeilen INNERHALB bleiben eng -
+     ohne diese Buendelung zoege space-between jede einzelne Zeile auseinander. */
+  .leiste{display:flex;flex-direction:column;justify-content:space-between;
+    padding:20px 20px 18px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r);min-height:0;overflow-y:auto}
+  .leiste .gr{display:flex;flex-direction:column;min-height:0}
+  .leiste .abschnitt{font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);padding:0;border:none;margin:0 0 10px}
+  .leiste .gr + .gr .abschnitt{padding-top:16px;border-top:1px solid var(--line2)}
+  .offen{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    padding:8px 0;border-bottom:1px solid var(--line2);font-size:14.5px}
+  .offen:last-of-type{border-bottom:none}
+  .offen .w{color:var(--ink)}
+  .offen .z{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .offen .z.fehlt{color:var(--warn)} .offen .z.da{color:var(--good)}
+  .leiste .btn{margin-top:9px;text-align:center;display:block;width:100%}
+  .leiste .zeile{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);
+    font-size:12px;color:var(--faint);padding:5px 0}
+  /* Die vier Aktenbereiche als eigene Kacheln - ein Klick statt zwei. Die
+     Akten-Uebersichtsseite ist im selben Zug ersatzlos gestrichen (siehe zeichneAkten):
+     sie war ein Deckblatt, das genau diese vier Zahlen ein zweites Mal nannte. */
+  .akte-liste{display:flex;flex-direction:column;gap:7px}
+  .akte-mini{display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;
+    background:var(--surface2);border:1px solid var(--line);border-radius:10px;
+    padding:9px 12px;cursor:pointer;color:var(--muted)}
+  .akte-mini:hover{border-color:var(--akzent)}
+  .akte-mini .an{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--faint)}
+  .akte-mini .az{font-size:14.5px;color:var(--ink)}
+  .akte-mini .az b{font-weight:640}
+  .akte-mini .au{font-size:11.5px;color:var(--faint)}
+  /* Auf dem Telefon steht die Leiste UNTER der Wand, nicht daneben - 264 px neben
+     einer Kachel gaeben zwei unlesbare Spalten. */
+  @media (max-width:820px){
+    .heute{grid-template-columns:1fr;flex:0 0 auto}
+    .leiste{overflow:visible}
+  }
   .buehne{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px 24px 26px}
   .b-kopf{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
   .b-zahl{font-size:42px;font-weight:640;letter-spacing:-.03em;line-height:1.05}
@@ -333,11 +432,9 @@
       <div class="eyebrow" id="kopfEyebrow">Monitoring</div>
       <h1 id="kopfZeile">MOPP+</h1>
     </div>
-    <div class="werkzeuge no-print" id="werkzeuge">
-      <button class="btn" id="btnConn" title="Datenspeicher"><span class="ampel" id="ampel"></span>⚙</button>
-      <button class="btn stark" id="btnErf">✎ Erfassen</button>
-      <button class="btn" id="btnExp" title="Für Arzt exportieren">⇪</button>
-    </div>
+    <!-- Die Knopfreihe stand bis zum 06.09.2026 hier oben rechts. Sie ist in die Leiste
+         gewandert, wo sie neben dem steht, worauf sie sich bezieht: Erfassen neben dem,
+         was heute noch offen ist, der Export neben den Akten. -->
   </header>
 
   <section class="karte stamm" id="stamm" hidden></section>
@@ -417,8 +514,16 @@ function ghUrl(){ return "https://api.github.com/repos/"+CFG.repo+"/contents/"+C
 function ghRef(){ return CFG.branch ? "?ref="+encodeURIComponent(CFG.branch) : ""; }
 function ghKopf(x){ var h={ "Authorization":"Bearer "+CFG.token, "X-GitHub-Api-Version":"2022-11-28" };
   if(x) for(var k in x) h[k]=x[k]; return h; }
-function ampel(z){ var a=document.getElementById("ampel"); if(!a) return;
-  a.className = "ampel" + (z==="an"?" an":z==="busy"?" busy":""); }
+/* Der Ampelzustand haengt seit dem 06.09.2026 nicht mehr am DOM-Knoten: die Ampel steht
+   jetzt in der Leiste, und die wird bei jedem zeichne() neu gebaut. Stuende der Zustand
+   nur in der Klasse des Knotens, waere er nach dem naechsten Neuzeichnen weg - die Ampel
+   spraenge bei jeder Bedienung auf Rot, obwohl die Verbindung steht. */
+var AMPEL = "aus";
+function ampelKlasse(){ return "ampel" + (AMPEL==="an"?" an":(AMPEL==="busy"?" busy":"")); }
+function ampel(z){
+  AMPEL = z;
+  [].forEach.call(document.querySelectorAll(".ampel"), function(a){ a.className = ampelKlasse(); });
+}
 
 async function ghHolen(){
   if(!CFG||!CFG.repo||!CFG.token) return false;
@@ -940,17 +1045,25 @@ function segmente(reihe, XY, schwellen){
 function stummel(xy){ var a=xy.split(","), x=Math.max(0,+a[0]-1.6);
   return x.toFixed(1)+","+a[1]+" "+(x+3.2).toFixed(1)+","+a[1]; }
 
-/* Funkenlinie fuer die Kacheln. Keine Achsen, keine Punkte - dafuer gilt in der Kachel:
-   was fein gestrichelt ist, wurde nicht gemessen. Die Linie bricht nie, sonst saehe
-   eine Luecke in der Kachel wie zwei getrennte Kurven aus. */
-function funke(reihe, farbe, w, h, schwellen){
+/* Funkenlinie fuer die Kacheln. Keine Punkte - dafuer gilt in der Kachel: was fein
+   gestrichelt ist, wurde nicht gemessen. Die Linie bricht nie, sonst saehe eine Luecke
+   in der Kachel wie zwei getrennte Kurven aus.
+   GITTER seit dem 06.09.2026: zwei Hilfslinien auf einem und zwei Dritteln, dieselbe
+   Teilung wie die drei Achsenzahlen daneben. Sie ersetzen keine Achse, sie machen die
+   drei Zahlen an der Kante ablesbar - ohne sie muesste man die Hoehe schaetzen. Mehr als
+   zwei waeren in einer Kachel Unruhe. */
+function funke(reihe, farbe, w, h, schwellen, gitter){
   var v = (reihe||[]).map(function(x){return x.v;});
   if(!v.length) return "";
   w=w||260; h=h||46;
   var mn=Math.min.apply(null,v), mx=Math.max.apply(null,v), sp=(mx-mn)||1, p=3;
   var x0=ms(reihe[0].iso), x1=ms(reihe[reihe.length-1].iso), sx=(x1-x0)||1;
   function XY(r){ return (((ms(r.iso)-x0)/sx)*w).toFixed(1)+","+(p+(1-(r.v-mn)/sp)*(h-2*p)).toFixed(1); }
-  return segmente(reihe, XY, schwellen).map(function(s){
+  var vor = "";
+  if(gitter) vor = [1/3, 2/3].map(function(t){
+    return '<line x1="0" y1="'+(p+t*(h-2*p)).toFixed(1)+'" x2="'+w+'" y2="'+(p+t*(h-2*p)).toFixed(1)
+      + '" stroke="var(--line2)" stroke-width="1" vector-effect="non-scaling-stroke"></line>'; }).join("");
+  return vor + segmente(reihe, XY, schwellen).map(function(s){
     return '<polyline points="'+s.p+'" fill="none" stroke="'+farbe+'" stroke-width="'+(s.strich?1:1.6)+'"'
       + (s.strich?' stroke-dasharray="'+s.strich+'" stroke-linecap="round" opacity=".5"':'') + ' vector-effect="non-scaling-stroke"></polyline>';
   }).join("");
@@ -972,8 +1085,49 @@ function funkeHits(reihe, w, h, opt){
       + Math.max(1,hi-lo).toFixed(1)+'" height="'+h+'"></rect>';
   }).join("");
 }
-function funkeSvg(inhalt, w, h, hits){
-  return '<svg viewBox="0 0 '+(w||260)+' '+(h||46)+'" preserveAspectRatio="none" style="width:100%;height:'+(h||46)+'px;display:block;margin-top:12px">'+inhalt+(hits||"")+'</svg>';
+function funkeSvg(inhalt, w, h, hits, dehnbar){
+  /* dehnbar: die Hoehe kommt aus dem Raster, nicht aus dem Attribut. Ein inline
+     gesetztes height schluege jede Klassenregel und naegelte die Kachel wieder auf
+     ihre Inhaltshoehe fest. */
+  return '<svg viewBox="0 0 '+(w||260)+' '+(h||46)+'" preserveAspectRatio="none" style="width:100%;'
+    + (dehnbar ? 'height:100%' : 'height:'+(h||46)+'px;margin-top:12px')
+    + ';display:block">'+inhalt+(hits||"")+'</svg>';
+}
+/* ── Das Bild einer Kachel: Kurve, Gitter und die Achsen daneben ──────────────────
+   Die drei Zahlen links sind der Wertebereich DIESER Reihe in DIESEM Fenster, die drei
+   unten sein Zeitraum. Gerechnet wird hier nichts nach, was es schon gibt: die Reihe
+   kommt fertig gefiltert herein, Minimum und Maximum sind dieselben, aus denen funke()
+   ihre Kurve zeichnet. Eine zweite Rechenstelle liefe beim ersten Rundungswunsch
+   auseinander - und dann stuende an der Achse eine andere Zahl als im Bild. */
+function kachelBild(reihe, opt){
+  opt = opt||{};
+  var v = (reihe||[]).map(function(x){ return x.v; });
+  if(!v.length) return "";
+  var w = opt.w||600, h = opt.h||120, dez = opt.dez==null?1:opt.dez;
+  var mn = Math.min.apply(null,v), mx = Math.max.apply(null,v);
+  /* Die Achse braucht so viele Nachkommastellen, wie es fuer UNTERSCHEIDBARE Zahlen
+     braucht - dieselbe Regel wie im grossen Bild, und aus demselben Grund: beim
+     Taille-Hueft-Quotienten liegen im Wochenfenster Hundertstel zwischen erster und
+     letzter Messung, und dreimal «0,95» untereinander ist keine Achse. Ist die Reihe
+     waagrecht, bleibt es bei EINER Zahl - dann gibt es nichts zu unterscheiden. */
+  var yTexte, ad = dez;
+  while(true){
+    yTexte = [nf(mx,ad), nf((mn+mx)/2,ad), nf(mn,ad)];
+    if(mx===mn){ yTexte = [nf(mx,ad)]; break; }
+    if(ad>=4 || yTexte.filter(function(x,i){ return yTexte.indexOf(x)===i; }).length===3) break;
+    ad++;
+  }
+  var isos = reihe.map(function(r){ return r.iso; });
+  var xTexte = isos.length>2
+    ? [dm(isos[0]), dm(isos[Math.floor((isos.length-1)/2)]), dm(isos[isos.length-1])]
+    : isos.map(dm);
+  return '<div class="k-bild">'
+    + '<div class="k-y">'+yTexte.map(function(t){ return '<span>'+t+'</span>'; }).join("")+'</div>'
+    + '<div class="k-flaeche">'
+    +   funkeSvg(funke(reihe, opt.farbe, w, h, opt.schwellen, true), w, h, opt.hits, true)
+    + '</div>'
+    + '<div class="k-x">'+xTexte.map(function(t){ return '<span>'+t+'</span>'; }).join("")+'</div>'
+    + '</div>';
 }
 
 /* Grosses Diagramm: Achsen, jeder Messpunkt als Raute. Hier darf keine Messung fehlen.
@@ -1268,8 +1422,11 @@ function kachelHtml(d, leit){
      und nicht Schraegstrich: zwei Zahlen mit Schraegstrich sind das Blutdruckformat, und die
      Personendaten-Probe sucht genau danach - ein Bildmass soll dort nicht als Fehlalarm
      auftauchen.) */
-  var w = leit?520:260, hh = leit?70:46;
-  var f = funke(d.reihe, d.farbe, w, hh);
+  /* Die Hoehe ist seit dem 06.09.2026 nur noch die AUFLOESUNG der viewBox, nicht die
+     Darstellungsgroesse: das Bild dehnt sich auf das, was die Kachel im Fenster uebrig
+     laesst. Der Wert bleibt trotzdem stehen, weil die Trefferflaechen in derselben
+     viewBox liegen muessen wie die Kurve. */
+  var w = leit?520:260, hh = leit?140:110;
   var hits = funkeHits(d.reihe, w, hh, {dez:d.dez, einheit:d.einheit, sub:d.sub});
   /* Die Funke folgt dem Zeitraum ihrer Kennzahl - sonst zeigten Kachel und Vollbild
      verschiedene Strecken. Das Tempo daneben ebenso; die Bilanzzeile darunter nicht,
@@ -1291,7 +1448,8 @@ function kachelHtml(d, leit){
     + '<div class="k-name">'+esc(d.label)+'</div>'
     + '<div class="k-reihe"><div class="k-zahl" style="color:'+d.zustand+'">'+d.wert+'</div>'
     +   '<div class="k-einheit">'+esc(d.einheit)+'</div>'+zusatz+'</div>'
-    + (d.reihe.length ? funkeSvg(f, w, hh, hits)
+    + (d.reihe.length
+        ? kachelBild(d.reihe, {farbe:d.farbe, w:w, h:hh, dez:d.dez, hits:hits})
         : '<div class="bildtext" style="margin-top:12px">'+esc(LEER_ZEITRAUM)+'</div>')
     + '</button>';
 }
@@ -1307,16 +1465,97 @@ function tempo(reihe){
   return dt>0 ? (b.v-a.v)/dt*7 : null;
 }
 
+/* ── Was heute noch offen ist ────────────────────────────────────────────────────
+   Die Frage, die dieses Werkzeug jeden Tag stellt - und die es bis zum 06.09.2026
+   nirgends beantwortet hat: man musste ins Erfassen gehen, um zu sehen, was fehlt.
+   Gerechnet wird nichts Neues: dieselben Reihen wie ueberall, nur auf den heutigen Tag
+   befragt. Die Umfaenge tragen kein «offen» - sie haben keinen Takt und keine
+   Faelligkeit; dort steht, wann zuletzt gemessen wurde, und das ist die ganze Aussage. */
+function heuteOffen(){
+  var iso = heuteIso();
+  var g = rGewicht().filter(function(x){ return x.iso===iso; })[0];
+  var bz = rBzTage().filter(function(x){ return x.iso===iso; })[0];
+  var bp = rBp().filter(function(x){ return x.iso===iso; });
+  var K = rKoerper(), kL = K.length?K[K.length-1]:null;
+  return [
+    {n:"Gewicht",    t:g  ? nf(g.v,1)+" kg" : "offen", da:!!g},
+    {n:"Blutzucker", t:bz ? zahl(bz.n,"Messung","Messungen") : "offen", da:!!bz},
+    {n:"Blutdruck",  t:bp.length ? zahl(bp.length,"Messung","Messungen") : "offen", da:!!bp.length},
+    {n:"Umfänge",    t:kL ? (tage(kL.iso)===0 ? "heute" : "vor "+zahl(tage(kL.iso),"Tag","Tagen"))
+                          : "noch nie", neutral:true}
+  ];
+}
+/* ── Die vier Aktenbereiche ──────────────────────────────────────────────────────
+   Jeder mit dem, was ihn ausmacht: wie viel darin liegt und was zuoberst steht. Diese
+   Angaben standen bis zum 06.09.2026 auf einer eigenen Uebersichtsseite; die ist
+   ersatzlos gestrichen (siehe zeichneAkten), weil sie nichts sagte, was hier nicht
+   steht - und einen Klick kostete, bevor man am Ziel war. */
+function aktenKacheln(){
+  var PA = (STATE.lab&&STATE.lab.panels)||[], EV = (STATE.history&&STATE.history.events)||[];
+  var meds = (STATE.meds&&STATE.meds.liste)||[], M = STATE.meds||{};
+  var pL = PA.slice().sort(function(a,b){ return a.date<b.date?-1:1; })[PA.length-1];
+  var jahre = EV.map(function(e){ return String(e.date||"").slice(0,4); }).filter(Boolean).sort();
+  var RT = rohTage();
+  var B = [
+    {k:"labor",   n:"Labor", z:PA.length, e:PA.length===1?"Blatt":"Blätter",
+     u:pL ? "zuoberst "+dmy(pL.date) : "noch keines"},
+    {k:"history", n:"Krankengeschichte", z:EV.length, e:EV.length===1?"Eintrag":"Einträge",
+     u:jahre.length ? jahre[0]+" – "+jahre[jahre.length-1] : "noch keiner"},
+    {k:"meds",    n:"Medikation", z:meds.length, e:meds.length===1?"Präparat":"Präparate",
+     u:M.stand ? "Plan vom "+dmy(M.stand) : "kein Stand vermerkt"},
+    {k:"roh",     n:"Rohdaten", z:RT.length, e:RT.length===1?"Messtag":"Messtage",
+     u:RT.length ? "seit "+dmy(RT[RT.length-1].iso) : "noch keiner"}
+  ];
+  return B.map(function(a){
+    return '<button class="akte-mini" data-akte="'+a.k+'">'
+      + '<span class="an">'+esc(a.n)+'</span>'
+      + '<span class="az"><b>'+a.z+'</b> '+esc(a.e)+'</span>'
+      + '<span class="au">'+esc(a.u)+'</span></button>';
+  }).join("");
+}
+function leisteHtml(){
+  var TAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+  var iso = heuteIso(), wt = new Date(iso+"T12:00:00").getDay();
+  /* In der Arztkopie traegt die Leiste nur die Akten: was heute offen ist, geht die
+     Praxis nichts an, und Erfassen und Export gibt es dort nicht. */
+  var h = '<aside class="leiste">';
+  if(!FROZEN){
+    h += '<div class="gr">'
+      + '<div class="abschnitt">Heute · '+TAGE[wt]+', '+dm(iso)+'</div>'
+      + heuteOffen().map(function(o){
+          return '<div class="offen"><span class="w">'+esc(o.n)+'</span>'
+            + '<span class="z'+(o.neutral?"":(o.da?" da":" fehlt"))+'">'+esc(o.t)+(o.da?" ✓":"")+'</span></div>';
+        }).join("")
+      + '<button class="btn stark no-print" id="btnErf">✎ Erfassen</button>'
+      + '</div>';
+  }
+  h += '<div class="gr"><div class="abschnitt">Akten</div>'
+    + '<div class="akte-liste">'+aktenKacheln()+'</div></div>';
+  if(!FROZEN){
+    h += '<div class="gr no-print">'
+      + '<button class="btn" id="btnExp">⇪ Für Arzt exportieren</button>'
+      + '<div class="abschnitt" style="margin-top:16px">Datenspeicher</div>'
+      + '<button class="btn" id="btnConn" style="margin-top:0">'
+      +   '<span class="'+ampelKlasse()+'"></span>'
+      +   ((CFG&&CFG.repo) ? "verbunden" : "nicht verbunden")+' · ⚙</button>'
+      + '</div>';
+  }
+  return h + '</aside>';
+}
+
 function zeichneWand(){
   var kz = KZ();
   /* Zwei Leitkacheln, dann drei. Entscheid Albrecht vom 28.08.2026: Gewicht und Blutzucker
      sind die wichtigsten zwei und stehen nebeneinander ganz oben. Vorher trug das Gewicht
-     allein die ganze Breite und der Blutzucker stand in der Viererreihe darunter. */
-  return '<div class="wand">'
-    + '<div class="leitpaar">'+[kz.gewicht,kz.bz].map(function(d){ return kachelHtml(d, true); }).join("")+'</div>'
-    + '<div class="kacheln">'+[kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
-    + '<button class="aktenknopf" id="btnAkten"><div>Labor, Krankengeschichte, Medikation, Rohdaten</div>'
-    +   '<div style="border:1px solid var(--line);border-radius:9px;padding:7px 14px;color:var(--akzent)">Akten</div></button>'
+     allein die ganze Breite und der Blutzucker stand in der Viererreihe darunter.
+     Seit dem 06.09.2026 steht rechts daneben die Leiste - und der Aktenknopf unter der
+     Wand ist weg, weil die vier Bereiche dort einzeln stehen. */
+  return '<div class="heute">'
+    + '<div class="wand">'
+    +   '<div class="leitpaar">'+[kz.gewicht,kz.bz].map(function(d){ return kachelHtml(d, true); }).join("")+'</div>'
+    +   '<div class="kacheln">'+[kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
+    + '</div>'
+    + leisteHtml()
     + '</div>';
 }
 
@@ -1892,140 +2131,16 @@ function docsAm(docs){
   }).join(" · ")+'</div>';
 }
 
-/* Balken statt Linie: bei einer Akte ist die Frage nicht «welcher Wert», sondern «wie viel
-   liegt in welchem Jahr». Leere Jahre bleiben leer - die Lücke ist die Aussage. */
-function balkenSvg(vals, w, h, farbe, marken){
-  var mx = Math.max.apply(null, vals.concat([1])), n = vals.length, gap = 2;
-  var bw = (w-(n-1)*gap)/n, s = "";
-  vals.forEach(function(v,i){
-    var bh = v ? Math.max(2, v/mx*h) : 0;
-    if(!bh) return;
-    var id = marken ? tipReg(marken(i,v)) : null;
-    s += '<rect x="'+(i*(bw+gap)).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)
-      + '" fill="'+farbe+'" opacity=".72"></rect>';
-    if(id) s += '<rect class="hit" data-tip="'+id+'" data-nurhover="1" x="'+(i*(bw+gap)).toFixed(1)+'" y="0" width="'
-      + bw.toFixed(1)+'" height="'+h+'"></rect>';
-  });
-  return '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" style="width:100%;height:'+h+'px;display:block;margin-top:12px">'+s+'</svg>';
-}
-function jahreReihe(isos){
-  var js = isos.map(function(x){ return +String(x||"").slice(0,4); }).filter(function(y){ return y>1900; });
-  if(!js.length) return {von:null, bis:null, vals:[]};
-  var von=Math.min.apply(null,js), bis=Math.max.apply(null,js), vals=[];
-  for(var y=von;y<=bis;y++) vals.push(js.filter(function(x){ return x===y; }).length);
-  return {von:von, bis:bis, vals:vals};
-}
-
-/* Erst die Kachelwand: dieselbe Anatomie wie «Heute» - Zahl, Untertitel, Bild, Fusszeile.
-   Der Untertitel trägt das oberste Blatt, nicht bloss die Anzahl: die Kachel beantwortet
-   damit beides, «wie viel liegt hier» und «muss ich hinein». */
-function aktenUebersicht(){
-  var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
-  var EV = (STATE.history.events||[]).slice().sort(function(a,b){ return a.date<b.date?-1:1; });
-  var P = STATE.lab.params||[], meds = (STATE.meds&&STATE.meds.liste)||[];
-  var flagsN = PA.reduce(function(n,p){ return n+Object.keys(p.flags||{}).length; }, 0);
-  var pL = PA.length?PA[PA.length-1]:null;
-  var lj = jahreReihe(PA.map(function(p){ return p.date; }));
-
-  /* HbA1c ist die Reihe, die die Laborakte erzählt - darum steht sie in der Leitkachel. */
-  var hb = PA.filter(function(p){ return p.values && p.values.hba1c!=null; })
-    .map(function(p){ return {iso:p.date, v:+p.values.hba1c}; });
-  var hbF = P.filter(function(x){ return x.key==="hba1c"; })[0];
-
-  var pFlags = pL ? Object.keys(pL.flags||{}) : [];
-  var pNamen = pFlags.map(function(k){ var f=P.filter(function(x){return x.key===k;})[0]; return f?f.label:k; });
-  var labUnter = pL
-    ? "Zuoberst "+dmy(pL.date)+(pL.source?", "+pL.source:"")
-      + (pNamen.length ? " — "+pNamen.slice(0,2).join(" und ")+(pNamen.length>2?" und "+(pNamen.length-2)+" weitere":"")+" markiert" : " — kein Wert markiert")
-    : "Noch kein Laborblatt erfasst.";
-
-  /* Zuoberst heisst: das jüngste VERGANGENE. Ein Termin im September ist Zukunft und
-     kein Befund - er gehört in die Statuszeile, nicht auf das Deckblatt der Akte. */
-  var evVergangen = EV.filter(function(e){ return ms(e.date)<=heuteMs(); });
-  var eL = evVergangen.length?evVergangen[evVergangen.length-1]:null;
-  var ej = jahreReihe(EV.map(function(e){ return e.date; }));
-  var arten = Object.keys(EV.reduce(function(m,e){ if(e.kind) m[e.kind]=1; return m; },{})).length;
-
-  var mStand = STATE.meds&&STATE.meds.stand;
-  var mAlter = mStand ? Math.round(tage(mStand)/30.4) : null;
-  var taeglich = meds.filter(function(m){ return /^\s*\d\s*[–-]/.test(m.dosis||""); }).length;
-  var reserve = meds.filter(function(m){ return /^\s*i\.\s*R\.?/i.test(m.dosis||""); }).length;
-  var sonst = meds.length - taeglich - reserve;
-
-  var RT = rohTage();
-  var rj = jahreReihe(RT.map(function(z){ return z.iso; }));
-  /* Die Kachel spricht wie ihre Nachbarn: was zuoberst in der Tabelle steht, und davon
-     nur das, was an diesem Tag wirklich vorliegt. */
-  var rZ = RT[0], rTeile = [];
-  if(rZ){
-    if(rZ.gw!=null) rTeile.push(nf(rZ.gw,1)+" kg");
-    if(rZ.bz!=null) rTeile.push("Blutzucker "+nf(rZ.bz,1));
-    if(rZ.bp) rTeile.push("Blutdruck "+rZ.bp.join(" · "));
-  }
-
-  var h = '<div class="buehne">'
-    + '<div class="b-kopf"><div><div class="k-name">Akten</div>'
-    +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">Was liegt hier</div></div>'
-    + '<button class="btn rund no-print" data-zu="1">×</button></div>'
-    + '<div class="wand" style="margin-top:20px">';
-
-  /* Leitkachel Labor */
-  h += '<button class="kachel leit" data-akte="labor">'
-    + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">'
-    +   '<div class="k-name">Labor</div>'
-    +   '<div class="k-meta" style="margin:0">'+P.length+' Parameter'+(lj.von?' · '+lj.von+'–'+lj.bis:'')+'</div></div>'
-    + '<div class="k-reihe"><div class="k-zahl">'+PA.length+'</div><div class="k-einheit">Blätter</div>'
-    +   (flagsN?'<div style="font-size:16px;color:var(--warn);font-weight:600;margin-left:6px">'+flagsN+' markierte Werte</div>':'')
-    + '</div>'
-    + '<div class="k-unter">'+esc(labUnter)+'</div>'
-    + (hb.length>1
-        /* In der Akte laeuft die Linie durch: zwischen zwei Laborterminen liegen Jahre, und
-           eine Reihe aus lauter Bruchstuecken erzaehlt nichts. Die Luecke steht in den
-           Jahresbalken der anderen Kacheln, wo sie die Aussage IST. */
-        ? funkeSvg(funke(hb, "var(--akzent)", 700, 90, {voll:1e9}), 700, 90,
-            funkeHits(hb, 700, 90, {dez:1, einheit:hbF?hbF.unit:"%", sub:function(){ return "HbA1c"; }}))
-          + '<div class="bildtext">HbA1c über '+hb.length+' Blätter, '+dmy(hb[0].iso)
-          + ' bis '+dmy(hb[hb.length-1].iso)+' — die Reihe, die diese Akte erzählt.</div>'
-        : '')
-    + '</button>';
-
-  h += '<div class="kacheln">';
-
-  h += '<button class="kachel" data-akte="history">'
-    + '<div class="k-name">Krankengeschichte</div>'
-    + '<div class="k-reihe"><div class="k-zahl">'+EV.length+'</div><div class="k-einheit">Einträge</div></div>'
-    + '<div class="k-unter">'+esc(eL ? "Zuoberst "+dmy(eL.date)+" — «"+(eL.title||"ohne Titel")+"»" : "Noch kein Eintrag.")+'</div>'
-    + (ej.vals.length>1 ? balkenSvg(ej.vals, 260, 46, "var(--akzent)", function(i,v){
-        return {tag:String(ej.von+i), wert:String(v), einheit:v===1?"Eintrag":"Einträge", sub:"", notiz:""}; }) : '')
-    + '<div class="k-meta">'+(ej.von?ej.von+'–'+ej.bis+' · ':'')+zahl(arten,"Art","Arten")+'</div></button>';
-
-  h += '<button class="kachel" data-akte="meds">'
-    + '<div class="k-name">Medikation</div>'
-    + '<div class="k-reihe"><div class="k-zahl">'+meds.length+'</div><div class="k-einheit">Präparate</div></div>'
-    + '<div class="k-unter">'+esc(mStand
-        ? "Plan vom "+dmy(mStand)+" — seit "+mAlter+" Monaten unverändert"
-        : "Kein Stand vermerkt.")+'</div>'
-    + '<div style="height:46px;margin-top:12px;display:flex;align-items:flex-end;gap:5px">'
-    +   [].concat(
-          Array.apply(null,Array(taeglich)).map(function(){ return '<div style="flex:1;height:18px;background:var(--akzent);opacity:.72;border-radius:2px"></div>'; }),
-          Array.apply(null,Array(sonst>0?sonst:0)).map(function(){ return '<div style="flex:1;height:18px;background:var(--zweit);opacity:.5;border-radius:2px"></div>'; }),
-          Array.apply(null,Array(reserve)).map(function(){ return '<div style="flex:1;height:18px;border:1px dashed var(--faint);border-radius:2px"></div>'; })
-        ).join("")
-    + '</div>'
-    + '<div class="k-meta">'+taeglich+' täglich'+(sonst>0?' · '+sonst+' nach Plan':'')+(reserve?' · '+reserve+' in Reserve':'')+'</div></button>';
-
-  h += '<button class="kachel" data-akte="roh">'
-    + '<div class="k-name">Rohdaten</div>'
-    + '<div class="k-reihe"><div class="k-zahl">'+RT.length+'</div><div class="k-einheit">Messtage</div></div>'
-    + '<div class="k-unter">'+esc(rZ
-        ? "Zuoberst "+dmy(rZ.iso)+(rTeile.length?" — "+rTeile.join(" · "):"")
-        : "Noch kein Messtag.")+'</div>'
-    + (rj.vals.length>1 ? balkenSvg(rj.vals, 260, 46, "var(--akzent)", function(i,v){
-        return {tag:String(rj.von+i), wert:String(v), einheit:v===1?"Messtag":"Messtage", sub:"", notiz:""}; }) : '')
-    + '<div class="k-meta">'+(rj.von?'seit '+rj.von+' · ':'')+'CSV-Export</div></button>';
-
-  return h + '</div></div></div>';
-}
+/* Die Akten-Uebersichtsseite ist am 06.09.2026 ersatzlos gestrichen (Entscheid
+   Albrecht). Sie war ein Deckblatt mit vier Kacheln - Labor, Krankengeschichte,
+   Medikation, Rohdaten - und nannte von jeder die Menge und was zuoberst liegt. Genau
+   das steht seither in der Leiste auf «Heute», und dort steht es, BEVOR man klickt.
+   Ein Deckblatt, das nur wiederholt, wovon es wegfuehrt, kostet einen Klick und traegt
+   nichts: von der Wand geht es jetzt direkt in den Bereich, und zwischen den Bereichen
+   wechselt die Reiterzeile im Aktenrahmen.
+   Mit ihr fallen balkenSvg() und jahreReihe() weg - die Jahresbalken hatten nur dort
+   einen Ort. Was sie zeigten, steht in der Krankengeschichte ohnehin als Jahresliste
+   rechts neben den Eintraegen.
 
 /* Der Rahmen: Inhalt links, Auswahl rechts — und rechts stehen die BLÄTTER, nicht die
    Bereiche. Ein Laborblatt, ein Jahr, eine Woche. Darum haengen die Dokumente am Blatt. */
@@ -2036,7 +2151,10 @@ function aktenRahmen(o){
     +   '<div style="font-size:24px;font-weight:640;letter-spacing:-.02em;margin-top:6px">'+esc(o.titel)+'</div>'
     +   (o.untertitel?'<div style="font-size:13.5px;color:var(--faint);margin-top:4px">'+esc(o.untertitel)+'</div>':'')
     + '</div><div style="display:flex;gap:8px;flex-wrap:wrap" class="no-print">'+(o.aktion||"")
-    +   '<button class="btn rund" data-zu="akten">×</button></div></div>'
+    /* × fuehrt seit dem 06.09.2026 direkt zur Kachelwand: die Zwischenebene, auf die es
+       vorher zeigte, gibt es nicht mehr. */
+    +   '<button class="btn rund" data-zu="1">×</button></div></div>'
+    + bereichsReiter(o.k)
     + (o.ansichten||"")
     + '<div class="ts"><div class="ts-links">'+o.links+'</div>'
     + (o.liste ? '<div class="ts-rechts no-print"><div class="liste-kopf">'+esc(o.listeKopf||"")+'</div>'
@@ -2051,19 +2169,33 @@ function schalter(items){
     return '<button class="sch'+(s.an?" an":"")+'" data-sicht="'+s.k+'">'+esc(s.t)+'</button>'; }).join("")+'</div>';
 }
 
+/* Die vier Bereiche als Reiterzeile IM Aktenrahmen. Ohne sie waere der Wechsel von
+   einer Akte zur naechsten mit dem Wegfall des Deckblatts laenger geworden statt kuerzer:
+   Labor · × · Wand · Leistenkachel Medikation. Jetzt ist es ein Klick, und von der Wand
+   aus ebenfalls einer. */
+var AKTEN_BEREICHE = [ {k:"labor",t:"Labor"}, {k:"history",t:"Krankengeschichte"},
+  {k:"meds",t:"Medikation"}, {k:"roh",t:"Rohdaten"} ];
+function bereichsReiter(aktiv){
+  if(FROZEN) return "";
+  return '<div class="akten-liste no-print" style="margin-top:16px">'
+    + AKTEN_BEREICHE.map(function(b){
+        return '<button class="sch'+(b.k===aktiv?" an":"")+'" data-akte="'+b.k+'">'+esc(b.t)+'</button>';
+      }).join("")+'</div>';
+}
 function zeichneAkten(){
-  if(!UI.akte) return aktenUebersicht();
-  if(UI.akte==="labor")   return akteLabor();
+  /* Ohne gewaehlten Bereich das Labor: es ist der Bereich mit den meisten Blaettern und
+     der einzige mit einer Reihe ueber die Jahre. Eine Auswahlseite davor gibt es seit
+     dem 06.09.2026 nicht mehr. */
   if(UI.akte==="history") return akteHistory();
   if(UI.akte==="meds")    return akteMeds();
   if(UI.akte==="roh")     return akteRoh();
-  return aktenUebersicht();
+  return akteLabor();
 }
 
 function akteLabor(){
   var P = STATE.lab.params||[];
   var PA = (STATE.lab.panels||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
-  if(!PA.length) return aktenRahmen({bereich:"Labor", titel:"Noch keine Laborblätter", links:'<p class="satz">Sobald ein Blatt erfasst ist, steht es hier.</p>'});
+  if(!PA.length) return aktenRahmen({k:"labor", bereich:"Labor", titel:"Noch keine Laborblätter", links:'<p class="satz">Sobald ein Blatt erfasst ist, steht es hier.</p>'});
   var sicht = UI.sicht || "blatt";
   var ans = schalter([ {k:"blatt", t:"Ein Blatt", an:sicht==="blatt"},
     {k:"verlauf", t:"Ein Wert über die Jahre", an:sicht==="verlauf"} ]);
@@ -2088,7 +2220,7 @@ function akteLabor(){
     links += '</div><div class="bildtext">Rot heisst über dem Referenzbereich dieses Blattes, blau darunter. '
       + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.</div>'
       + docsBlock(p.docs);
-    return aktenRahmen({ bereich:"Labor", titel:"Laborblatt "+dmy(p.date),
+    return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Laborblatt "+dmy(p.date),
       untertitel:(p.source||"Quelle nicht vermerkt")+" · "+zahl(Object.keys(vals).length,"Wert","Werte"),
       ansichten:ans, links:links, listeKopf:PA.length+" Laborblätter",
       liste:PA.map(function(x,n){
@@ -2104,7 +2236,7 @@ function akteLabor(){
       .sort(function(a,b){ return a.iso<b.iso?-1:1; });
     return {pa:pa, pts:pts};
   }).filter(function(x){ return x.pts.length>=3; });
-  if(!mit.length) return aktenRahmen({bereich:"Labor", titel:"Kein Wert mit genug Messungen",
+  if(!mit.length) return aktenRahmen({k:"labor", bereich:"Labor", titel:"Kein Wert mit genug Messungen",
     ansichten:ans, links:'<p class="satz">Für einen Verlauf braucht es denselben Wert auf mindestens drei Blättern.</p>'});
   var aktiv = UI.wahl || mit[0].pa.key;
   var cur = mit.filter(function(x){ return x.pa.key===aktiv; })[0] || mit[0];
@@ -2112,7 +2244,7 @@ function akteLabor(){
   var chips = '<div class="akten-liste no-print">'+mit.map(function(x){
       return '<button class="sch'+(x.pa.key===cur.pa.key?" an":"")+'" data-wahl="'+x.pa.key+'" '
         + 'style="font-size:12.5px;padding:6px 11px">'+esc(x.pa.label)+'</button>'; }).join("")+'</div>';
-  return aktenRahmen({ bereich:"Labor", titel:cur.pa.label+" über "+pts.length+" Blätter",
+  return aktenRahmen({ k:"labor", bereich:"Labor", titel:cur.pa.label+" über "+pts.length+" Blätter",
     untertitel:dmy(pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
     ansichten:ans,
     links: chips + bild([{pts:pts, farbe:"var(--akzent)", r:3}],
@@ -2127,7 +2259,7 @@ function akteHistory(){
   E.forEach(function(e){ var j=String(e.date||"").slice(0,4); if(j && jahre.indexOf(j)<0) jahre.push(j); });
   var j = UI.wahl || jahre[0];
   var drin = E.filter(function(e){ return String(e.date||"").slice(0,4)===j; });
-  return aktenRahmen({ bereich:"Krankengeschichte", titel:j||"—",
+  return aktenRahmen({ k:"history", bereich:"Krankengeschichte", titel:j||"—",
     untertitel:zahl(drin.length,"Eintrag","Einträge")+" in diesem Jahr",
     links: drin.map(function(e){
       return '<div class="ev"'+(e.mark?' style="background:var(--surface2)"':'')+'>'
@@ -2155,7 +2287,7 @@ function akteMeds(){
   var M = STATE.meds||{}, L = M.liste||[];
   if(UI.medEdit){
     var A = medArbeit(), K = UI.medKopf;
-    return aktenRahmen({ bereich:"Medikation", titel:"Plan bearbeiten",
+    return aktenRahmen({ k:"meds", bereich:"Medikation", titel:"Plan bearbeiten",
       untertitel:"Änderungen gehen erst beim Speichern in die Datei.",
       aktion:'<button class="btn" id="medAbbruch">Abbrechen</button>'
         + '<button class="btn stark" id="medSpeichern">Speichern</button>',
@@ -2178,10 +2310,10 @@ function akteMeds(){
         + '</div>'
         + '<div class="bildtext">Ein Präparat ohne Namen wird beim Speichern verworfen. «i. R.» steht für «in Reserve».</div>' });
   }
-  if(!L.length) return aktenRahmen({bereich:"Medikation", titel:"Kein Plan erfasst",
+  if(!L.length) return aktenRahmen({k:"meds", bereich:"Medikation", titel:"Kein Plan erfasst",
     aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
     links:'<p class="satz">Sobald ein eMediplan erfasst ist, steht er hier.</p>'});
-  return aktenRahmen({ bereich:"Medikation", titel:zahl(L.length,"Präparat","Präparate"),
+  return aktenRahmen({ k:"meds", bereich:"Medikation", titel:zahl(L.length,"Präparat","Präparate"),
     untertitel:(M.stand?"Stand "+dmy(M.stand)+" · ":"")+(M.quelle||""),
     aktion:FROZEN?"":'<button class="btn" id="medEdit" style="color:var(--akzent)">✎ Bearbeiten</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
@@ -2244,7 +2376,7 @@ function csvExport(){
 
 function akteRoh(){
   var alle = rohTage(), nur14 = (UI.wahl==="14"), liste = nur14 ? alle.slice(0,14) : alle;
-  return aktenRahmen({ bereich:"Rohdaten", titel:zahl(liste.length,"Messtag","Messtage"),
+  return aktenRahmen({ k:"roh", bereich:"Rohdaten", titel:zahl(liste.length,"Messtag","Messtage"),
     untertitel:"Das ✎ springt ins Erfassen dieses Tages — dort lässt sich die Notiz berichtigen.",
     aktion:'<button class="btn" id="btnCsv" style="color:var(--akzent)">↓ CSV</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
@@ -3247,7 +3379,8 @@ function zeichne(){
     : "Monitoring";
   var gemacht = (STATE.__export && STATE.__export.made) ? dmy(STATE.__export.made) : null;
   kopfZ.textContent = kopie ? "MOPP+ · Kopie vom "+(gemacht||stand) : "MOPP+ | "+heute;
-  document.getElementById("werkzeuge").hidden = kopie;
+  /* Die Knopfreihe im Kopf gibt es nicht mehr - sie steht in der Leiste, und die baut
+     leisteHtml() in der Arztkopie ohne Erfassen, Export und Datenspeicher. */
   /* Die Fusszeile sagte in der Kopie dasselbe wie der Kopf: «Arztkopie», «reine Ansicht»
      und das Datum standen zweimal auf der Seite (Entscheid Albrecht vom 06.09.2026).
      Uebrig bleibt die eine Angabe, die der Kopf NICHT macht - und auch die nur, wenn sie
@@ -3349,13 +3482,16 @@ document.addEventListener("click", function(e){
   if(t.id==="btnExpGo"){ exportErzeugen(); return; }
 
   if(t.dataset.kz){ UI.kz = t.dataset.kz; UI.seite = "voll"; zeichne(); window.scrollTo(0,0); return; }
-  /* × heisst überall dasselbe: eine Ebene hoch. Im Akten-Detail zurück zu den Kacheln,
-     in der Kachelübersicht zurück zu «Heute». */
-  if(t.dataset.zu==="akten"){ UI.akte = null; UI.blatt = 0; UI.sicht = null; UI.wahl = null;
-    UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; UI.medEdit = false; zeichne(); return; }
-  if(t.id==="btnAkten"){ UI.seite = "akten"; UI.akte = null; zeichne(); window.scrollTo(0,0); return; }
-  if(t.dataset.akte){ UI.akte = t.dataset.akte; UI.blatt = 0; UI.sicht = null; UI.wahl = null;
+  /* × heisst überall dasselbe: zurück zu «Heute». Seit dem Wegfall des Akten-Deckblatts
+     gibt es dazwischen keine Ebene mehr, auf die es sonst zeigen könnte. */
+  if(t.dataset.zu){ UI.seite = "wand"; UI.akte = null; UI.erfMeldung = null; UI.medEdit = false;
+    UI.blatt = 0; UI.sicht = null; UI.wahl = null; UI.medListe = null; UI.medKopf = null;
+    zeichne(); window.scrollTo(0,0); return; }
+  /* Ein Aktenbereich - aus der Leiste auf «Heute» oder aus der Reiterzeile in den Akten.
+     Beide Wege brauchen dasselbe, also gibt es einen. UI.seite wird mitgesetzt: von der
+     Leiste aus kommt man von der Kachelwand, nicht aus den Akten. */
+  if(t.dataset.akte){ UI.seite = "akten"; UI.akte = t.dataset.akte;
+    UI.blatt = 0; UI.sicht = null; UI.wahl = null;
     UI.medEdit = false; UI.medListe = null; UI.medKopf = null; zeichne(); window.scrollTo(0,0); return; }
   if(t.dataset.blatt!==undefined){ UI.blatt = +t.dataset.blatt; zeichne(); return; }
   if(t.dataset.sicht){ UI.sicht = t.dataset.sicht; UI.wahl = null; zeichne(); return; }
