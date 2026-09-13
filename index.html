@@ -933,6 +933,19 @@ function rBpTage(){
       note:noten.length?noten.join(" · "):null };
   });
 }
+/* ── Das Zielband des Blutdrucks ─────────────────────────────────────────────────
+   Es gibt KEINE ideale Linie, sondern einen Bereich - und er haengt daran, WO gemessen
+   wird. In MOPP+ stehen Selbstmessungen zu Hause, und dort gelten strengere Grenzen als
+   in der Praxis: Bluthochdruck beginnt bei 135/85 statt bei 140/90 (ESH und Deutsche
+   Hochdruckliga; die ESC-Leitlinie 2024 zieht dieselbe Linie). Wer die Praxisgrenze in
+   ein Bild aus Heimmessungen zeichnet, setzt das Band 5 mmHg zu hoch an.
+   Die UNTERE Kante ist die schwaechere der beiden: fuer zu tiefen Blutdruck gibt es keine
+   Normwerte, 105/65 ist die uebliche Ecke der harmonisierten Tabellen. Sie steht im Bild,
+   weil ein Band ohne Boden aussaehe, als sei tiefer immer besser - und das stimmt nicht.
+   Die Zahlen stehen HIER und nur hier. Wer sie aendert - etwa auf eine Vorgabe der
+   Aerztin -, aendert damit Bild, Bildunterschrift und Arztkopie gemeinsam. */
+var BD_ZIEL_SYS = [105, 135], BD_ZIEL_DIA = [65, 85];
+
 /* HbA1c ist eine Laborreihe, keine Tagesreihe - aber die einzige Laborzahl, die auf
    «Heute» gehoert: sie ist der Wert, nach dem in der Praxis gefragt wird, und ihr ALTER
    ist selbst eine Aussage. Vier Monate sind der uebliche Abstand bei behandeltem Diabetes. */
@@ -1244,7 +1257,21 @@ function bild(reihen, opt){
   if(x1===x0){ x0-=86400000; x1+=86400000; }
   var vs=alle.map(function(p){return p.v;});
   var mn=Math.min.apply(null,vs), mx=Math.max.apply(null,vs);
-  if(opt.zone){ mn=Math.min(mn,opt.zone[0]); mx=Math.max(mx,opt.zone[1]); }
+  /* opt.zone ist EIN Band, opt.zonen sind mehrere. Der Blutdruck braucht zwei - eines je
+     Reihe -, die Akte braucht eines. Ab hier laufen beide durch dieselbe Liste; opt.zone
+     bleibt bestehen, damit der Aufrufer mit einem einzigen Band keine Klammer mehr um
+     sein Zahlenpaar schreiben muss. Was NICHT geht: ein Band ohne die zugehoerige Reihe.
+     Jedes Band streckt die Achse (mn/mx unten), und ein Band, neben dem keine Kurve
+     laeuft, streckt sie fuer nichts - darum entscheidet der Aufrufer, ob er es uebergibt,
+     und nicht diese Stelle. */
+  /* Der Filter ist kein Schmuck: der Blutzucker uebergibt [th.critLow, th.postHigh], und
+     solange keine Therapiegrenzen erfasst sind, sind das zwei undefined. Math.min(mn,
+     undefined) ist NaN, und ein NaN in mn faerbt jedes Y() dieses Bildes - die Zeichnung
+     verschwindet ohne Fehlermeldung. Eine unvollstaendige Zone wird darum NICHT gezeichnet
+     statt das Bild mitzunehmen. */
+  var ZONEN = (opt.zonen || []).concat(opt.zone ? [opt.zone] : [])
+    .filter(function(z){ return z && isFinite(z[0]) && isFinite(z[1]); });
+  ZONEN.forEach(function(z){ mn=Math.min(mn,z[0]); mx=Math.max(mx,z[1]); });
   (opt.linien||[]).forEach(function(l){ mn=Math.min(mn,l.v); mx=Math.max(mx,l.v); });
   var pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
   /* ── Massstab ────────────────────────────────────────────────────────────────────
@@ -1291,12 +1318,12 @@ function bild(reihen, opt){
   function X(iso){ return L+((ms(iso)-x0)/(x1-x0))*(R-L); }
   function Y(v){ return T+(1-(v-mn)/((mx-mn)||1))*(B-T); }
   var h="";
-  if(opt.zone){
-    var yz1=Y(opt.zone[1]), yz2=Y(opt.zone[0]);
+  ZONEN.forEach(function(z){
+    var yz1=Y(z[1]), yz2=Y(z[0]);
     h += '<rect x="'+L+'" y="'+yz1.toFixed(1)+'" width="'+(R-L)+'" height="'+Math.abs(yz2-yz1).toFixed(1)+'" fill="var(--zone)"></rect>'
       +  '<line x1="'+L+'" y1="'+yz1.toFixed(1)+'" x2="'+R+'" y2="'+yz1.toFixed(1)+'" stroke="var(--zone-kante)" stroke-width="1"></line>'
       +  '<line x1="'+L+'" y1="'+yz2.toFixed(1)+'" x2="'+R+'" y2="'+yz2.toFixed(1)+'" stroke="var(--zone-kante)" stroke-width="1"></line>';
-  }
+  });
   for(var i=0;i<nY;i++){
     var v=mn+(mx-mn)*i/(nY-1), y=Y(v);
     h += '<line x1="'+L+'" y1="'+y.toFixed(1)+'" x2="'+R+'" y2="'+y.toFixed(1)+'" stroke="var(--grid)" stroke-width="1"></line>'
@@ -2015,14 +2042,47 @@ function zeichneVoll(){
          zwei verschiedenen Orten, und das ist der Fehler «zwei Zahlen fuer dasselbe». */
       kopfWert = Math.round(bpT.v)+(bpT.dia!=null?"/"+Math.round(bpT.dia):"");
       kopfEinheit = "mmHg · "+(bpT.n>1?"Ø vom ":"")+dm(bpT.iso);
+      /* «128/null mmHg» stand hier bis zum 13.09.2026, sobald das Fenster keine
+         diastolische Messung trug - derselbe Fehler, den der Kommentar acht Zeilen weiter
+         oben fuer die KOPFzahl beschreibt und behebt. Die Stelle daneben (Nebenspalte «Ø»)
+         trug ihn ebenso. Jetzt rechnet EINE Zeile das Paar, und beide lesen sie. */
+      var oeTxt = oeS + (oeD!=null ? "/"+oeD : "");
+      /* Die Einordnung nennt, was das Bild zeigt, und nicht mehr: ueber der oberen Kante,
+         darunter, oder dazwischen. Ein Schnitt ueber der Grenze ist KEINE Diagnose - der
+         Blutdruck eines Zeitraums ist eine Beobachtung, die Einordnung macht die Praxis.
+         Der Satz sagt darum «liegt ueber dem Zielband» und nicht «Bluthochdruck». */
+      var bdHoch = oeS >= BD_ZIEL_SYS[1] || (oeD!=null && oeD >= BD_ZIEL_DIA[1]);
+      var bdTief = oeS < BD_ZIEL_SYS[0] || (oeD!=null && oeD < BD_ZIEL_DIA[0]);
       satz = zahl(BP.length,"Messung","Messungen")+" an "+zahl(BPT.length,"Tag","Tagen")+" "+fl
-        + ", im Schnitt "+oeS+"/"+oeD+" mmHg. Die Kurve zeigt je Tag EINEN Punkt: das Mittel "
+        + ", im Schnitt "+oeTxt+" mmHg. Die Kurve zeigt je Tag EINEN Punkt: das Mittel "
         + "dieses Tages. An Tagen mit mehreren Messungen nennt der Merkzettel ihre Zahl und, "
         + "wenn sie weit auseinanderliegen, die Spanne. Die obere Linie ist systolisch, die "
-        + "blasse darunter diastolisch.";
+        + "blasse darunter diastolisch. "
+        + (diaT.length ? "Die grünen Bänder sind" : "Das grüne Band ist")
+        + " der Zielbereich der Heimmessung — der Schnitt "+fl+" liegt "
+        + (bdHoch ? "darüber." : (bdTief ? "darunter." : "darin."));
+      /* ── Zielband und Durchschnitt ────────────────────────────────────────────────
+         ZWEI Baender, nicht eines: systolisch und diastolisch haben verschiedene Grenzen,
+         und ein gemeinsames Band von 65 bis 135 waere die Aussage «alles dazwischen ist
+         gut» - die genau dann falsch ist, wenn es darauf ankommt (140/75 laege darin).
+         Das diastolische Band nur, wenn auch eine diastolische Kurve da ist. Sonst streckt
+         es die Achse bis 65 hinunter fuer eine Linie, die niemand zeichnet - derselbe
+         Grund, aus dem der BMI seine Grenzen ausserhalb des Ausschnitts weglaesst.
+
+         Die Ø-LINIE ist die Zahl aus der Nebenspalte, also der Schnitt aller MESSUNGEN.
+         Gezeichnet ist die Tagesreihe, und beide sind nicht dasselbe, sobald an manchen
+         Tagen oefter gemessen wird - die Linie liegt dann sichtbar neben der Mitte der
+         Kurve. Genau daran scheiterte der waagrechte Strich beim Gewicht am 28.08.2026.
+         Hier steht er trotzdem, aus zwei Gruenden: er traegt sein Etikett («Ø 128»), also
+         behauptet er keine fremde Zahl, und die Bildunterschrift sagt den Unterschied.
+         Wer ihn auf den Schnitt der TAGESMITTEL umstellt, faengt sich dafuer die zweite
+         Zahl im Werkzeug ein, die «Ø» heisst - und das ist der teurere Tausch. */
+      var bdZonen = [BD_ZIEL_SYS].concat(diaT.length ? [BD_ZIEL_DIA] : []);
+      var bdLinien = [{v:oeS, label:"Ø "+oeS, farbe:"var(--akzent)", blass:true}];
+      if(oeD!=null) bdLinien.push({v:oeD, label:"Ø "+oeD, farbe:"var(--zweit)", blass:true});
       inhalt = bild([{pts:BPT, farbe:"var(--akzent)", name:"systolisch", dez:0},
           {pts:diaT, farbe:"var(--zweit)", dick:1.6, r:2.2, name:"diastolisch", dez:0}],
-        {dez:0, einheit:"mmHg",
+        {dez:0, einheit:"mmHg", zonen:bdZonen, linien:bdLinien,
           /* An einem Tagespunkt hat bild() nichts mehr zusammenzufassen - hier steht, was
              der Tag traegt. Die Spanne nur, wenn sie etwas sagt: dieselbe Schwelle von 8 %
              wie im Merkzettel der Einzelreihen, damit nicht zwei Regeln nebeneinander
@@ -2043,8 +2103,22 @@ function zeichneVoll(){
             if(p.pulse!=null) t.push("Puls "+Math.round(p.pulse));
             return t.join(" · ");
           },
-          text:"Ein Punkt je Messtag "+fl+" — an Tagen mit mehreren Messungen ihr Mittel."});
-      neben = [ {l:"Ø "+fl, w:oeS+"/"+oeD, u:zahl(BP.length,"Messung","Messungen")},
+          /* Was im Bild steht, wird hier gesagt - beides aus denselben Konstanten. Das
+             diastolische Band steht im Satz nur, wenn es auch gezeichnet wurde; sonst
+             erklaert die Unterschrift eine Flaeche, die niemand sieht. */
+          text:"Ein Punkt je Messtag "+fl+" — an Tagen mit mehreren Messungen ihr Mittel. "
+            + (diaT.length ? "Die grünen Bänder sind" : "Das grüne Band ist")
+            + " der Zielbereich für Messungen zu Hause: "
+            + BD_ZIEL_SYS[0]+"–"+BD_ZIEL_SYS[1]+" systolisch"
+            + (diaT.length ? ", "+BD_ZIEL_DIA[0]+"–"+BD_ZIEL_DIA[1]+" diastolisch" : "")
+            + ". Über der oberen Kante beginnt, was bei Selbstmessung als Bluthochdruck "
+            + "gilt — zu Hause liegt diese Grenze bei "+BD_ZIEL_SYS[1]+"/"+BD_ZIEL_DIA[1]
+            + " und damit tiefer als die 140/90 der Praxismessung. Für zu tiefen Blutdruck "
+            + "gibt es keine Normwerte; die untere Kante ist die übliche Ecke der Tabellen, "
+            + "keine scharfe Grenze. Gestrichelt der Durchschnitt "+fl+", gerechnet über "
+            + "alle Messungen — die Kurve zeigt Tagesmittel, darum liegt die Linie nicht "
+            + "zwingend in ihrer optischen Mitte."});
+      neben = [ {l:"Ø "+fl, w:oeTxt, u:zahl(BP.length,"Messung","Messungen")},
         {l:"Puls Ø", w:puls.length?Math.round(mittel(puls.map(function(p){return p.pulse;}))):"—", u:"/min "+fl},
         /* Der Pulsdruck folgt der Kopfzahl, nicht mehr der letzten Einzelmessung - sonst
            stuenden oben und hier zwei verschiedene Tage. */
