@@ -6,9 +6,9 @@
 <title>MOPP+ · Monitoring</title>
 <style>
   /* MOPP+ · Neubau 15.08.2026. Eine Frage, eine Antwort, ein Weg.
-     Drei Kurven — Gewicht, Blutzucker, Blutdruck —, dazu zwei Zahlen ueber den Koerper
-     (Taille-Hueft-Quotient seit 21.08.2026, BMI seit 22.08.2026) und die Akten; mehr
-     traegt das Werkzeug nicht. Drei Ebenen: Heute (Kachelwand) · eine Kennzahl gross ·
+     Vier Kurven — Gewicht, Blutzucker, Blutdruck, Ruhepuls (seit 06.11.2026) —, dazu
+     zwei Zahlen ueber den Koerper (Taille-Hueft-Quotient seit 21.08.2026, BMI seit
+     22.08.2026) und die Akten; mehr traegt das Werkzeug nicht. Drei Ebenen: Heute (Kachelwand) · eine Kennzahl gross ·
      Akten, dazu das Erfassen.
      ACHTUNG: dieser Kommentar steht im Style-Block, nicht beim Skript. Proben, die nur
      den Skriptteil schneiden, sehen ihn nicht - er ist darum dreimal falsch stehen
@@ -88,6 +88,16 @@
     flex:1 1 auto;min-height:0}
   .kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:14px;
     flex:1 1 auto;min-height:0}
+  /* Auf der Wand stehen seit dem 06.11.2026 VIER Kacheln in dieser Reihe (Ruhepuls dazu).
+     auto-fit ergab bei mittlerer Fensterbreite drei plus eine - der BMI stand allein in
+     einer eigenen Zeile. Darum hier vier, zwei oder eine Spalte, nie drei. Gemessen wird
+     die Breite der Wand, nicht des Fensters: die Leiste rechts nimmt ihren Teil weg, und
+     eine Media Query auf das Fenster muesste das nachrechnen. Nur auf der Wand - das
+     Erfassen benutzt dieselbe Klasse und behaelt auto-fit. */
+  .wand{container-type:inline-size;container-name:wand}
+  .wand .kacheln{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @container wand (max-width:760px){ .wand .kacheln{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @container wand (max-width:440px){ .wand .kacheln{grid-template-columns:minmax(0,1fr)} }
   .kachel{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
     padding:20px 22px;cursor:pointer;display:flex;flex-direction:column;min-width:0;min-height:0}
   .kachel:hover{border-color:var(--akzent)}
@@ -497,7 +507,7 @@
 /*STATE-ANFANG*/
 var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{points:[]},
   glucose:{days:[],slots:[],slotType:{},th:{}}, bloodpressure:{points:[]},
-  lab:{params:[],panels:[]}, history:{events:[]}, meds:{liste:[]}, termine:[] };
+  restingHr:{points:[]}, lab:{params:[],panels:[]}, history:{events:[]}, meds:{liste:[]}, termine:[] };
 /*STATE-ENDE*/
 
 /* Ein Zeitraum JE KENNZAHL, nicht einer fuer alle. Das Gewicht startet auf «alles»: vier
@@ -507,12 +517,14 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    Der Taille-Huft-Quotient startet wie das Gewicht auf «alles»: zwischen zwei Messungen
    liegen Wochen bis Jahre, jedes Wochenfenster waere leer. Der BMI ebenso - er ist die
    Gewichtsreihe geteilt durch eine Konstante, also gilt dort dasselbe Argument.
+   Der Ruhepuls startet ebenfalls auf «alles»: ein Punkt je Woche - im Vier-Wochen-Fenster
+   stuenden vier davon.
    «export» ist keine Kennzahl, sondern der Zeitraum des Arzt-Exports - er benutzt dieselben
    Stufen und dieselbe Rechnung. Eine zweite Zeitraum-Mechanik daneben liefe auseinander.
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
 var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null,
-  zeit:{gewicht:"alles", bz:"28", bd:"28", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
+  zeit:{gewicht:"alles", bz:"28", bd:"28", rp:"alles", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
   erfBp:[neueBpZeile()], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
   /* edit nennt den Aktenbereich, der gerade bearbeitet wird, arbeit haelt dessen
@@ -884,8 +896,8 @@ function normFuer(slot){ return sollTyp(slot)==="pre" ? NORM.pre : NORM.post; }
 
 /* ══ Reihen ═════════════════════════════════════════════════════════════════════
    Eine Rechenstelle je Reihe. Wer eine Zahl braucht, holt sie hier - nicht in der
-   Ansicht. Es sind acht: rGewicht, rKoerper, rBmi, rBzAlle, rBzTage, rBp, rBpTage und
-   rHba1c. Blutzucker und Blutdruck haben je ZWEI: die Einzelmessungen und die Tage.
+   Ansicht. Es sind neun: rGewicht, rKoerper, rBmi, rBzAlle, rBzTage, rBp, rBpTage,
+   rRuhepuls und rHba1c. Blutzucker und Blutdruck haben je ZWEI: die Einzelmessungen und die Tage.
    rBmi ist die erste ABGELEITETE Reihe - sie rechnet aus rGewicht und speichert nichts. */
 function rGewicht(){ return (STATE.weight.points||[]).filter(function(p){ return !p.hist && p.value!=null; })
   .map(function(p){ return {iso:p.date, v:+p.value, note:p.note||null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
@@ -899,6 +911,25 @@ function rBzTage(){ var m={}, nz={};
   (STATE.glucose.days||[]).forEach(function(d){ if(d.note) (nz[d.iso]=nz[d.iso]||[]).unshift(d.note); });
   return Object.keys(m).sort().map(function(iso){ return {iso:iso, v:mittel(m[iso]), n:m[iso].length,
     note:nz[iso]?nz[iso].join(" · "):null}; }); }
+/* ── Der Ruhepuls ────────────────────────────────────────────────────────────────
+   Seit dem 06.11.2026 (Entscheid Albrecht). Gemessen mit der Fitbit Air, abgelesen in der
+   Fitbit-App und von Hand eingetragen - als WOCHENSCHNITT, nicht Tag fuer Tag (Entscheid
+   Albrecht vom selben Tag: «Ich möchte nicht jeden Tag Werte erfassen»). Ein Punkt ist das
+   Mittel der sieben Tage BIS zu seinem Datum - so, wie die Wochenansicht der Fitbit-App
+   rechnet; eine Kalenderwoche waere eine zweite Rechnung, die neben der App herliefe.
+   Der Tageswert schwankt ohnehin um ein paar Schlaege, ohne dass das etwas heisst; fuer die
+   Frage «wohin laeuft er» reicht die Woche. tage nennt, aus wie vielen Tagen ein
+   nachgetragener Schnitt stammt - fehlt das Feld, stammt er aus der App. Kein automatischer Abruf - die
+   Fitbit Web API ist im September 2026 abgeschaltet worden, und der Nachfolger verlangt
+   eine Anmeldung, die in einer einzelnen HTML-Datei woechentlich erneuert werden muesste.
+   Das kostet mehr als eine Zahl am Morgen.
+   Der Ruhepuls ist NICHT der Puls aus der Blutdruckmessung. Jener ist eine Momentaufnahme
+   im Sitzen; diesen rechnet Fitbit aus Tag und Schlaf. Darum eigener Block, eigene Reihe,
+   eigener Name - und nie eine gemeinsame Kurve.
+   Der Block heisst restingHr und NICHT fitbit: unter «fitbit» liegt in aelteren Dateien
+   ein Altblock, den exportZustand() bewusst wegraeumt. */
+function rRuhepuls(){ return (((STATE.restingHr||{}).points)||[]).filter(function(p){ return p.value!=null; })
+  .map(function(p){ return {iso:p.date, v:+p.value, n:p.tage!=null?+p.tage:null}; }).sort(function(a,b){ return a.iso<b.iso?-1:1; }); }
 function rBp(){ return (STATE.bloodpressure.points||[]).filter(function(p){ return p.sys!=null; })
   .map(function(p){ return {iso:p.iso, v:+p.sys, dia:p.dia!=null?+p.dia:null, pulse:p.pulse!=null?+p.pulse:null,
     slot:p.slot||null, time:p.time||null, note:p.note||null}; })
@@ -1429,10 +1460,11 @@ function bild(reihen, opt){
 }
 
 /* ══ Kennzahlen ═════════════════════════════════════════════════════════════════
-   Fuenf, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
+   Sechs, nicht zwanzig. Jede beantwortet eine Frage, die taeglich gestellt wird;
    alles Uebrige ist Nebenzahl und steht als Zeile im Vollbild.
-   Auf der Wand stehen sie seit dem 28.08.2026 als ZWEI plus DREI: Gewicht und Blutzucker
-   oben nebeneinander, Blutdruck, THQ und BMI darunter. Wer eine Kennzahl hinzufuegt oder
+   Auf der Wand stehen sie seit dem 06.11.2026 als ZWEI plus VIER: Gewicht und Blutzucker
+   oben nebeneinander, Blutdruck, Ruhepuls, THQ und BMI darunter. Der Ruhepuls steht
+   neben dem Blutdruck, weil beide etwas ueber Herz und Kreislauf sagen. Wer eine Kennzahl hinzufuegt oder
    entfernt, zieht beide Zahlen hier und in zeichneWand() nach. */
 function ampelFarbe(gut, warn){ return gut ? "var(--good)" : (warn ? "var(--warn)" : "var(--ink)"); }
 
@@ -1442,7 +1474,7 @@ function KZ(){
   /* Ein Fenster je Kennzahl - und dasselbe Fenster fuer Bild UND Zahl. Vorher stand in der
      Blutzucker-Kachel die Zahl fuer 14 Messtage und der Prozentsatz fuer alle Messungen der
      Periode, in EINER Zeile. Genau das schafft der Schalter ab. */
-  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq"), fm=fenster("bmi");
+  var fg=fenster("gewicht"), fb=fenster("bz"), fd=fenster("bd"), fq=fenster("thq"), fm=fenster("bmi"), fr=fenster("rp");
   var G=imFenster(Gall,fg), BZ=imFenster(BZall,fb), BZT=imFenster(BZTall,fb), BP=imFenster(BPall,fd);
   /* Der THQ hat sein eigenes Fenster, seine eigene Kennzahl und seit dem 21.08.2026 eine
      eigene Kachel auf der Kachelwand. */
@@ -1462,6 +1494,7 @@ function KZ(){
   var BPT = imFenster(rBpTage(), fd);
   var bpL = BPT.length?BPT[BPT.length-1]:null;
   var gL = G.length?G[G.length-1]:null;
+  var RP = imFenster(rRuhepuls(), fr), rpL = RP.length?RP[RP.length-1]:null;
 
   return {
     /* Kein «unter», kein «unter2», kein «meta» mehr: die Kachel traegt seit dem 28.08.2026
@@ -1504,7 +1537,14 @@ function KZ(){
           p.dia!=null?"diastolisch "+oe+Math.round(p.dia):"",
           p.pulse!=null?"Puls "+oe+Math.round(p.pulse):""].filter(Boolean).join(" · "); },
       wert:bpL?(Math.round(bpL.v)+(bpL.dia!=null?"/"+Math.round(bpL.dia):"")):"—",
-      zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140) }
+      zustand:ampelFarbe(bpL&&bpL.v<130, bpL&&bpL.v>=140) },
+    /* KEINE Ampel. Fuer den Ruhepuls gibt es keine Grenze, die fuer einen einzelnen
+       Menschen gilt - 60 und 75 sind beide gewoehnlich. Aussagekraeftig ist die Bewegung
+       gegen den eigenen Normalwert, und die steht als Zahl im Vollbild. Was farbig ist,
+       ist eine Aussage; hier gaebe es keine, also bleibt die Zahl ungefaerbt. */
+    rp:{ key:"rp", label:"Ruhepuls", einheit:"/min · Ø 7 Tage", reihe:RP, farbe:"var(--akzent)", dez:0,
+      sub:function(p){ return "Ø der 7 Tage bis "+dm(p.iso)+(p.n!=null&&p.n<7?" · aus "+zahl(p.n,"Tag","Tagen"):""); },
+      wert:rpL?String(Math.round(rpL.v)):"—", zustand:"var(--ink)" }
   };
 }
 
@@ -1578,11 +1618,16 @@ function heuteOffen(){
   var g = rGewicht().filter(function(x){ return x.iso===iso; })[0];
   var bz = rBzTage().filter(function(x){ return x.iso===iso; })[0];
   var bp = rBp().filter(function(x){ return x.iso===iso; });
+  var RPh = rRuhepuls(), rpL = RPh.length?RPh[RPh.length-1]:null;
   var K = rKoerper(), kL = K.length?K[K.length-1]:null;
   return [
     {n:"Gewicht",    t:g  ? nf(g.v,1)+" kg" : "offen", da:!!g},
     {n:"Blutzucker", t:bz ? zahl(bz.n,"Messung","Messungen") : "offen", da:!!bz},
     {n:"Blutdruck",  t:bp.length ? zahl(bp.length,"Messung","Messungen") : "offen", da:!!bp.length},
+    /* Wie die Umfaenge ohne «offen»: der Ruhepuls wird woechentlich nachgetragen, ein
+       taegliches «offen» waere sechs Tage von sieben eine falsche Mahnung. */
+    {n:"Ruhepuls",   t:rpL ? (tage(rpL.iso)===0 ? "heute" : "vor "+zahl(tage(rpL.iso),"Tag","Tagen"))
+                          : "noch nie", neutral:true},
     {n:"Umfänge",    t:kL ? (tage(kL.iso)===0 ? "heute" : "vor "+zahl(tage(kL.iso),"Tag","Tagen"))
                           : "noch nie", neutral:true}
   ];
@@ -1655,7 +1700,7 @@ function zeichneWand(){
   return '<div class="heute">'
     + '<div class="wand">'
     +   '<div class="leitpaar">'+[kz.gewicht,kz.bz].map(function(d){ return kachelHtml(d, true); }).join("")+'</div>'
-    +   '<div class="kacheln">'+[kz.bd,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
+    +   '<div class="kacheln">'+[kz.bd,kz.rp,kz.thq,kz.bmi].map(function(d){ return kachelHtml(d); }).join("")+'</div>'
     + '</div>'
     + leisteHtml()
     + '</div>';
@@ -1835,6 +1880,54 @@ function zeichneVoll(){
   /* Der THQ hat ein eigenes Vollbild, weil er eine eigene Frage beantwortet: nicht «wie
      viel», sondern «wo». Alle Zahlen hier kommen aus rKoerper() - gerechnet wird an dieser
      Stelle nichts nach. */
+  /* Der Ruhepuls - ein Punkt je Wochenschnitt. Kein gleitendes Mittel: der Punkt IST
+     schon eines, ein zweites daruebergelegt glaettete das Geglaettete.
+     Die Kennzahl, die etwas sagt, ist die ABWEICHUNG vom eigenen Normalwert: der letzte
+     Wochenschnitt gegen das Mittel der Schnitte aus den vier Wochen davor. Sie wird als
+     Zahl genannt und nicht bewertet - eine Schwelle, ab der sie «zu hoch» waere, gibt es
+     fuer einen einzelnen Menschen nicht verlaesslich, und eine erfundene Grenze waere
+     schlimmer als keine.
+     Gerechnet wird sie auf der GANZEN Reihe, nicht im Fenster: der Normalwert ist eine
+     Aussage ueber die Wochen vor dem letzten Wert. In einer Arztkopie mit Ausschnitt faellt
+     sie darum weg (siehe nurPeriode) - die Daten davor sind dort gekappt. */
+  if(k==="rp"){
+    var RPall = rRuhepuls(), RPf = imFenster(RPall, f);
+    if(!RPf.length){ kopfWert = "—"; kopfEinheit = "/min · "+fl; satz = LEER_ZEITRAUM; }
+    else{
+      var rL = RPf[RPf.length-1], rv = RPf.map(function(x){ return x.v; });
+      var rOe = mittel(rv), rMin = Math.min.apply(null, rv), rMax = Math.max.apply(null, rv);
+      kopfWert = String(Math.round(rL.v));
+      kopfEinheit = "/min · Ø der 7 Tage bis "+dm(rL.iso);
+      /* Normalwert: die Schnitte, deren Datum 7 bis 35 Tage vor dem letzten liegt - also
+         die vier Wochen VOR der letzten. Mindestens zwei davon, sonst ist der Vergleich
+         ein Vergleich mit einer einzelnen Woche. */
+      var rEnde = RPall[RPall.length-1].iso, rLetzt = RPall[RPall.length-1];
+      var rB = RPall.filter(function(x){ return x.iso <= isoMinus(rEnde, 7) && x.iso > isoMinus(rEnde, 35); });
+      var rBoe = rB.length>=2 ? mittel(rB.map(function(x){ return x.v; })) : null;
+      var rDiff = (!nurPeriode() && rBoe!=null) ? rLetzt.v - rBoe : null;
+      satz = "Der Ruhepuls aus der Fitbit Air, je Punkt das Mittel von sieben Tagen — Fitbit rechnet "
+        + "ihn aus Tag und Schlaf. Er ist nicht derselbe Wert wie der Puls bei der Blutdruckmessung, "
+        + "der im Sitzen und im Moment gemessen wird. Gezeigt sind "
+        + zahl(RPf.length,"Wochenschnitt","Wochenschnitte")+" "+fl+", im Mittel "+Math.round(rOe)+" /min, "
+        + "zwischen "+Math.round(rMin)+" und "+Math.round(rMax)+"."
+        + (rDiff!=null ? " Die letzte Woche liegt "+(Math.abs(rDiff)<0.5?"auf":(rDiff>0?"über":"unter"))
+            + " dem Normalwert der vier Wochen davor"+(Math.abs(rDiff)<0.5?"":", um "+nf(Math.abs(rDiff),1)+" Schläge")+"." : "");
+      inhalt = bild([{pts:RPf, farbe:"var(--akzent)", r:3, dez:0, name:"Ruhepuls"}],
+        {dez:0, einheit:"/min",
+          sub:function(p){ return "Ø der 7 Tage bis "+dm(p.iso)+(p.n!=null&&p.n<7?" · aus "+zahl(p.n,"Tag","Tagen"):""); },
+          text:"Ein Punkt je Wochenschnitt, "+zahl(RPf.length,"Punkt","Punkte")+" "+fl
+            + ". Ein Schnitt aus weniger als sieben Tagen sagt das im Merkzettel."});
+      neben = [ {l:"Ø", w:String(Math.round(rOe)), u:"/min "+fl},
+        {l:"Spanne", w:Math.round(rMin)+"–"+Math.round(rMax), u:"/min "+fl},
+        {l:"Wochenschnitte", w:String(RPf.length), u:dmy(RPf[0].iso)+" → "+dmy(rL.iso)} ];
+      if(!nurPeriode())
+        neben.splice(2, 0, {l:"letzte Woche gegen Normalwert",
+          w:rDiff==null?"—":(Math.abs(rDiff)<0.5?"±0":vz(rDiff,1)),
+          u:rDiff==null?"zu wenige Wochen für den Vergleich"
+            :("/min · "+nf(rLetzt.v,0)+" gegen Ø "+nf(rBoe,0)+" in den 4 Wochen davor")});
+    }
+  }
+
   if(k==="thq"){
     var KK = imFenster(rKoerper(), f);
     if(!KK.length){ kopfWert = "—"; kopfEinheit = "Taille ÷ Hüfte · "+fl; satz = LEER_ZEITRAUM; }
@@ -2716,6 +2809,7 @@ function rohTage(){
   rBzTage().forEach(function(x){ var z=merk(x.iso); z.bz = x.v; z.bzn = x.n; if(x.note) (z.nz=z.nz||[]).push(x.note); });
   rBp().forEach(function(x){ var z=merk(x.iso); (z.bp = z.bp||[]).push(Math.round(x.v)+"/"+Math.round(x.dia));
     if(x.note) (z.nz=z.nz||[]).push(x.note); });
+  rRuhepuls().forEach(function(x){ merk(x.iso).rp = x.v; });
   return Object.keys(T).sort().reverse().map(function(k){ var z=T[k];
     z.notiz = z.nz ? z.nz.join(" · ") : ""; return z; });
 }
@@ -2726,11 +2820,11 @@ function rohTage(){
 function csvExport(){
   var alle = rohTage(), liste = (UI.wahl==="14") ? alle.slice(0,14) : alle;
   var mitNotiz = zeigeNotizen();
-  var kopf = ["Tag","Gewicht kg","Blutzucker Mittel","Messungen","Blutdruck"]
+  var kopf = ["Tag","Gewicht kg","Blutzucker Mittel","Messungen","Blutdruck","Ruhepuls Ø 7 Tage"]
     .concat(mitNotiz?["Notiz"]:[]);
   var zeilen = liste.map(function(z){
     return [z.iso, z.gw!=null?nf(z.gw,1):"", z.bz!=null?nf(z.bz,1):"", z.bzn||"",
-      z.bp?z.bp.join(" "):""]
+      z.bp?z.bp.join(" "):"", z.rp!=null?String(Math.round(z.rp)):""]
       .concat(mitNotiz?[String(z.notiz||"").replace(/[;\r\n]/g," ")]:[]).join(";"); });
   var txt = "\ufeff"+kopf.join(";")+"\r\n"+zeilen.join("\r\n")+"\r\n";
   var a = document.createElement("a");
@@ -2745,7 +2839,7 @@ function akteRoh(){
     untertitel:"Das ✎ springt ins Erfassen dieses Tages — dort lässt sich die Notiz berichtigen.",
     aktion:'<button class="btn" id="btnCsv" style="color:var(--akzent)">↓ CSV</button>',
     links:'<div class="scroll" style="margin-top:0"><table class="akten-tabelle"><thead><tr>'
-      + '<th>Tag</th><th>Gewicht kg</th><th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th>'
+      + '<th>Tag</th><th>Gewicht kg</th><th>Blutzucker Ø</th><th>Messungen</th><th>Blutdruck</th><th>Ruhepuls Ø 7 T.</th>'
       + (zeigeNotizen()?'<th style="text-align:left">Notiz</th>':'')+(FROZEN?'':'<th></th>')
       + '</tr></thead><tbody>'
       + liste.map(function(z){
@@ -2753,6 +2847,7 @@ function akteRoh(){
             + '<td>'+(z.bz!=null?nf(z.bz,1):"·")+'</td>'
             + '<td style="color:var(--faint)">'+(z.bzn||"·")+'</td>'
             + '<td>'+(z.bp?z.bp.join(" · "):"·")+'</td>'
+            + '<td>'+(z.rp!=null?Math.round(z.rp):"·")+'</td>'
             + (zeigeNotizen()
                 ? '<td style="text-align:left;color:var(--warn);max-width:280px;overflow:hidden;text-overflow:ellipsis" '
                   + 'title="'+esc(z.notiz||"")+'">'+esc(z.notiz||"")+'</td>' : '')
@@ -2791,6 +2886,11 @@ function standVom(iso){
      Tag in der Datei steht, steht im Feld. Geschrieben wird als Text der Datei, nicht
      gerundet - sonst machte ein Oeffnen der Maske aus einem Komma-Wert stillschweigend eine
         runde Zahl. */
+  var rp = (((STATE.restingHr||{}).points)||[]).filter(function(p){ return p.date===iso; })[0];
+  if(rp && rp.value!=null) S.ruhepuls = String(Math.round(rp.value));
+  /* Gerundet steht er im Feld; ein nachgetragener Schnitt mit Komma (77,3) wird darum nur
+     ueberschrieben, wenn das Feld wirklich geaendert wird - wertGeaendert vergleicht mit
+     genau diesem gerundeten Text. */
   var b = ((STATE.body&&STATE.body.points)||[]).filter(function(p){ return p.date===iso; })[0];
   if(b){
     if(b.waist!=null) S.taille = String(b.waist).replace(".",",");
@@ -3015,9 +3115,10 @@ function zeichneErf(){
   var iso = erfIso(), wt = new Date(iso+"T12:00:00").getDay();
   standAuffrischen(iso);
   var TAGE = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
-  var G=rGewicht(), BZT=rBzTage(), BP=rBp();
+  var G=rGewicht(), BZT=rBzTage(), BP=rBp(), RPR=rRuhepuls();
   var auf = UI.erfAuf==="auto"
     ? (!erfHat(G)?"gw":(!erfHat(BZT)?"bz":(!erfHat(BP)?"bd":null))) : UI.erfAuf;
+  var rpE = RPR.filter(function(x){return x.iso===iso;})[0];
   var gE = G.filter(function(x){return x.iso===iso;})[0], bzE = BZT.filter(function(x){return x.iso===iso;})[0];
   /* Liegt fuer diesen Tag schon ein Umfang in der Datei, sagt die Kachel es - sonst sieht
      ein vorbelegtes Feld wie eine Eingabe aus, die man selbst gemacht hat. */
@@ -3212,6 +3313,20 @@ function zeichneErf(){
       + kuerzelBlock("bd", "Gewählte Kürzel stehen vor der Notiz jeder NEUEN Messung.");
     })());
 
+  /* Ein Feld, keine Notiz: der Ruhepuls ist eine Zahl, die Fitbit ausrechnet - es gibt
+     zu ihr nichts festzuhalten, was nicht schon in der Notiz zum Gewicht Platz haette.
+     Die Kachel klappt NICHT von selbst auf: sie gehoert zum Wochentakt, nicht zum Tag, und
+     stuende sonst an sechs von sieben Tagen als erste Luecke da. */
+  h += kachel("rp", "Ruhepuls · Ø 7 Tage",
+    tv("ruhepuls") ? tv("ruhepuls")+" /min" : "",
+    !!rpE && !wertGeaendert("ruhepuls"),
+    rpE ? erfWann()+" erfasst" : (RPR.length?"zuletzt "+dmy(RPR[RPR.length-1].iso)+" · "+Math.round(RPR[RPR.length-1].v)+" /min":""),
+    '<div style="display:flex;align-items:center;gap:10px;margin-top:12px">'
+    + '<input type="text" inputmode="numeric" data-w="ruhepuls" value="'+esc(tv("ruhepuls"))+'" placeholder="/min" style="width:130px">'
+    + '<div style="font-size:14.5px;color:var(--faint)">Schläge je Minute</div></div>'
+    + '<div class="bildtext">Der Schnitt aus der Wochenansicht der Fitbit-App, über die 7 Tage bis '+esc(erfWann())+' — nicht der Puls von der Blutdruckmessung.'
+    + (rpE?' Im Feld steht der Wert dieses Tages — ändern berichtigt ihn, leeren entfernt ihn.':'')+'</div>');
+
   h += '</div>';
 
   var anzahl = erfAnzahl();
@@ -3247,6 +3362,21 @@ async function speichern(){
   N.body = N.body||{points:[]}; N.body.points = N.body.points||[];
   N.glucose = N.glucose||{days:[]}; N.glucose.days = N.glucose.days||[];
   N.bloodpressure = N.bloodpressure||{points:[]}; N.bloodpressure.points = N.bloodpressure.points||[];
+  N.restingHr = N.restingHr||{points:[]}; N.restingHr.points = N.restingHr.points||[];
+
+  /* Der Ruhepuls - derselbe Weg wie das Gewicht: ein Wert je Tag, ein geleertes Feld
+     entfernt ihn. Ganze Schlaege, weil Fitbit nichts anderes anzeigt. Was ausserhalb von
+     30 bis 150 liegt, ist ein Vertipper und kein Ruhepuls; es wird zurueckgewiesen, BEVOR
+     irgendetwas geschrieben wird. */
+  if(wertGeaendert("ruhepuls")){
+    var rpv = num(W.ruhepuls);
+    if(rpv!=null && (rpv<30 || rpv>150))
+      return meldung("Ruhepuls "+W.ruhepuls+" /min ist kein plausibler Wert — bitte prüfen. Es wurde nichts geschrieben.", true);
+    if(rpv!=null){ var rpp = punktSetzen(N.restingHr.points, "date", iso, {value:Math.round(rpv)});
+      delete rpp.tage; geschrieben++; }
+    else if(N.restingHr.points.some(function(p){ return p.date===iso; })){
+      N.restingHr.points = N.restingHr.points.filter(function(p){ return p.date!==iso; }); geschrieben++; }
+  }
 
   /* 0 kg ist keine Messung, sondern ein leeres Feld - dieselbe Falle wie bei den
      Umfaengen: num("0") ist 0 und damit nicht null. */
@@ -3430,7 +3560,7 @@ async function speichern(){
    zweite Darstellung, die veralten koennte. Der Verbinden-Dialog wird entfernt: ein
    Token hat in einer Datei, die aus dem Haus geht, nichts verloren. */
 var EXP_BEREICHE = [ {k:"gewicht",t:"Gewicht"}, {k:"bz",t:"Blutzucker"}, {k:"bd",t:"Blutdruck"},
-  {k:"labor",t:"Labor"}, {k:"history",t:"Krankengeschichte"}, {k:"meds",t:"Medikation"},
+  {k:"rp",t:"Ruhepuls"}, {k:"labor",t:"Labor"}, {k:"history",t:"Krankengeschichte"}, {k:"meds",t:"Medikation"},
   {k:"stamm",t:"Diagnosen und Stammdaten"} ];
 var EXP_AN = {};
 EXP_BEREICHE.forEach(function(b){ EXP_AN[b.k]=true; });
@@ -3470,7 +3600,7 @@ function expKappen(arr, feld, f){
    der Dialog liest daraus, was er unter jedem Bereich meldet. Zwei getrennte Listen
    liefen beim ersten neuen Bereich auseinander - und dann verspraeche der Dialog eine
    andere Menge, als die Datei traegt. */
-var EXP_GEKAPPT = { gewicht:true, bz:true, bd:true };
+var EXP_GEKAPPT = { gewicht:true, bz:true, bd:true, rp:true };
 /* Was in welchem Bereich ein Datum traegt. body steht bei «Gewicht»: es hat keinen eigenen
    Schalter und geht mit dem Gewicht an oder aus. Die Medikation traegt kein Datum je Zeile -
    ein Plan ist ein Stand, kein Verlauf. */
@@ -3479,6 +3609,7 @@ var EXP_TEILE = {
             {q:function(){ return (STATE.body||{}).points; }, feld:"date", e:"Körpermass", m:"Körpermassen"} ],
   bz:[ {q:function(){ return (STATE.glucose||{}).days; }, feld:"iso", e:"Messtag", m:"Messtagen"} ],
   bd:[ {q:function(){ return (STATE.bloodpressure||{}).points; }, feld:"iso", e:"Messung", m:"Messungen"} ],
+  rp:[ {q:function(){ return (STATE.restingHr||{}).points; }, feld:"date", e:"Wochenschnitt", m:"Wochenschnitten"} ],
   /* mVoll ist der Plural OHNE «von»: «29 Blätter» statt «3 von 29 Blättern». Diese beiden
      Bereiche kappt der Zeitraum nicht mehr, also steht dort nie ein Dativ. */
   labor:[ {q:function(){ return (STATE.lab||{}).panels; }, feld:"date", e:"Blatt", m:"Blättern", mVoll:"Blätter"} ],
@@ -3572,6 +3703,7 @@ function exportZustand(){
   if(!EXP_AN.gewicht){ S.weight.points=[]; if(S.body) S.body.points=[]; }
   if(!EXP_AN.bz){ S.glucose.days=[]; S.glucose.histDays=[]; delete S.glucose.baseline; }
   if(!EXP_AN.bd) S.bloodpressure.points=[];
+  if(!EXP_AN.rp && S.restingHr) S.restingHr.points=[];
   if(!EXP_AN.labor) S.lab={params:[],panels:[]};
   if(!EXP_AN.history) S.history={events:[]};
   if(!EXP_AN.meds) S.meds={liste:[]};
@@ -3597,6 +3729,7 @@ function exportZustand(){
     if(S.body) S.body.points = expKappen(S.body.points, "date", fz);
     S.glucose.days         = expKappen(S.glucose.days, "iso", fz);
     S.bloodpressure.points = expKappen(S.bloodpressure.points, "iso", fz);
+    if(S.restingHr) S.restingHr.points = expKappen(S.restingHr.points, "date", fz);
   }
   S.__export = { made:isoVon(new Date(heuteMs())), docPaths:EXP_DOCS, notizen:EXP_NOTIZEN,
     bereiche:JSON.parse(JSON.stringify(EXP_AN)),
@@ -3919,7 +4052,7 @@ document.addEventListener("click", function(e){
   if(t.id==="btnErf" || t.id==="btnErf2"){
     UI.seite = "erf"; UI.erfMeldung = null;
     UI.erfAuf = (t.id==="btnErf2")
-      ? ({gewicht:"gw", thq:"gw", bmi:"gw", bz:"bz", bd:"bd"}[UI.kz] || "auto")
+      ? ({gewicht:"gw", thq:"gw", bmi:"gw", bz:"bz", bd:"bd", rp:"rp"}[UI.kz] || "auto")
       : "auto";
     erfZeitAuffrischen(); zeichne(); window.scrollTo(0,0); return; }
 
