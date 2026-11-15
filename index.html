@@ -27,7 +27,7 @@
     --bg:#0A0C0D; --surface:#15181A; --surface2:#101314; --line:#2C3134; --line2:#202426;
     --ink:#F4F6F7; --muted:#AFB6BA; --faint:#828A8E;
     --akzent:#C6CDD2; --akzent-hell:#E2E7EA; --akzent-fg:#0A0C0D; --zweit:#96A0A6;
-    --good:#5FC08C; --warn:#E0B25C; --high:#E8735E;
+    --good:#5FC08C; --warn:#E0B25C; --high:#E8735E; --tief:#6FA8DC;
     --zone:rgba(95,192,140,.12); --zone-kante:rgba(95,192,140,.45); --grid:rgba(255,255,255,.07);
     --marke:#F08C1A;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
@@ -333,7 +333,10 @@
   .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:13px;margin-top:16px}
   .scroll .akten-tabelle{margin:0;min-width:820px}
   /* Wertfarben fuer Zahlen in Tabellen und Merkzetteln: ueber der Norm, darunter, im Soll. */
-  .hoch{color:var(--high)} .tief{color:var(--zweit)} .imsoll{color:var(--good)}
+  /* «Unter dem Referenzbereich» ist eine Aussage ueber den Wert und traegt darum Farbe
+     (Entscheid Albrecht vom 15.11.2026). Bis dahin stand hier --zweit, ein Grau, das neben
+     dem weissen Normalwert kaum auffiel - und der Hinweis unter dem Blatt versprach blau. */
+  .hoch{color:var(--high)} .tief{color:var(--tief)} .imsoll{color:var(--good)}
   .ev{display:grid;grid-template-columns:96px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}
   .ev .d{font-family:var(--mono);font-size:12px;color:var(--faint)}
   .ev h4{margin:0 0 4px;font-size:16px;font-weight:620}
@@ -1304,7 +1307,11 @@ function bild(reihen, opt){
     .filter(function(z){ return z && isFinite(z[0]) && isFinite(z[1]); });
   ZONEN.forEach(function(z){ mn=Math.min(mn,z[0]); mx=Math.max(mx,z[1]); });
   (opt.linien||[]).forEach(function(l){ mn=Math.min(mn,l.v); mx=Math.max(mx,l.v); });
-  var pad=(mx-mn)*0.12||1; mn-=pad; mx+=pad;
+  /* Der Rand oben und unten darf die Achse nicht unter null ziehen, wenn nichts im Bild
+     negativ ist (Entscheid Albrecht vom 15.11.2026). Anlass: ein Referenzbereich «0-5,7»
+     beim HbA1c liess die Achse bei -1,7 beginnen - eine Zahl, die es nicht geben kann. */
+  var pad=(mx-mn)*0.12||1, nichtNegativ = mn >= 0; mn-=pad; mx+=pad;
+  if(nichtNegativ && mn < 0) mn = 0;
   /* ── Massstab ────────────────────────────────────────────────────────────────────
      Jede Schriftgroesse im Bild wird mit bildHoch() hochgerechnet, damit sie auf dem
      Bildschirm nicht unter rund 10 px faellt. Groessere Schrift braucht mehr Rand: die
@@ -2450,11 +2457,19 @@ function blattHtml(p, P){
     h += '<div class="bz-row grp"><div>'+esc(g)+'</div><div></div><div></div></div>';
     grp[g].forEach(function(pa){
       var v = vals[pa.key], ref = refs[pa.key] || pa.ref;
-      var kl = ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
+      /* Hat das Blatt selbst markiert (flags), gilt seine Markierung. Die Blaetter von GP
+         Heimiswil drucken bei manchen Werten nur die untere Grenze («3.88-») und setzen ihr
+         Urteil als Sternchen neben den Wert; die obere Grenze steht dann als 9999 in der
+         Datei und heisst «offen». Aus 9999 liesse sich nie «zu hoch» rechnen - das Sternchen
+         schon. Ohne Markierung rechnet das Blatt wie bisher gegen den Referenzbereich. */
+      var fl = (p.flags||{})[pa.key];
+      var kl = fl ? (fl==="high" ? "hoch" : (fl==="low" ? "tief" : ""))
+             : ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
+      var offen = ref && ref[1] >= 9999;
       h += '<div class="bz-row"><div>'+esc(pa.label)
         + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'')+'</div>'
         + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
-        + '<div class="r">'+(ref?nf(ref[0],1)+"–"+nf(ref[1],1):"—")+'</div></div>';
+        + '<div class="r">'+(!ref?"—":offen?"ab "+nf(ref[0],1):nf(ref[0],1)+"–"+nf(ref[1],1))+'</div></div>';
     });
   });
   return h + '</div>';
@@ -2524,7 +2539,9 @@ function akteLabor(){
   function verlaufBild(x){
     var pts = x.pts, le = pts[pts.length-1];
     return bild([{pts:pts, farbe:"var(--akzent)", r:3}],
-      {dez:1, zone:le.ref, schwellen:{voll:400}, textZeigen:true,
+      /* Ein offener Bereich (obere Grenze 9999, siehe blattHtml) ist kein Band - er streckte
+         die Achse bis 9999 und drueckte die Kurve an den Boden. */
+      {dez:1, zone:(le.ref && le.ref[1] < 9999 ? le.ref : null), schwellen:{voll:400}, textZeigen:true,
        text:"Das grüne Band ist der Referenzbereich. Zuletzt "+nf(le.v,1)+(x.pa.unit?" "+x.pa.unit:"")+" am "+dmy(le.iso)+"."});
   }
   if(alleW) return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Alle Werte über die Jahre",
