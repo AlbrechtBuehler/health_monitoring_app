@@ -374,6 +374,23 @@
     text-transform:uppercase;color:var(--faint)}
   .bz-row .w{font-size:16px;font-weight:620}
   .bz-row .r{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
+  /* Klartext und ⓘ (22.11.2026, siehe LAB_INFO). Der ganze Name ist der Knopf, nicht nur
+     das ⓘ: auf dem Telefon waere ein Kreis von 20 px zu klein zum Treffen. */
+  .klar{display:block;font-size:12.5px;color:var(--faint);margin-top:1px;line-height:1.35}
+  .grp .klar, .lab-grp .klar{display:inline;font-size:inherit;margin:0}
+  .bz-n{background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;text-align:left;
+    cursor:pointer;display:block;width:100%}
+  .bz-n .ii{font-size:12px;color:var(--faint);margin-left:6px}
+  .bz-n:hover .ii, .bz-n.an .ii{color:var(--akzent)}
+  .bz-row.info-auf{border-bottom:none}
+  .bz-info{padding:0 16px 14px;border-bottom:1px solid var(--line2);font-size:13.5px;color:var(--muted);line-height:1.5}
+  .bz-info p{margin:7px 0 0}
+  .bz-info b{color:var(--ink);font-weight:600}
+  .bz-info p.hoch b{color:var(--high)} .bz-info p.tief b{color:var(--tief)}
+  .bz-info p.hoch, .bz-info p.tief{color:var(--ink)}
+  .bz-info .if-fuss{font-size:12px;color:var(--faint);margin-top:9px}
+  .info-frei{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:2px 0 0;background:var(--surface2)}
+  .info-frei .bz-info{border-bottom:none}
   .docs{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:15px 18px;background:var(--surface2)}
   /* Merkzettel: EIN schwebendes Element fuer alle Bilder. Der Zustand haengt nicht am
      UI-Objekt - sonst zeichnete jede Mausbewegung die ganze Seite neu.
@@ -541,7 +558,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    Stufen und dieselbe Rechnung. Eine zweite Zeitraum-Mechanik daneben liefe auseinander.
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
-var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null,
+var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null, labInfo:null,
   zeit:{gewicht:"alles", bz:"28", bd:"28", rp:"alles", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   zlLinks:null,
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
@@ -2672,6 +2689,225 @@ function zeichneAkten(){
   return akteLabor();
 }
 
+/* Laborwerte in Klartext (Entscheid Albrecht vom 22.11.2026: «Für eine Fachperson ist klar,
+   worum es geht. Für mich sind die Begriffe Fachchinesisch»). Je Wert ein Klartextname, der
+   unter dem Kuerzel steht, und zum Aufklappen mit ⓘ, was gemessen wird und was ein Wert
+   ueber oder unter dem Bereich heissen KANN.
+   Drei Dinge sind Absicht:
+   - Der Schluessel ist der von STATE.lab.params, nicht das Kuerzel auf dem Blatt. Das eine
+     Labor schreibt GPT, das andere ALAT - in der Datei heissen beide «gpt». Ein Eintrag hier
+     deckt darum alle Blaetter ab, egal welches Labor sie gedruckt hat.
+   - Die Texte stehen im Code und nicht in den Daten: sie sind Allgemeinwissen und sagen
+     nichts ueber Albrecht. Was eine Aerztin zu SEINEM Wert gesagt hat, gehoert in die
+     Notiz am Blatt.
+   - Die Texte erklaeren, sie urteilen nicht. Was ein Wert bei einem Menschen bedeutet,
+     haengt von Medikamenten, Vorgeschichte und den uebrigen Werten ab. Darum steht bei
+     «hoch» und «tief» immer «kann», nie «ist». Ein roter Wert soll hier nicht mehr
+     Sorge machen als auf dem Blatt.
+   Fehlt ein Schluessel, fehlt einfach das ⓘ - ein neuer Wert in der Datei bricht nichts.
+   In der Arztkopie steht nichts davon: die Fachperson braucht keine Uebersetzung. */
+var LAB_GRUPPE_KLAR = { "Stoffwechsel":"Blutzucker", "Fettstoffwechsel":"Blutfette",
+  "Elektrolyte":"Blutsalze", "Hämatologie":"Blutbild", "Entzündung":"Entzündung & Eiweiss",
+  "Hormone & Vitamine":"Schilddrüse, Vitamine, Eisen" };
+var LAB_INFO = {
+  /* Blutzucker */
+  glucose:{k:"Blutzucker", was:"Wie viel Zucker im Moment der Blutentnahme im Blut ist. Aussagekräftig ist er nüchtern, nach dem Essen steigt er normal an.",
+    hoch:"Kann auf Diabetes oder eine Vorstufe hinweisen. Ein einzelner Wert nach dem Essen heisst wenig.",
+    tief:"Unterzuckerung: kann zittrig, schwitzig und unkonzentriert machen, z. B. durch Zuckermedikamente oder lange ohne Essen."},
+  hba1c:{k:"Langzeitzucker", was:"Wie hoch der Blutzucker im Schnitt der letzten 2–3 Monate war. Er schwankt nicht mit einer einzelnen Mahlzeit.",
+    hoch:"Der Blutzucker war über Wochen zu hoch. Er ist der wichtigste Wert, um einen Diabetes zu erkennen und zu verfolgen.",
+    tief:"Selten. Kann bei häufigen Unterzuckerungen oder bei Blutverlust auftreten."},
+  /* Blutfette */
+  chol:{k:"Gesamtcholesterin", was:"Summe aller Cholesterinanteile im Blut. Der Körper braucht Cholesterin für Zellen und Hormone. Aussagekräftiger sind die Teile HDL und LDL.",
+    hoch:"Erhöht auf Dauer das Risiko für Ablagerungen in den Gefässen (Herzinfarkt, Hirnschlag), vor allem wenn das LDL hoch ist.",
+    tief:"Meist ohne Bedeutung."},
+  hdl:{k:"«Gutes» Cholesterin", was:"Der Anteil, der überschüssiges Cholesterin aus den Gefässen abtransportiert. Hier ist mehr besser.",
+    hoch:"Günstig.", tief:"Ungünstig für die Gefässe. Bewegung und Rauchstopp heben das HDL."},
+  ldl:{k:"«Schlechtes» Cholesterin", was:"Der Anteil, der sich in den Gefässwänden ablagern kann. Der wichtigste Blutfettwert für das Risiko von Herz und Gefässen.",
+    hoch:"Erhöht auf Dauer das Risiko für Gefässverkalkung. Welcher Zielwert gilt, hängt von den übrigen Risiken ab, das legt die Ärztin fest.",
+    tief:"Günstig."},
+  tg:{k:"Blutfett aus der Nahrung", was:"Fette, die der Körper aus Essen, Zucker und Alkohol bildet und als Energie speichert. Steigt nach dem Essen, darum nüchtern messen.",
+    hoch:"Häufig bei Übergewicht, Diabetes, viel Zucker oder Alkohol. Ungünstig für die Gefässe.",
+    tief:"Meist ohne Bedeutung."},
+  quot:{k:"Verhältnis Cholesterin zu HDL", was:"Gesamtcholesterin geteilt durch das «gute» HDL. Fasst die Blutfette in einer Zahl zusammen, je tiefer desto günstiger.",
+    hoch:"Viel Cholesterin im Verhältnis zum schützenden HDL, ungünstig für die Gefässe.", tief:"Günstig."},
+  /* Leber & Niere */
+  got:{k:"Leber- und Muskelwert", was:"Ein Enzym aus den Zellen von Leber, Muskeln und Herz. Es gelangt ins Blut, wenn diese Zellen gereizt werden.",
+    hoch:"Kann von der Leber kommen (z. B. Fettleber, Alkohol, Medikamente), aber auch von den Muskeln, etwa nach Sport.",
+    tief:"Ohne Bedeutung."},
+  gpt:{k:"Leberwert", was:"Ein Enzym, das fast nur in den Leberzellen sitzt. Darum der genaueste der Leberwerte.",
+    hoch:"Die Leberzellen sind gereizt. Häufige Gründe sind Fettleber, Übergewicht, Alkohol und Medikamente. Leicht erhöhte Werte sind häufig.",
+    tief:"Ohne Bedeutung."},
+  ggt:{k:"Leber- und Gallenwert", was:"Ein Enzym der Leber und der Gallenwege. Reagiert empfindlich auf Alkohol, Medikamente und Fettleber.",
+    hoch:"Häufig durch Alkohol, Fettleber oder Medikamente, seltener durch einen Gallenstau.",
+    tief:"Ohne Bedeutung."},
+  ap:{k:"Leber-, Galle- und Knochenwert", was:"Ein Enzym aus Leber, Gallenwegen und Knochen.",
+    hoch:"Kann von den Gallenwegen oder der Leber kommen, aber auch von den Knochen, z. B. bei Vitamin-D-Mangel.",
+    tief:"Selten von Bedeutung."},
+  bilirubin:{k:"Gallenfarbstoff", was:"Entsteht beim Abbau der roten Blutkörperchen und wird über Leber und Galle ausgeschieden.",
+    hoch:"Stark erhöht färbt er Haut und Augen gelb. Leicht erhöht ist er bei manchen Menschen von Natur aus, das ist harmlos.",
+    tief:"Ohne Bedeutung."},
+  crea:{k:"Nierenwert", was:"Ein Abbauprodukt der Muskeln, das die Nieren ausscheiden. Zeigt, wie gut die Nieren filtern. Wer mehr Muskeln hat, hat etwas mehr Kreatinin.",
+    hoch:"Die Nieren scheiden weniger aus. Auch wenig Trinken, viel Fleisch oder Krafttraining heben ihn vorübergehend.",
+    tief:"Meist wenig Muskelmasse, ohne Krankheitswert."},
+  harnstoff:{k:"Eiweiss-Abbauprodukt", was:"Entsteht beim Abbau von Eiweiss und wird über die Nieren ausgeschieden.",
+    hoch:"Häufig nach wenig Trinken oder viel Eiweiss, seltener bei einer Nierenschwäche.",
+    tief:"Meist ohne Bedeutung, z. B. bei wenig Eiweiss im Essen."},
+  harnsaeure:{k:"Gichtwert", was:"Abbauprodukt bestimmter Stoffe aus Zellen und Nahrung (Fleisch, Innereien, Bier, Süssgetränke). Wird über die Nieren ausgeschieden.",
+    hoch:"Kann sich in Gelenken absetzen und einen Gichtanfall auslösen. Häufig bei Übergewicht, Alkohol und manchen Medikamenten.",
+    tief:"Ohne Bedeutung."},
+  gfr:{k:"Filterleistung der Nieren", was:"Wie viel Blut die Nieren pro Minute reinigen. Wird aus Kreatinin, Alter und Geschlecht berechnet. Über 90 gilt als normal.",
+    hoch:"Ohne Bedeutung.",
+    tief:"Die Nieren filtern weniger. Wichtig auch für die Dosierung mancher Medikamente."},
+  /* Blutsalze */
+  natrium:{k:"Kochsalz im Blut", was:"Regelt den Wasserhaushalt des Körpers. Bleibt normalerweise sehr konstant.",
+    hoch:"Meist zu wenig Flüssigkeit.", tief:"Kann durch Medikamente (z. B. Wassertabletten), sehr viel Trinken oder Hormonstörungen kommen. Stark tief macht müde und verwirrt."},
+  kalium:{k:"Kalium", was:"Wichtig für Nerven, Muskeln und den Herzrhythmus. Schon kleine Abweichungen zählen.",
+    hoch:"Kann den Herzrhythmus stören. Gründe sind Nieren, manche Medikamente, oft auch eine zu lange gestaute Blutprobe.",
+    tief:"Kann Muskelschwäche und Herzrhythmusstörungen machen, z. B. durch Wassertabletten, Durchfall oder Erbrechen."},
+  chlorid:{k:"Chlorid", was:"Teil des Kochsalzes, bewegt sich meist zusammen mit dem Natrium. Hilft beim Wasser- und Säurehaushalt.",
+    hoch:"Meist zu wenig Flüssigkeit.", tief:"Z. B. nach Erbrechen oder durch Wassertabletten."},
+  calcium:{k:"Calcium", was:"Baustein der Knochen, wichtig für Muskeln, Nerven und Herz. Ein Teil davon ist im Blut an Eiweiss gebunden.",
+    hoch:"Kann von den Nebenschilddrüsen, von Medikamenten oder zu viel Vitamin D kommen.",
+    tief:"Kann Kribbeln und Muskelkrämpfe machen. Häufig bei Vitamin-D-Mangel. Ist das Bluteiweiss tief, ist auch das Calcium scheinbar tief."},
+  calcKorr:{k:"Calcium, auf das Eiweiss umgerechnet", was:"Das Calcium, umgerechnet auf ein normales Bluteiweiss (Albumin). Damit ein tiefes Eiweiss das Calcium nicht falsch tief aussehen lässt.",
+    hoch:"Wie beim Calcium.", tief:"Wie beim Calcium."},
+  phosphat:{k:"Phosphat", was:"Arbeitet mit dem Calcium für die Knochen und wird für die Energie der Zellen gebraucht.",
+    hoch:"Meist von den Nieren.", tief:"Z. B. bei Mangelernährung, Alkohol oder Vitamin-D-Mangel."},
+  /* Entzündung & Eiweiss */
+  crp:{k:"Entzündungswert", was:"Ein Eiweiss, das die Leber bei Entzündungen bildet. Steigt innert Stunden und fällt nach dem Abheilen schnell wieder.",
+    hoch:"Irgendwo im Körper ist eine Entzündung oder ein Infekt. Wo, sagt der Wert nicht.",
+    tief:"Erwünscht."},
+  hscrp:{k:"Feiner Entzündungswert", was:"Dasselbe CRP, aber sehr fein gemessen. Damit sieht man auch eine leise, dauernde Entzündung, wie sie für Herz und Gefässe eine Rolle spielt.",
+    hoch:"Eine leise Entzündung, ungünstig für die Gefässe. Ein frischer Infekt verfälscht den Wert.",
+    tief:"Erwünscht."},
+  bsr:{k:"Blutsenkung", was:"Wie schnell die roten Blutkörperchen in einem Röhrchen absinken. Ein alter, langsamer und ungenauer Entzündungswert.",
+    hoch:"Entzündung, Infekt, aber auch Alter, Blutarmut und vieles andere. Für sich allein wenig aussagekräftig.",
+    tief:"Ohne Bedeutung."},
+  albumin:{k:"Wichtigstes Bluteiweiss", was:"Wird von der Leber gebildet, hält das Wasser in den Gefässen und transportiert Stoffe im Blut.",
+    hoch:"Meist zu wenig Flüssigkeit.", tief:"Bei Entzündungen, Mangelernährung oder Problemen von Leber oder Nieren."},
+  /* Herz */
+  troponinT:{k:"Herzmuskelwert", was:"Ein Eiweiss aus den Herzmuskelzellen. Gelangt ins Blut, wenn der Herzmuskel Schaden nimmt.",
+    hoch:"Wird vor allem gemessen, um einen Herzinfarkt zu erkennen oder auszuschliessen. Leicht erhöht auch bei Nierenschwäche oder nach grosser Anstrengung.",
+    tief:"Erwünscht."},
+  /* Schilddruese, Vitamine, Eisen */
+  tsh:{k:"Steuerhormon der Schilddrüse", was:"Das Hirn schickt TSH, um die Schilddrüse anzutreiben. Der wichtigste Suchwert für die Schilddrüse. Er läuft umgekehrt zu ihr.",
+    hoch:"Die Schilddrüse arbeitet eher zu wenig, das Hirn muss stärker antreiben.",
+    tief:"Die Schilddrüse arbeitet eher zu viel, das Hirn bremst."},
+  ft3:{k:"Schilddrüsenhormon T3", was:"Das wirksame Schilddrüsenhormon im Blut. Es treibt den Stoffwechsel an.",
+    hoch:"Schilddrüse eher überaktiv.", tief:"Schilddrüse eher unteraktiv, auch bei schweren Krankheiten oder wenig Essen."},
+  ft4:{k:"Schilddrüsenhormon T4", was:"Das Hormon, das die Schilddrüse hauptsächlich bildet. Der Körper wandelt es in das wirksame T3 um.",
+    hoch:"Schilddrüse eher überaktiv.", tief:"Schilddrüse eher unteraktiv."},
+  b12:{k:"Vitamin B12", was:"Nötig für die Blutbildung und die Nerven. Kommt nur in tierischen Lebensmitteln vor.",
+    hoch:"Meist ohne Bedeutung, z. B. nach Vitaminpräparaten.",
+    tief:"Kann Müdigkeit, Blutarmut und Kribbeln in Händen und Füssen machen. Manche Medikamente senken die Aufnahme."},
+  holoTC:{k:"Aktives Vitamin B12", was:"Der Teil des Vitamin B12, den die Zellen wirklich aufnehmen können. Zeigt einen Mangel früher als das gesamte B12.",
+    hoch:"Ohne Bedeutung.", tief:"Früher Hinweis auf einen B12-Mangel."},
+  folsaeure:{k:"Folsäure (Vitamin B9)", was:"Ein Vitamin für Blutbildung und Zellteilung, vor allem aus grünem Gemüse.",
+    hoch:"Ohne Bedeutung.", tief:"Kann eine Blutarmut machen. Häufig bei wenig Gemüse oder viel Alkohol."},
+  vitD:{k:"Vitamin D", was:"Wichtig für Knochen und Muskeln. Der Körper bildet es mit Sonne auf der Haut, darum ist es im Winter oft tiefer. Ab etwa 50 gilt es meist als ausreichend.",
+    hoch:"Fast nur bei sehr hohen Dosen aus Präparaten.", tief:"Häufig, vor allem im Winter. Auf Dauer schlecht für die Knochen."},
+  ferritin:{k:"Eisenspeicher", was:"Zeigt, wie viel Eisen der Körper auf Vorrat hat. Der beste Einzelwert für einen Eisenmangel.",
+    hoch:"Kann ein Eisenüberschuss sein, häufiger aber eine Entzündung, eine Fettleber oder Alkohol: Ferritin steigt auch dann.",
+    tief:"Die Eisenspeicher sind leer, auch wenn das Blutbild noch normal ist."},
+  eisen:{k:"Eisen im Blut", was:"Das Eisen, das gerade im Blut unterwegs ist. Schwankt stark mit Tageszeit und Essen und ist darum allein wenig aussagekräftig.",
+    hoch:"Meist ohne Bedeutung, wenn der Speicher (Ferritin) normal ist.", tief:"Zusammen mit tiefem Ferritin ein Eisenmangel. Auch bei Entzündungen tief."},
+  transferrin:{k:"Eisentransporter", was:"Das Eiweiss, das Eisen im Blut transportiert.",
+    hoch:"Der Körper bildet mehr Transporter, wenn ihm Eisen fehlt.", tief:"Z. B. bei Entzündungen oder Eiweissmangel."},
+  transSaett:{k:"Beladung des Eisentransporters", was:"Wie viel Prozent der Eisentransporter gerade mit Eisen beladen sind.",
+    hoch:"Kann auf zu viel Eisen hinweisen.", tief:"Es steht zu wenig Eisen zur Verfügung."},
+  /* Prostata */
+  psa:{k:"Prostatawert", was:"Ein Eiweiss aus der Prostata. Wird zur Früherkennung von Prostatakrebs gemessen, ist aber nicht spezifisch für Krebs.",
+    hoch:"Häufig eine gutartige Vergrösserung oder eine Entzündung der Prostata. Auch Velofahren oder Samenerguss in den Tagen vorher heben ihn. Entscheidend ist oft der Verlauf.",
+    tief:"Erwünscht."},
+  psaFrei:{k:"Freier Prostatawert", was:"Der Teil des PSA, der nicht an andere Eiweisse gebunden ist. Hilft, ein erhöhtes PSA einzuordnen.",
+    hoch:"Siehe PSA-Quotient.", tief:"Siehe PSA-Quotient."},
+  psaRatio:{k:"Anteil freies PSA", was:"Wie viel Prozent des PSA frei sind. Wird angeschaut, wenn das PSA erhöht ist.",
+    hoch:"Spricht eher für eine gutartige Ursache.", tief:"Wird genauer abgeklärt."},
+  /* Blutbild */
+  leuk:{k:"Weisse Blutkörperchen", was:"Die Abwehrzellen des Körpers gegen Infekte.",
+    hoch:"Häufig bei einem Infekt, aber auch bei Stress, Rauchen oder durch Cortison.",
+    tief:"Z. B. nach Virusinfekten oder durch Medikamente. Deutlich tief macht anfälliger für Infekte."},
+  ery:{k:"Rote Blutkörperchen", was:"Die Zellen, die den Sauerstoff transportieren.",
+    hoch:"Z. B. bei Rauchen, zu wenig Flüssigkeit oder Aufenthalt in der Höhe.", tief:"Blutarmut, siehe Hämoglobin."},
+  hb:{k:"Roter Blutfarbstoff", was:"Bindet den Sauerstoff in den roten Blutkörperchen. Der wichtigste Wert für eine Blutarmut.",
+    hoch:"Z. B. bei Rauchen, zu wenig Flüssigkeit oder Aufenthalt in der Höhe.",
+    tief:"Blutarmut (Anämie): kann müde, blass und kurzatmig machen. Häufigster Grund ist Eisenmangel."},
+  hkt:{k:"Anteil Zellen im Blut", was:"Wie viel Prozent des Blutes aus Zellen bestehen, der Rest ist Flüssigkeit.",
+    hoch:"Das Blut ist «dicker», z. B. durch zu wenig Flüssigkeit oder Rauchen.", tief:"Meist eine Blutarmut."},
+  thromb:{k:"Blutplättchen", was:"Kleine Zellteile, die bei einer Verletzung die Blutung stoppen.",
+    hoch:"Z. B. nach Entzündungen, bei Eisenmangel oder nach einer Blutung.",
+    tief:"Leichte Abweichungen sind meist ohne Folgen. Deutlich tief: blaue Flecken, Blutungen dauern länger."},
+  mcv:{k:"Grösse der roten Blutkörperchen", was:"Wie gross die roten Blutkörperchen im Schnitt sind. Hilft, eine Blutarmut einzuordnen.",
+    hoch:"Grosse Zellen, z. B. bei Mangel an Vitamin B12 oder Folsäure, oder durch Alkohol.",
+    tief:"Kleine Zellen, meist bei Eisenmangel."},
+  mch:{k:"Farbstoff je rotes Blutkörperchen", was:"Wie viel Blutfarbstoff ein rotes Blutkörperchen im Schnitt trägt. Läuft meist mit dem MCV mit.",
+    hoch:"Siehe MCV, grosse Zellen.", tief:"Blasse Zellen, meist bei Eisenmangel."},
+  mchc:{k:"Farbstoff-Dichte der roten Blutkörperchen", was:"Wie dicht der Blutfarbstoff in den roten Blutkörperchen gepackt ist.",
+    hoch:"Selten, oft ein Messfehler.", tief:"Meist bei Eisenmangel."},
+  rdwCV:{k:"Grössenunterschiede der roten Blutkörperchen", was:"Wie unterschiedlich gross die roten Blutkörperchen sind, in Prozent.",
+    hoch:"Die Zellen sind ungleich gross, z. B. bei einem beginnenden Eisen- oder Vitaminmangel.", tief:"Ohne Bedeutung."},
+  rdwSD:{k:"Grössenunterschiede der roten Blutkörperchen", was:"Dasselbe wie RDW-CV, aber als Grösse statt in Prozent.",
+    hoch:"Wie RDW-CV.", tief:"Ohne Bedeutung."},
+  lymphP:{k:"Lymphozyten, Anteil", was:"Abwehrzellen, vor allem gegen Viren. Der Wert sagt, wie viel Prozent der weissen Blutkörperchen Lymphozyten sind.",
+    hoch:"Häufig bei oder nach Virusinfekten.", tief:"Z. B. bei Stress, durch Cortison oder wenn andere weisse Zellen stark vermehrt sind."},
+  lymphA:{k:"Lymphozyten, Anzahl", was:"Dieselben Abwehrzellen, aber als Anzahl statt als Anteil.",
+    hoch:"Wie beim Anteil.", tief:"Wie beim Anteil."},
+  neutP:{k:"Neutrophile, Anteil", was:"Die grösste Gruppe der weissen Blutkörperchen, die erste Abwehr vor allem gegen Bakterien.",
+    hoch:"Häufig bei bakteriellen Infekten, Stress, Rauchen oder durch Cortison.", tief:"Z. B. nach Virusinfekten oder durch Medikamente."},
+  neutA:{k:"Neutrophile, Anzahl", was:"Dieselben Abwehrzellen, aber als Anzahl statt als Anteil.",
+    hoch:"Wie beim Anteil.", tief:"Wie beim Anteil."},
+  granP:{k:"Granulozyten, Anteil", was:"Eine Gruppe weisser Blutkörperchen, zu der vor allem die Neutrophilen gehören. Ältere Geräte geben sie zusammen an.",
+    hoch:"Wie bei den Neutrophilen.", tief:"Wie bei den Neutrophilen."},
+  granA:{k:"Granulozyten, Anzahl", was:"Dieselbe Gruppe, als Anzahl statt als Anteil.",
+    hoch:"Wie bei den Neutrophilen.", tief:"Wie bei den Neutrophilen."},
+  monP:{k:"Monozyten, Anteil", was:"Fresszellen, die Erreger und Zelltrümmer aufräumen.",
+    hoch:"Z. B. in der Erholung nach einem Infekt oder bei längeren Entzündungen.", tief:"Meist ohne Bedeutung."},
+  monA:{k:"Monozyten, Anzahl", was:"Dieselben Fresszellen, als Anzahl statt als Anteil.",
+    hoch:"Wie beim Anteil.", tief:"Wie beim Anteil."},
+  midP:{k:"Mittelgrosse weisse Zellen, Anteil", was:"Ein Sammelwert älterer Geräte für mittelgrosse weisse Blutkörperchen: Monozyten und zwei kleine Gruppen, die bei Allergien und Parasiten eine Rolle spielen.",
+    hoch:"Z. B. bei Allergien oder nach Infekten.", tief:"Meist ohne Bedeutung."},
+  midA:{k:"Mittelgrosse weisse Zellen, Anzahl", was:"Derselbe Sammelwert, als Anzahl statt als Anteil.",
+    hoch:"Wie beim Anteil.", tief:"Wie beim Anteil."},
+  mxdP:{k:"Mittelgrosse weisse Zellen, Anteil", was:"Derselbe Sammelwert wie MID, nur anders benannt: Monozyten und zwei kleine Gruppen, die bei Allergien und Parasiten eine Rolle spielen.",
+    hoch:"Z. B. bei Allergien oder nach Infekten.", tief:"Meist ohne Bedeutung."},
+  mxdA:{k:"Mittelgrosse weisse Zellen, Anzahl", was:"Derselbe Sammelwert, als Anzahl statt als Anteil.",
+    hoch:"Wie beim Anteil.", tief:"Wie beim Anteil."},
+  mpv:{k:"Grösse der Blutplättchen", was:"Wie gross die Blutplättchen im Schnitt sind. Junge Plättchen sind grösser.",
+    hoch:"Der Körper bildet gerade viele neue Plättchen.", tief:"Meist ohne Bedeutung."},
+  pdw:{k:"Grössenunterschiede der Blutplättchen", was:"Wie unterschiedlich gross die Blutplättchen sind.",
+    hoch:"Viele junge und alte Plättchen gemischt. Für sich allein wenig aussagekräftig.", tief:"Ohne Bedeutung."},
+  pct:{k:"Anteil Blutplättchen im Blut", was:"Wie viel Prozent des Blutes aus Blutplättchen bestehen. Folgt der Plättchenzahl.",
+    hoch:"Wie bei den Blutplättchen.", tief:"Wie bei den Blutplättchen."},
+  plcr:{k:"Anteil grosser Blutplättchen", was:"Wie viel Prozent der Blutplättchen besonders gross sind.",
+    hoch:"Viele junge Plättchen. Für sich allein wenig aussagekräftig.", tief:"Ohne Bedeutung."},
+  plcc:{k:"Anzahl grosser Blutplättchen", was:"Wie viele besonders grosse Blutplättchen im Blut sind.",
+    hoch:"Wie beim Anteil.", tief:"Ohne Bedeutung."},
+  /* Koerperzusammensetzung (Messwaage der Ernaehrungsberatung) */
+  weightMeas:{k:"Gewicht bei der Messung", was:"Das Körpergewicht, gemessen an diesem Termin."},
+  bmiMeas:{k:"Gewicht im Verhältnis zur Grösse", was:"Gewicht in kg geteilt durch die Körpergrösse in Metern im Quadrat. 18,5–25 gilt als Normalgewicht. Muskeln und Fett unterscheidet der BMI nicht."},
+  bfPct:{k:"Körperfett", was:"Wie viel Prozent des Gewichts Fett sind. Die Waage schätzt das über einen schwachen Strom und schwankt mit dem Wasserhaushalt."},
+  musclePct:{k:"Muskeln", was:"Wie viel Prozent des Gewichts Muskeln sind, von der Waage geschätzt."},
+  visceral:{k:"Bauchfett um die Organe", was:"Das Fett im Bauchraum um die inneren Organe, als Zahl der Messwaage. Es ist für Blutzucker, Blutfette und Leber ungünstiger als Fett unter der Haut."},
+  bmr:{k:"Grundumsatz", was:"Wie viel Energie der Körper pro Tag in völliger Ruhe verbraucht, geschätzt aus Gewicht, Grösse, Alter und Muskeln."}
+};
+
+/* Klartext zu einem Wert und zu einer Gruppe. In der Arztkopie leer (FROZEN). */
+function labKlar(pa){ var i = !FROZEN && LAB_INFO[pa.key]; return i ? i.k : ""; }
+function labGruppe(g){ var k = !FROZEN && LAB_GRUPPE_KLAR[g];
+  return esc(g)+(k?' <span class="klar">· '+esc(k)+'</span>':''); }
+/* Die aufgeklappte Erklaerung. kl ist «hoch», «tief» oder leer - liegt der Wert ausserhalb,
+   wird die passende Zeile hervorgehoben, damit man nicht beide lesen muss, um die eigene
+   zu finden. Die Fusszeile steht in jeder Box, weil eine Box auch allein gelesen wird. */
+function labInfoBox(key, kl){
+  var i = LAB_INFO[key]; if(!i || FROZEN) return "";
+  return '<div class="bz-info">'
+    + '<p><b>Was es misst</b> · '+esc(i.was)+'</p>'
+    + (i.hoch?'<p'+(kl==="hoch"?' class="hoch"':'')+'><b>Über dem Bereich</b> · '+esc(i.hoch)+'</p>':'')
+    + (i.tief?'<p'+(kl==="tief"?' class="tief"':'')+'><b>Unter dem Bereich</b> · '+esc(i.tief)+'</p>':'')
+    + '<div class="if-fuss">Allgemeine Erklärung. Was Dein Wert bedeutet, beurteilt die Ärztin.</div></div>';
+}
+
 /* Ein Laborblatt zum Lesen. Steht als eigene Funktion da, weil «Alle Blätter» dieselbe
    Darstellung braucht - einmal untereinander statt einmal allein. */
 function blattHtml(p, P){
@@ -2680,7 +2916,7 @@ function blattHtml(p, P){
     (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
   var h = '<div class="blatt">';
   Object.keys(grp).forEach(function(g){
-    h += '<div class="bz-row grp"><div>'+esc(g)+'</div><div></div><div></div></div>';
+    h += '<div class="bz-row grp"><div>'+labGruppe(g)+'</div><div></div><div></div></div>';
     grp[g].forEach(function(pa){
       var v = vals[pa.key], ref = refs[pa.key] || pa.ref;
       /* Hat das Blatt selbst markiert (flags), gilt seine Markierung. Die Blaetter von GP
@@ -2692,10 +2928,17 @@ function blattHtml(p, P){
       var kl = fl ? (fl==="high" ? "hoch" : (fl==="low" ? "tief" : ""))
              : ref ? (v>ref[1] ? "hoch" : (v<ref[0] ? "tief" : "")) : "";
       var offen = ref && ref[1] >= 9999;
-      h += '<div class="bz-row"><div>'+esc(pa.label)
-        + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'')+'</div>'
+      /* Offen ist hoechstens EIN Wert je Blatt; der Schluessel traegt das Datum, sonst
+         klappte «Alle Blätter» denselben Wert auf jedem Blatt zugleich auf. */
+      var ik = p.date+"|"+pa.key, auf = (UI.labInfo === ik), klar = labKlar(pa);
+      var name = esc(pa.label) + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'');
+      h += '<div class="bz-row'+(auf?" info-auf":"")+'"><div>'
+        + (klar ? '<button class="bz-n'+(auf?" an":"")+'" data-labinfo="'+esc(ik)+'" aria-expanded="'+auf+'">'
+                  + name + '<span class="ii no-print">ⓘ</span><span class="klar">'+esc(klar)+'</span></button>'
+                : name)+'</div>'
         + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
-        + '<div class="r">'+(!ref?"—":offen?"ab "+nf(ref[0],1):nf(ref[0],1)+"–"+nf(ref[1],1))+'</div></div>';
+        + '<div class="r">'+(!ref?"—":offen?"ab "+nf(ref[0],1):nf(ref[0],1)+"–"+nf(ref[1],1))+'</div></div>'
+        + (auf ? labInfoBox(pa.key, kl) : '');
     });
   });
   return h + '</div>';
@@ -2719,7 +2962,8 @@ function akteLabor(){
        unter dem Ganzen, nicht unter jedem Blatt. */
     var alleBl = (UI.blatt === "alle");
     var hinweis = '<div class="bildtext">Rot heisst über dem Referenzbereich dieses Blattes, blau darunter. '
-      + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.</div>';
+      + 'Die Grenzen rechts stammen aus dem Blatt selbst, nicht aus einer allgemeinen Tabelle.'
+      + (FROZEN?'':' Ein Tipp auf den Namen zeigt, was der Wert misst.')+'</div>';
     var liste = lz("Alle Blätter", String(PA.length), alleBl, 'data-blatt="alle"')
       + PA.map(function(x,n){
           return lz(dmy(x.date), (x.docs&&x.docs.length?"PDF ":"")+Object.keys(x.values||{}).length,
@@ -2774,15 +3018,21 @@ function akteLabor(){
     untertitel:zahl(mit.length,"Wert","Werte")+" mit mindestens drei Messungen",
     aktion:editKnopf("labor"), ansichten:ans,
     links: chips + mit.map(function(x){
+      var kx = labKlar(x.pa);
       return '<div style="margin-top:24px"><div class="k-name">'+esc(x.pa.label)
         + ' <span style="color:var(--faint);font-weight:400">'+esc(x.pa.unit||"")+' · '+x.pts.length+' Blätter</span></div>'
+        + (kx?'<div class="klar" style="margin-top:3px">'+esc(kx)+'</div>':'')
         + verlaufBild(x)+'</div>'; }).join("") });
   var cur = mit.filter(function(x){ return x.pa.key===(UI.wahl||mit[0].pa.key); })[0] || mit[0];
   var le = cur.pts[cur.pts.length-1];
   return aktenRahmen({ k:"labor", bereich:"Labor", titel:cur.pa.label+" über "+cur.pts.length+" Blätter",
-    untertitel:dmy(cur.pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
+    untertitel:(labKlar(cur.pa)?labKlar(cur.pa)+" · ":"")+dmy(cur.pts[0].iso)+" → "+dmy(le.iso)+(cur.pa.unit?" · "+cur.pa.unit:""),
     aktion:editKnopf("labor"), ansichten:ans,
-    links: chips + verlaufBild(cur) });
+    /* Bei EINEM Wert steht die Erklaerung offen unter dem Bild: hier ist dieser Wert die
+       Frage, ein Tipp mehr waere ein Umweg. Hervorgehoben wird, wo der juengste Wert liegt. */
+    links: chips + verlaufBild(cur)
+      + (LAB_INFO[cur.pa.key] && !FROZEN ? '<div class="info-frei">'+labInfoBox(cur.pa.key,
+          le.ref ? (le.v>le.ref[1] ? "hoch" : (le.v<le.ref[0] ? "tief" : "")) : "")+'</div>' : '') });
 }
 
 /* Ein Laborblatt von Hand berichtigen. Bearbeitet wird immer EIN Blatt - das in der Liste
@@ -2806,7 +3056,7 @@ function laborEdit(){
   P.forEach(function(pa){ (grp[pa.group||"Übrige"] = grp[pa.group||"Übrige"]||[]).push(pa); });
   var felder = "";
   Object.keys(grp).forEach(function(g){
-    felder += '<div class="lab-grp">'+esc(g)+'</div>';
+    felder += '<div class="lab-grp">'+labGruppe(g)+'</div>';
     grp[g].forEach(function(pa){
       /* Die Referenz des BLATTES steht im Feld, die allgemeine nur als blasser Vorschlag
          dahinter. Stünde sie als Wert drin, machte das erste Speichern aus einer
@@ -2814,7 +3064,8 @@ function laborEdit(){
          Erklärzeile im Lesen ausdrücklich nicht. */
       var r = refs[pa.key] || [], vor = pa.ref || [];
       felder += '<div class="lab-z"><div class="n">'+esc(pa.label)
-        + (pa.unit?' <i>'+esc(pa.unit)+'</i>':'')+'</div>'
+        + (pa.unit?' <i>'+esc(pa.unit)+'</i>':'')
+        + (labKlar(pa)?'<span class="klar">'+esc(labKlar(pa))+'</span>':'')+'</div>'
         + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="v" value="'+(vals[pa.key]!=null?esc(kf(vals[pa.key])):"")+'" placeholder="Wert">'
         + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="lo" value="'+(r[0]!=null?esc(kf(r[0])):"")+'" placeholder="'+(vor[0]!=null?esc(kf(vor[0])):"Ref von")+'">'
         + '<span class="bis">–</span>'
@@ -4244,6 +4495,9 @@ document.addEventListener("click", function(e){
   /* «alle» ist eine Wahl wie jede andere und steht darum in derselben Ablage - nur eben
      als Wort statt als Nummer. Ohne diese Zeile wuerde +"alle" zu NaN, und die Liste
      zeigte gar nichts mehr. */
+  /* ⓘ am Laborwert: zweiter Tipp klappt wieder zu, ein anderer Wert loest den ersten ab. */
+  if(t.dataset.labinfo){ UI.labInfo = (UI.labInfo===t.dataset.labinfo) ? null : t.dataset.labinfo;
+    zeichne(); return; }
   if(t.dataset.blatt!==undefined){
     UI.blatt = (t.dataset.blatt==="alle") ? "alle" : +t.dataset.blatt; zeichne(); return; }
   if(t.dataset.sicht){ UI.sicht = t.dataset.sicht; UI.wahl = null; zeichne(); return; }
