@@ -231,6 +231,9 @@
   .neben{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px;margin-top:22px;
     border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--line)}
   .neben > div{background:var(--surface2);padding:14px 18px}
+  /* Zwei Spalten auf dem Telefon: bei ungerader Zahl blieb neben der letzten ein leeres
+     graues Feld. Die letzte zieht dort ueber die ganze Breite (22.11.2026). */
+  @media (max-width:500px){ .neben > div:last-child:nth-child(odd){grid-column:1/-1} }
   .n-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
   .n-wert{font-size:19px;font-weight:620}
   .n-unter{font-size:12.5px;color:var(--faint);margin-top:2px}
@@ -466,6 +469,18 @@
   .fuss .pp{font-family:var(--mono);font-weight:700;letter-spacing:.14em;color:var(--marke);font-size:12px}
   .fuss .st{color:var(--faint);font-size:12px}
   .leer{max-width:520px;margin:40px auto;padding:30px 32px;display:flex;flex-direction:column;gap:12px}
+  /* Zeitlinie mit Zielpfad (22.11.2026): die Achse steht links fest, das Bild rollt
+     waagrecht darunter durch. Der Balken bleibt sichtbar, nicht nur beim Rollen. */
+  .zl{display:flex;align-items:flex-start;margin-top:18px}
+  .zl-achse{flex:0 0 auto;display:block}
+  .zl-roll{flex:1 1 auto;min-width:0;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;
+    scrollbar-width:auto;scrollbar-color:var(--akzent) var(--surface2)}
+  .zl-roll::-webkit-scrollbar{height:12px}
+  .zl-roll::-webkit-scrollbar-track{background:var(--surface2);border-radius:6px}
+  .zl-roll::-webkit-scrollbar-thumb{background:var(--zweit);border-radius:6px;border:2px solid var(--surface2)}
+  .zl-roll::-webkit-scrollbar-thumb:hover{background:var(--akzent)}
+  .zl-fuss{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;
+    font-size:12.5px;color:var(--faint)}
   @media print{
     .no-print{display:none!important}
     body{padding:0}
@@ -528,6 +543,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
 var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null,
   zeit:{gewicht:"alles", bz:"28", bd:"28", rp:"alles", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
+  zlLinks:null,
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
   erfBp:[neueBpZeile()], erfBpNote:{}, erfKuerzel:{}, erfMeldung:null,
   /* edit nennt den Aktenbereich, der gerade bearbeitet wird, arbeit haelt dessen
@@ -1614,6 +1630,193 @@ function tempo(reihe){
   return dt>0 ? (b.v-a.v)/dt*7 : null;
 }
 
+/* ══ Zielpfad ════════════════════════════════════════════════════════════════════
+   Entscheid Albrecht vom 22.11.2026: das Ziel ist nicht mehr nur eine Zahl, sondern ein
+   WEG UEBER DIE ZEIT - bis Ende Jahr auf 100 kg, ab 01.01.2027 1 kg je Woche bis 90 kg,
+   danach 0,5 kg je Woche bis 75 kg.
+   In der Datei steht die REGEL, nicht die ausgerechneten Daten (weight.zielpfad): ein
+   Start {date, value} und Etappen. Eine Etappe hat entweder ein festes Datum («bis») oder
+   ein Tempo in kg je Woche; «ab» laesst eine Etappe erst an einem bestimmten Tag beginnen.
+   Die Knickpunkte werden hier gerechnet - aendert sich das Tempo, aendert man eine Zahl in
+   der Datei und nicht fuenf Daten, die zueinander passen muessen. Zwischen zwei
+   Knickpunkten wird geradlinig verbunden. */
+function zielpfad(){
+  var z = (STATE.weight||{}).zielpfad;
+  if(!z || !z.start || !z.start.date || z.start.value==null) return [];
+  var cur = {iso:z.start.date, v:+z.start.value}, out = [cur];
+  (z.etappen||[]).forEach(function(e){
+    if(!e || e.ziel==null) return;
+    if(e.ab && e.ab > cur.iso){ cur = {iso:e.ab, v:cur.v}; out.push(cur); }
+    if(e.bis){ if(e.bis > cur.iso){ cur = {iso:e.bis, v:+e.ziel}; out.push(cur); } return; }
+    if(e.tempo>0 && cur.v > +e.ziel){
+      var tage = Math.round((cur.v - e.ziel)/e.tempo*7);
+      cur = {iso:isoMinus(cur.iso, -tage), v:+e.ziel}; out.push(cur);
+    }
+  });
+  return out.length>1 ? out : [];
+}
+/* Der Sollwert an einem Tag. Ausserhalb des Pfades gibt es keinen - vor dem Start war
+   nichts vereinbart, und nach dem Ende ist das Ziel erreicht. */
+function pfadWert(P, iso){
+  if(!P || P.length<2 || iso<P[0].iso || iso>P[P.length-1].iso) return null;
+  for(var i=1;i<P.length;i++){
+    if(iso<=P[i].iso){
+      var a=P[i-1], b=P[i], d=ms(b.iso)-ms(a.iso);
+      return d>0 ? a.v+(b.v-a.v)*(ms(iso)-ms(a.iso))/d : b.v;
+    }
+  }
+  return null;
+}
+var MONATE = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+/* ══ Zeitlinie ═══════════════════════════════════════════════════════════════════
+   Das grosse Gewichtsbild im Zeitraum «alles», seit dem 22.11.2026 mit Zielpfad und
+   waagrechtem Bildlauf (Wunsch Albrecht). Die Messreihe und der Pfad reichen zusammen
+   ueber anderthalb Jahre; in eine Bildbreite gestaucht laege ein Monat auf 70 px. Darum
+   steht die Zeit hier in einem FESTEN Massstab - rund vier Monate je Bildbreite, nie
+   weniger als 4 px je Tag - und der Rest liegt rechts und links daneben, erreichbar mit
+   dem Balken unter dem Bild.
+   Die Werteachse steht links FEST und rollt nicht mit: wer im Oktober 2027 ankommt, muss
+   noch lesen koennen, was 90 kg sind. Sie ist ueber die ganze Zeitlinie dieselbe -
+   eine Achse, die beim Rollen ihren Massstab wechselte, liesse jede Strecke anders
+   aussehen, als sie ist.
+   Der Preis steht hier ausgeschrieben: mit dem Pfad bis 75 kg in der Achse wird ein Kilo
+   rund 5 px hoch. Fuer die Bewegung einer Woche gibt es die Zeitraeume 1, 2 und 4 Wochen;
+   dort bleibt das Bild wie gehabt und ohne Pfad (Gruende vom 28.08.2026, weiter unten). */
+function zeitlinie(G, P, opt){
+  opt = opt||{};
+  var alle = G.concat(P);
+  if(!alle.length) return '<div class="bildtext">Noch nicht gemessen.</div>';
+  var heute = heuteIso(), TAG = 86400000;
+  var sicht = Math.max(300, bildBreitePx());
+  var fs = 10.5, zA = BILD_ZEICHEN*fs;
+  var zeichenHoehe = Math.max(206, Math.min(340, Math.round(sicht/3.6)));
+  var T = 22, B = T+zeichenHoehe, yDatum = B+20, VBH = B+30;
+  var vs = alle.map(function(p){ return p.v; });
+  var mn = Math.min.apply(null,vs), mx = Math.max.apply(null,vs);
+  /* Runde Achsenzahlen: 70, 80, 90 statt 70, 84, 97. Die Achse bleibt beim Rollen stehen
+     und wird darum dauernd abgelesen - an einer runden Zahl geht das ohne Kopfrechnen.
+     Die Schrittweite ist die kleinste aus der Reihe, mit der es hoechstens sieben
+     Abstaende werden; die Grenzen werden auf sie gerundet, nach einem kleinen Rand. */
+  var pad = (mx-mn)*0.03||1, nichtNegativ = mn>=0; mn-=pad; mx+=pad;
+  var schritt = [0.5,1,2,5,10,20,50,100].filter(function(st){ return (mx-mn)/st <= 7; })[0] || 100;
+  mn = Math.floor(mn/schritt)*schritt; mx = Math.ceil(mx/schritt)*schritt;
+  if(nichtNegativ && mn<0) mn = 0;
+  var nY = Math.round((mx-mn)/schritt)+1, adez = schritt<1 ? 1 : 0, achse = [];
+  for(var q=0;q<nY;q++) achse.push(nf(mn+schritt*q, adez));
+  var L = Math.round(Math.max(40, Math.max.apply(null, achse.map(function(a){ return a.length; }))*zA+14));
+  var sichtPlot = sicht - L;
+  var pxTag = Math.max(4, sichtPlot/120);
+  var isos = alle.map(function(p){ return p.iso; }).concat([heute]).sort();
+  var von = isoMinus(isos[0], 10), bis = isoMinus(isos[isos.length-1], -21);
+  var x0 = ms(von), tage = Math.round((ms(bis)-x0)/TAG);
+  var W = Math.max(sichtPlot, Math.round(tage*pxTag));
+  function X(iso){ return (ms(iso)-x0)/TAG*pxTag; }
+  function Y(v){ return T+(1-(v-mn)/((mx-mn)||1))*(B-T); }
+  var h = "", ax = "";
+  /* Waagrechte Gitterlinien ueber die ganze Breite, die Zahlen dazu in der festen Spalte. */
+  for(var i=0;i<nY;i++){
+    var gy = Y(mn+(mx-mn)*i/(nY-1));
+    h += '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+W+'" y2="'+gy.toFixed(1)+'" stroke="var(--grid)" stroke-width="1"></line>';
+    ax += '<text x="'+(L-8)+'" y="'+(gy+fs/3).toFixed(1)+'" text-anchor="end" fill="var(--faint)" font-size="'+fs+'" font-family="var(--mono)">'+achse[i]+'</text>';
+  }
+  /* Monatsmarken: eine senkrechte Linie am Ersten, darunter der Monat. Das Jahr steht beim
+     Januar und bei der ersten Marke - sonst weiss man mitten im Rollen nicht, welches. */
+  var a0 = von.split("-"), m = new Date(+a0[0], +a0[1], 1, 12), erste = true;
+  while(isoVon(m) <= bis){
+    var mi = isoVon(m), mxp = X(mi);
+    h += '<line x1="'+mxp.toFixed(1)+'" y1="'+T+'" x2="'+mxp.toFixed(1)+'" y2="'+B+'" stroke="var(--grid)" stroke-width="1"></line>'
+      +  '<text x="'+(mxp+4).toFixed(1)+'" y="'+yDatum+'" fill="var(--faint)" font-size="'+fs+'" font-family="var(--mono)">'
+      +  MONATE[m.getMonth()]+((m.getMonth()===0||erste)?" "+m.getFullYear():"")+'</text>';
+    erste = false; m = new Date(m.getFullYear(), m.getMonth()+1, 1, 12);
+  }
+  /* Heute: eine leise senkrechte Linie. Links davon ist gemessen, rechts davon geplant. */
+  var hx = X(heute);
+  h += '<line x1="'+hx.toFixed(1)+'" y1="'+(T-6)+'" x2="'+hx.toFixed(1)+'" y2="'+B+'" stroke="var(--akzent)" stroke-width="1" stroke-dasharray="2 4" opacity=".7"></line>'
+    +  '<text x="'+(hx+4).toFixed(1)+'" y="'+(T-9)+'" fill="var(--akzent)" font-size="'+fs+'" font-family="var(--mono)">heute</text>';
+  /* Der Zielpfad: gestrichelt in der Farbe der Ziele. Beschriftet werden die Knickpunkte,
+     an denen ein Zielwert erreicht sein soll - nicht der Tag, an dem nur das Tempo
+     wechselt, ohne dass sich der Wert aendert. */
+  if(P.length>1){
+    h += '<polyline points="'+P.map(function(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }).join(" ")
+      + '" fill="none" stroke="var(--warn)" stroke-width="1.8" stroke-dasharray="7 5" stroke-linejoin="round" opacity=".9"></polyline>';
+    P.forEach(function(p, ix){
+      if(ix===0 || p.v===P[ix-1].v) return;
+      var px = X(p.iso), py = Y(p.v), letzt = ix===P.length-1;
+      h += '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="var(--bg)" stroke="var(--warn)" stroke-width="1.6"></circle>'
+        +  '<text x="'+(letzt?px-6:px+6).toFixed(1)+'" y="'+(py-9).toFixed(1)+'"'+(letzt?' text-anchor="end"':'')
+        +  ' fill="var(--warn)" font-size="'+fs+'" font-family="var(--mono)">'+nf(p.v,0)+' kg · '+dmy(p.iso)+'</text>';
+    });
+  }
+  /* Die Messreihe - dieselben Segmente wie im grossen Bild: wo zwischen zwei Messungen
+     lange nichts liegt, verbindet eine feine Strichelung. */
+  var bruecken = 0;
+  function XY(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }
+  segmente(G, XY).forEach(function(sg){
+    if(sg.strich) bruecken++;
+    h += '<polyline points="'+sg.p+'" fill="none" stroke="var(--good)" stroke-width="'+(sg.strich?1:2)+'"'
+      + (sg.strich?' stroke-dasharray="'+sg.strich+'" stroke-linecap="round" opacity=".55"':'')+' stroke-linejoin="round"></polyline>';
+  });
+  G.forEach(function(p){
+    h += '<circle cx="'+X(p.iso).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="3" fill="var(--good)"></circle>'; });
+  /* Merkzettel. Je Messtag eine Flaeche bis zur halben Strecke zum Nachbarn, aber nie
+     weiter als drei Tage ueber den ersten und letzten hinaus - sonst gehoerte die ganze
+     geplante Zukunft zur letzten Messung. Der Zettel nennt dazu den Sollwert des Tages.
+     Rechts der letzten Messung liegt je Woche eine Flaeche auf dem Pfad: dort sagt der
+     Zettel, wo der Pfad an diesem Tag steht. */
+  var tx = G.map(function(p){ return X(p.iso); }), notizen = 0;
+  h += G.map(function(p, ix){
+    var lo = ix ? (tx[ix]+tx[ix-1])/2 : tx[ix]-3*pxTag;
+    var hi = ix<G.length-1 ? (tx[ix]+tx[ix+1])/2 : tx[ix]+3*pxTag;
+    var s = pfadWert(P, p.iso);
+    if(p.note) notizen++;
+    var id = tipReg({tag:dmy(p.iso), wert:nf(p.v,1), einheit:"kg",
+      sub: s!=null ? "Zielpfad "+nf(s,1)+" kg · "+vz(p.v-s,1)+" kg" : "", notiz:p.note||""});
+    return '<rect class="hit" data-tip="'+id+'" x="'+lo.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,hi-lo).toFixed(1)
+      + '" height="'+(B-T)+'"></rect>'
+      + (p.note ? '<circle class="notizpunkt" cx="'+tx[ix].toFixed(1)+'" cy="'+(B+7)+'" r="2.4"></circle>' : "");
+  }).join("");
+  if(P.length>1){
+    var gEnde = G.length ? G[G.length-1].iso : null;
+    var w0 = gEnde && gEnde > P[0].iso ? isoMinus(gEnde, -7) : P[0].iso, pEnde = P[P.length-1].iso;
+    for(var wi = w0; wi <= pEnde; wi = isoMinus(wi, -7)){
+      var sv = pfadWert(P, wi), wx = X(wi);
+      if(sv==null) continue;
+      var idp = tipReg({tag:dmy(wi), wert:nf(sv,1), einheit:"kg", sub:"Zielpfad", notiz:""});
+      h += '<rect class="hit" data-tip="'+idp+'" x="'+(wx-3.5*pxTag).toFixed(1)+'" y="'+T+'" width="'
+        + (7*pxTag).toFixed(1)+'" height="'+(B-T)+'"></rect>';
+    }
+  }
+  var text = opt.text||"";
+  if(bruecken) text += " Wo fein gestrichelt, liegt zwischen zwei Messungen kein Wert — die Linie verbindet sie trotzdem.";
+  if(notizen) text += " Der kleine gelbe Punkt unter der Achse heisst: an diesem Tag steht eine Notiz.";
+  if(text) ERKL.bilder.push(text);
+  return '<div class="zl">'
+    + '<svg class="zl-achse" width="'+L+'" height="'+VBH+'" viewBox="0 0 '+L+' '+VBH+'">'+ax+'</svg>'
+    + '<div class="zl-roll" id="zlRoll" data-x0="'+x0+'" data-pxtag="'+pxTag+'" data-heute="'+hx.toFixed(1)+'">'
+    +   '<svg width="'+W+'" height="'+VBH+'" viewBox="0 0 '+W+' '+VBH+'" style="display:block">'+h+'</svg>'
+    + '</div></div>'
+    + '<div class="zl-fuss no-print" style="padding-left:'+L+'px">'
+    +   '<span>Mit dem Balken durch die Zeit — gestrichelt der Zielpfad.</span>'
+    +   '<button class="btn" id="zlHeute" type="button">heute</button></div>';
+}
+/* Nach jedem zeichne(): den Bildlauf dorthin stellen, wo er war. zeichne() baut die Seite
+   neu, und ein neu gebauter Behaelter steht links am Anfang - ohne das sprang das Bild bei
+   jedem Antippen eines Merkzettels zurueck in den Juni. Gemerkt wird das DATUM am linken
+   Rand, nicht die Pixelzahl: aendert sich die Fensterbreite, aendert sich der Massstab,
+   und dasselbe Pixel laege an einem anderen Tag. Ohne gemerkten Stand steht heute bei
+   gut einem Drittel der Breite - links das Gemessene, rechts der Weg. */
+function zeitlinieEinrichten(){
+  var s = document.getElementById("zlRoll"); if(!s) return;
+  var x0 = +s.dataset.x0, px = +s.dataset.pxtag, hx = +s.dataset.heute;
+  function stdLinks(){ return Math.max(0, hx - s.clientWidth*0.35); }
+  s.scrollLeft = UI.zlLinks!=null ? Math.max(0, (UI.zlLinks-x0)/86400000*px) : stdLinks();
+  s.addEventListener("scroll", function(){ tipWeg(); UI.zlLinks = x0 + s.scrollLeft/px*86400000; }, {passive:true});
+  var hb = document.getElementById("zlHeute");
+  if(hb) hb.addEventListener("click", function(){
+    s.scrollTo({left:stdLinks(), behavior:"smooth"}); });
+}
+
 /* ── Was heute noch offen ist ────────────────────────────────────────────────────
    Die Frage, die dieses Werkzeug jeden Tag stellt - und die es bis zum 06.09.2026
    nirgends beantwortet hat: man musste ins Erfassen gehen, um zu sehen, was fehlt.
@@ -1852,6 +2055,23 @@ function zeichneVoll(){
             keine Zahl der Welt begruendet, warum die Grenze bei 25 oder 40 Prozent liegt.
          Die Kurve beantwortet damit in JEDEM Zeitraum dieselbe Frage - was hat sich bewegt -
          und der Weg die andere. */
+      /* Seit dem 22.11.2026 traegt das Bild im Zeitraum «alles» den ZIELPFAD - eine Linie
+         ueber die Zeit, keine waagrechte Zielmarke (Wunsch Albrecht). Die Gruende oben
+         gelten fuer die waagrechten Ziele in den kurzen Fenstern weiter, und dort bleibt
+         das Bild, wie es war. Im Zeitraum «alles» ist die Frage eine andere: nicht «was hat
+         sich bewegt», sondern «liege ich auf dem Weg» - und die beantwortet nur ein Bild,
+         in dem Messung und Pfad auf derselben Zeitachse liegen.
+         Nur im Werkzeug, nicht in der Arztkopie: der Pfad ist Albrechts eigener Plan, und
+         ein Bild mit Bildlauf liesse sich nicht drucken. */
+      var P = (f.k==="alles" && !FROZEN) ? zielpfad() : [];
+      if(P.length){
+        var pE = P[P.length-1];
+        inhalt = zeitlinie(G, P, {text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" auf echter Zeitachse, "
+            + "dazu gestrichelt der Zielpfad vom "+dmy(P[0].iso)+" ("+nf(P[0].v,1)+" kg) bis zum "+dmy(pE.iso)
+            + " ("+nf(pE.v,0)+" kg). Die Zeit rollt mit dem Balken unter dem Bild; die Werteachse bleibt stehen."
+            + (ziele.length ? " Der Weg zu den Zielen steht darunter, ohne Zeitachse." : "")})
+          + (ziele.length ? wegSvg(gStart, gLa?gLa.v:null, ziele) : "");
+      } else
       inhalt = bild([{pts:G, farbe:"var(--good)", r:3, name:"Gewicht"}], {dez:1, einheit:"kg",
         text:"Alle "+zahl(G.length,"Messpunkt","Messpunkte")+" "+fl+" auf echter Zeitachse."
           + (ziele.length ? " Der Weg zu den Zielen steht darunter, ohne Zeitachse." : "")})
@@ -1880,6 +2100,12 @@ function zeichneVoll(){
         if(w.goal2!=null)
           neben.push({l:"Abstand zu Ziel 2", w:rest2!=null?nf(rest2,1):"—",
             u:"kg · Ziel "+nf(w.goal2,0)+" kg"});
+        /* Gegen den Pfad gerechnet wird am Tag der LETZTEN Messung, nicht heute: an einem
+           Tag ohne Wiegen gibt es nichts zu vergleichen. Plus heisst ueber dem Pfad. */
+        var Pn = zielpfad(), sL = gLa ? pfadWert(Pn, gLa.iso) : null;
+        if(sL!=null)
+          neben.push({l:"gegen Zielpfad", w:vz(gLa.v-sL,1),
+            u:"kg · Soll am "+dm(gLa.iso)+" "+nf(sL,1)+" kg", f:(gLa.v<=sL?"var(--good)":"var(--warn)")});
       }
     }
   }
@@ -3936,6 +4162,7 @@ function zeichne(){
   if(UI.seite==="voll") haupt.innerHTML = zeichneVoll();
   if(UI.seite==="akten") haupt.innerHTML = zeichneAkten();
   if(UI.seite==="erf") haupt.innerHTML = zeichneErf();
+  zeitlinieEinrichten();
   /* Ob eine Bildlaufleiste erscheint, steht erst mit dem Inhalt fest - und sie macht den
      Behaelter schmaler, als beim Rechnen der Schriftgroessen angenommen wurde. Einmal
      nachmessen, einmal nachziehen; der Riegel verhindert die Schleife. */
