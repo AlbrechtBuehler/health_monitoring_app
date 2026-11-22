@@ -1704,36 +1704,122 @@ var MONATE = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov"
    ueber anderthalb Jahre; in eine Bildbreite gestaucht laege ein Monat auf 70 px. Darum
    steht die Zeit hier in einem FESTEN Massstab - rund vier Monate je Bildbreite, nie
    weniger als 4 px je Tag - und der Rest liegt rechts und links daneben, erreichbar mit
-   dem Balken unter dem Bild.
-   Die Werteachse steht links FEST und rollt nicht mit: wer im Oktober 2027 ankommt, muss
-   noch lesen koennen, was 90 kg sind. Sie ist ueber die ganze Zeitlinie dieselbe -
-   eine Achse, die beim Rollen ihren Massstab wechselte, liesse jede Strecke anders
-   aussehen, als sie ist.
-   Der Preis steht hier ausgeschrieben: mit dem Pfad bis 75 kg in der Achse wird ein Kilo
-   rund 5 px hoch. Fuer die Bewegung einer Woche gibt es die Zeitraeume 1, 2 und 4 Wochen;
-   dort bleibt das Bild wie gehabt und ohne Pfad (Gruende vom 28.08.2026, weiter unten). */
+   dem Balken unter dem Bild. Die Werteachse steht links fest und rollt nicht mit.
+
+   WERTEACHSE FOLGT DEM SICHTBAREN AUSSCHNITT - Entscheid Albrecht vom 22.11.2026 abends.
+   Die erste Fassung hatte eine Achse ueber die ganze Zeitlinie, 70 bis 140 kg: mit dem
+   Pfad bis 75 kg und dem Start bei 132,6 wurde ein Kilo rund 5 px hoch, und die
+   Abnahmekurve lag flach am Boden («so ist die Abnahmekurve so flach»). Neu umfasst die
+   Achse nur, was im Fenster liegt - Messungen, Pfad und die Werte beider Linien an den
+   beiden Raendern -, und passt sich beim Rollen an.
+   Der Preis, offen genannt: dieselbe Neigung bedeutet nicht mehr ueberall dasselbe Tempo.
+   Ein steiles Stueck im Juni und ein steiles Stueck im Dezember koennen verschieden viele
+   Kilo sein; was gilt, steht an der Achse. Damit das Rollen nicht jedes halbe Kilo
+   Tagesschwankung zum Absturz aufblaest, umfasst die Achse nie weniger als 6 kg. Sie
+   wechselt nicht ruckartig, sondern gleitet in rund 0,2 s zum neuen Bereich.
+
+   Technisch: was nicht von der Werteachse abhaengt (Monatsmarken, «heute», Merkzettel-
+   flaechen), wird einmal gebaut. Was von ihr abhaengt (Gitter, Pfad, Messreihe, Zahlen
+   der Achse), zeichnet zlFrame() neu, sobald der Ausschnitt einen anderen Bereich ergibt. */
+var ZL = null;
+
+function zlAchsenSchritt(mn, mx){
+  return [0.5,1,2,5,10,20,50,100].filter(function(st){ return (mx-mn)/st <= 6; })[0] || 100;
+}
+/* Der Bereich, den die Achse fuer einen Ausschnitt [a, b] (ms) braucht. */
+function zlBereich(a, b){
+  var Z = ZL, vs = [];
+  function lin(R, t){
+    if(!R.length || t < R[0].t || t > R[R.length-1].t) return null;
+    for(var i=1;i<R.length;i++) if(t <= R[i].t){
+      var p=R[i-1], q=R[i]; return q.t>p.t ? p.v+(q.v-p.v)*(t-p.t)/(q.t-p.t) : q.v; }
+    return null;
+  }
+  [Z.g, Z.p].forEach(function(R){
+    R.forEach(function(p){ if(p.t>=a && p.t<=b) vs.push(p.v); });
+    [a,b].forEach(function(t){ var v = lin(R,t); if(v!=null) vs.push(v); });
+  });
+  if(!vs.length) vs = Z.g.concat(Z.p).map(function(p){ return p.v; });
+  var mn = Math.min.apply(null,vs), mx = Math.max.apply(null,vs);
+  if(mx-mn < 6){ var m = (mn+mx)/2; mn = m-3; mx = m+3; }
+  var pad = (mx-mn)*0.06; mn -= pad; mx += pad;
+  var st = zlAchsenSchritt(mn, mx);
+  mn = Math.floor(mn/st)*st; mx = Math.ceil(mx/st)*st;
+  if(mn < 0) mn = 0;
+  return {mn:mn, mx:mx, st:st};
+}
+/* Alles, was von der Werteachse abhaengt, fuer einen Bereich (mn, mx) - auch krumme
+   Zwischenstaende waehrend des Gleitens; die Achsenzahlen bleiben dabei auf dem Raster
+   des Ziels. */
+function zlFrame(mn, mx, st){
+  var Z = ZL; if(!Z) return;
+  function Y(v){ return Z.T+(1-(v-mn)/((mx-mn)||1))*(Z.B-Z.T); }
+  var h = "", ax = "", adez = st<1 ? 1 : 0;
+  for(var v = Math.ceil(mn/st-1e-9)*st; v <= mx+1e-9; v += st){
+    var gy = Y(v);
+    h += '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+Z.W+'" y2="'+gy.toFixed(1)+'" stroke="var(--grid)" stroke-width="1"></line>';
+    ax += '<text x="'+(Z.L-8)+'" y="'+(gy+Z.fs/3).toFixed(1)+'" text-anchor="end" fill="var(--faint)" font-size="'+Z.fs
+       + '" font-family="var(--mono)">'+nf(v, adez)+'</text>';
+  }
+  var P = Z.p;
+  if(P.length>1){
+    h += '<polyline points="'+P.map(function(p){ return p.x.toFixed(1)+","+Y(p.v).toFixed(1); }).join(" ")
+      + '" fill="none" stroke="var(--warn)" stroke-width="1.8" stroke-dasharray="7 5" stroke-linejoin="round" opacity=".9"></polyline>';
+    P.forEach(function(p, ix){
+      if(ix===0 || p.v===P[ix-1].v) return;
+      /* Am Endpunkt kommt der Pfad von links oben - eine Beschriftung darueber laege auf
+         der Linie. Dort steht sie rechts daneben, wenn der Platz reicht. */
+      var py = Y(p.v), letzt = ix===P.length-1, rechts = letzt && Z.W-p.x > 140;
+      var lx = rechts ? p.x+9 : (letzt ? p.x-6 : p.x+6), ly = rechts ? py+Z.fs/3 : py-9;
+      h += '<circle cx="'+p.x.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="var(--bg)" stroke="var(--warn)" stroke-width="1.6"></circle>'
+        +  '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'"'+(letzt&&!rechts?' text-anchor="end"':'')
+        +  ' fill="var(--warn)" font-size="'+Z.fs+'" font-family="var(--mono)">'+nf(p.v,0)+' kg · '+dmy(p.iso)+'</text>';
+    });
+  }
+  function XY(p){ return Z.X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }
+  segmente(Z.G, XY).forEach(function(sg){
+    h += '<polyline points="'+sg.p+'" fill="none" stroke="var(--good)" stroke-width="'+(sg.strich?1:2)+'"'
+      + (sg.strich?' stroke-dasharray="'+sg.strich+'" stroke-linecap="round" opacity=".55"':'')+' stroke-linejoin="round"></polyline>';
+  });
+  Z.g.forEach(function(p){
+    h += '<circle cx="'+p.x.toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="3" fill="var(--good)"></circle>'; });
+  Z.jetzt = {mn:mn, mx:mx, st:st};
+  var gEl = document.getElementById("zlWerte"), aEl = document.getElementById("zlAchse");
+  if(gEl) gEl.innerHTML = h;
+  if(aEl) aEl.innerHTML = ax;
+  return {h:h, ax:ax};
+}
+/* Beim Rollen: neuen Bereich bestimmen und, wenn er sich aendert, hingleiten. */
+function zlAnpassen(sofort){
+  var Z = ZL, s = document.getElementById("zlRoll"); if(!Z || !s) return;
+  var a = Z.x0 + s.scrollLeft/Z.pxTag*86400000, b = a + s.clientWidth/Z.pxTag*86400000;
+  var ziel = zlBereich(a, b), j = Z.jetzt;
+  if(j && j.mn===ziel.mn && j.mx===ziel.mx && !Z.anim) return;
+  if(Z.anim){ cancelAnimationFrame(Z.anim); Z.anim = null; }
+  if(sofort || !j || window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    zlFrame(ziel.mn, ziel.mx, ziel.st); return; }
+  var von = {mn:j.mn, mx:j.mx}, t0 = performance.now(), D = 200;
+  (function schritt(t){
+    var k = Math.min(1, (t-t0)/D), e = 1-Math.pow(1-k, 3);
+    zlFrame(von.mn+(ziel.mn-von.mn)*e, von.mx+(ziel.mx-von.mx)*e, ziel.st);
+    Z.anim = k<1 ? requestAnimationFrame(schritt) : null;
+    if(k>=1) Z.jetzt = ziel;
+  })(t0);
+}
+
 function zeitlinie(G, P, opt){
   opt = opt||{};
   var alle = G.concat(P);
+  ZL = null;
   if(!alle.length) return '<div class="bildtext">Noch nicht gemessen.</div>';
   var heute = heuteIso(), TAG = 86400000;
   var sicht = Math.max(300, bildBreitePx());
   var fs = 10.5, zA = BILD_ZEICHEN*fs;
   var zeichenHoehe = Math.max(206, Math.min(340, Math.round(sicht/3.6)));
   var T = 22, B = T+zeichenHoehe, yDatum = B+20, VBH = B+30;
-  var vs = alle.map(function(p){ return p.v; });
-  var mn = Math.min.apply(null,vs), mx = Math.max.apply(null,vs);
-  /* Runde Achsenzahlen: 70, 80, 90 statt 70, 84, 97. Die Achse bleibt beim Rollen stehen
-     und wird darum dauernd abgelesen - an einer runden Zahl geht das ohne Kopfrechnen.
-     Die Schrittweite ist die kleinste aus der Reihe, mit der es hoechstens sieben
-     Abstaende werden; die Grenzen werden auf sie gerundet, nach einem kleinen Rand. */
-  var pad = (mx-mn)*0.03||1, nichtNegativ = mn>=0; mn-=pad; mx+=pad;
-  var schritt = [0.5,1,2,5,10,20,50,100].filter(function(st){ return (mx-mn)/st <= 7; })[0] || 100;
-  mn = Math.floor(mn/schritt)*schritt; mx = Math.ceil(mx/schritt)*schritt;
-  if(nichtNegativ && mn<0) mn = 0;
-  var nY = Math.round((mx-mn)/schritt)+1, adez = schritt<1 ? 1 : 0, achse = [];
-  for(var q=0;q<nY;q++) achse.push(nf(mn+schritt*q, adez));
-  var L = Math.round(Math.max(40, Math.max.apply(null, achse.map(function(a){ return a.length; }))*zA+14));
+  /* Die Achsenspalte ist fest breit genug fuer «137,5»: sie darf beim Rollen nicht
+     springen, auch wenn die Zahlen kuerzer oder laenger werden. */
+  var L = Math.round(5*zA+14);
   var sichtPlot = sicht - L;
   var pxTag = Math.max(4, sichtPlot/120);
   var isos = alle.map(function(p){ return p.iso; }).concat([heute]).sort();
@@ -1741,14 +1827,7 @@ function zeitlinie(G, P, opt){
   var x0 = ms(von), tage = Math.round((ms(bis)-x0)/TAG);
   var W = Math.max(sichtPlot, Math.round(tage*pxTag));
   function X(iso){ return (ms(iso)-x0)/TAG*pxTag; }
-  function Y(v){ return T+(1-(v-mn)/((mx-mn)||1))*(B-T); }
-  var h = "", ax = "";
-  /* Waagrechte Gitterlinien ueber die ganze Breite, die Zahlen dazu in der festen Spalte. */
-  for(var i=0;i<nY;i++){
-    var gy = Y(mn+(mx-mn)*i/(nY-1));
-    h += '<line x1="0" y1="'+gy.toFixed(1)+'" x2="'+W+'" y2="'+gy.toFixed(1)+'" stroke="var(--grid)" stroke-width="1"></line>';
-    ax += '<text x="'+(L-8)+'" y="'+(gy+fs/3).toFixed(1)+'" text-anchor="end" fill="var(--faint)" font-size="'+fs+'" font-family="var(--mono)">'+achse[i]+'</text>';
-  }
+  var h = "";
   /* Monatsmarken: eine senkrechte Linie am Ersten, darunter der Monat. Das Jahr steht beim
      Januar und bei der ersten Marke - sonst weiss man mitten im Rollen nicht, welches. */
   var a0 = von.split("-"), m = new Date(+a0[0], +a0[1], 1, 12), erste = true;
@@ -1763,38 +1842,15 @@ function zeitlinie(G, P, opt){
   var hx = X(heute);
   h += '<line x1="'+hx.toFixed(1)+'" y1="'+(T-6)+'" x2="'+hx.toFixed(1)+'" y2="'+B+'" stroke="var(--akzent)" stroke-width="1" stroke-dasharray="2 4" opacity=".7"></line>'
     +  '<text x="'+(hx+4).toFixed(1)+'" y="'+(T-9)+'" fill="var(--akzent)" font-size="'+fs+'" font-family="var(--mono)">heute</text>';
-  /* Der Zielpfad: gestrichelt in der Farbe der Ziele. Beschriftet werden die Knickpunkte,
-     an denen ein Zielwert erreicht sein soll - nicht der Tag, an dem nur das Tempo
-     wechselt, ohne dass sich der Wert aendert. */
-  if(P.length>1){
-    h += '<polyline points="'+P.map(function(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }).join(" ")
-      + '" fill="none" stroke="var(--warn)" stroke-width="1.8" stroke-dasharray="7 5" stroke-linejoin="round" opacity=".9"></polyline>';
-    P.forEach(function(p, ix){
-      if(ix===0 || p.v===P[ix-1].v) return;
-      var px = X(p.iso), py = Y(p.v), letzt = ix===P.length-1;
-      h += '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="var(--bg)" stroke="var(--warn)" stroke-width="1.6"></circle>'
-        +  '<text x="'+(letzt?px-6:px+6).toFixed(1)+'" y="'+(py-9).toFixed(1)+'"'+(letzt?' text-anchor="end"':'')
-        +  ' fill="var(--warn)" font-size="'+fs+'" font-family="var(--mono)">'+nf(p.v,0)+' kg · '+dmy(p.iso)+'</text>';
-    });
-  }
-  /* Die Messreihe - dieselben Segmente wie im grossen Bild: wo zwischen zwei Messungen
-     lange nichts liegt, verbindet eine feine Strichelung. */
-  var bruecken = 0;
-  function XY(p){ return X(p.iso).toFixed(1)+","+Y(p.v).toFixed(1); }
-  segmente(G, XY).forEach(function(sg){
-    if(sg.strich) bruecken++;
-    h += '<polyline points="'+sg.p+'" fill="none" stroke="var(--good)" stroke-width="'+(sg.strich?1:2)+'"'
-      + (sg.strich?' stroke-dasharray="'+sg.strich+'" stroke-linecap="round" opacity=".55"':'')+' stroke-linejoin="round"></polyline>';
-  });
-  G.forEach(function(p){
-    h += '<circle cx="'+X(p.iso).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="3" fill="var(--good)"></circle>'; });
+  var bruecken = segmente(G, function(p){ return X(p.iso)+",0"; }).filter(function(sg){ return sg.strich; }).length;
   /* Merkzettel. Je Messtag eine Flaeche bis zur halben Strecke zum Nachbarn, aber nie
      weiter als drei Tage ueber den ersten und letzten hinaus - sonst gehoerte die ganze
      geplante Zukunft zur letzten Messung. Der Zettel nennt dazu den Sollwert des Tages.
      Rechts der letzten Messung liegt je Woche eine Flaeche auf dem Pfad: dort sagt der
-     Zettel, wo der Pfad an diesem Tag steht. */
-  var tx = G.map(function(p){ return X(p.iso); }), notizen = 0;
-  h += G.map(function(p, ix){
+     Zettel, wo der Pfad an diesem Tag steht. Die Flaechen reichen ueber die ganze Hoehe
+     und haengen darum nicht von der Werteachse ab. */
+  var tx = G.map(function(p){ return X(p.iso); }), notizen = 0, hits = "";
+  hits += G.map(function(p, ix){
     var lo = ix ? (tx[ix]+tx[ix-1])/2 : tx[ix]-3*pxTag;
     var hi = ix<G.length-1 ? (tx[ix]+tx[ix+1])/2 : tx[ix]+3*pxTag;
     var s = pfadWert(P, p.iso);
@@ -1812,21 +1868,31 @@ function zeitlinie(G, P, opt){
       var sv = pfadWert(P, wi), wx = X(wi);
       if(sv==null) continue;
       var idp = tipReg({tag:dmy(wi), wert:nf(sv,1), einheit:"kg", sub:"Zielpfad", notiz:""});
-      h += '<rect class="hit" data-tip="'+idp+'" x="'+(wx-3.5*pxTag).toFixed(1)+'" y="'+T+'" width="'
+      hits += '<rect class="hit" data-tip="'+idp+'" x="'+(wx-3.5*pxTag).toFixed(1)+'" y="'+T+'" width="'
         + (7*pxTag).toFixed(1)+'" height="'+(B-T)+'"></rect>';
     }
   }
+  ZL = {G:G, P:P, X:X, x0:x0, pxTag:pxTag, W:W, L:L, T:T, B:B, fs:fs, jetzt:null, anim:null,
+        g:G.map(function(p){ return {iso:p.iso, t:ms(p.iso), v:p.v, x:X(p.iso)}; }),
+        p:P.map(function(p){ return {iso:p.iso, t:ms(p.iso), v:p.v, x:X(p.iso)}; })};
+  /* Der erste Bereich gilt fuer den Ausschnitt, den zeitlinieEinrichten() gleich
+     einstellen wird - so steht beim Oeffnen schon die richtige Achse da und gleitet nicht
+     erst hinein. */
+  var links = UI.zlLinks!=null ? Math.max(0, (UI.zlLinks-x0)/TAG*pxTag) : Math.max(0, hx - sichtPlot*0.35);
+  var r0 = zlBereich(x0 + links/pxTag*TAG, x0 + (links+sichtPlot)/pxTag*TAG);
+  var f0 = zlFrame(r0.mn, r0.mx, r0.st);
   var text = opt.text||"";
   if(bruecken) text += " Wo fein gestrichelt, liegt zwischen zwei Messungen kein Wert — die Linie verbindet sie trotzdem.";
   if(notizen) text += " Der kleine gelbe Punkt unter der Achse heisst: an diesem Tag steht eine Notiz.";
   if(text) ERKL.bilder.push(text);
   return '<div class="zl">'
-    + '<svg class="zl-achse" width="'+L+'" height="'+VBH+'" viewBox="0 0 '+L+' '+VBH+'">'+ax+'</svg>'
+    + '<svg class="zl-achse" width="'+L+'" height="'+VBH+'" viewBox="0 0 '+L+' '+VBH+'"><g id="zlAchse">'+f0.ax+'</g></svg>'
     + '<div class="zl-roll" id="zlRoll" data-x0="'+x0+'" data-pxtag="'+pxTag+'" data-heute="'+hx.toFixed(1)+'">'
-    +   '<svg width="'+W+'" height="'+VBH+'" viewBox="0 0 '+W+' '+VBH+'" style="display:block">'+h+'</svg>'
+    +   '<svg width="'+W+'" height="'+VBH+'" viewBox="0 0 '+W+' '+VBH+'" style="display:block">'
+    +     h + '<g id="zlWerte">'+f0.h+'</g>' + hits + '</svg>'
     + '</div></div>'
     + '<div class="zl-fuss no-print" style="padding-left:'+L+'px">'
-    +   '<span>Mit dem Balken durch die Zeit — gestrichelt der Zielpfad.</span>'
+    +   '<span>Mit dem Balken durch die Zeit — gestrichelt der Zielpfad. Die kg-Achse passt sich dem Ausschnitt an.</span>'
     +   '<button class="btn" id="zlHeute" type="button">heute</button></div>';
 }
 /* Nach jedem zeichne(): den Bildlauf dorthin stellen, wo er war. zeichne() baut die Seite
@@ -1837,10 +1903,14 @@ function zeitlinie(G, P, opt){
    gut einem Drittel der Breite - links das Gemessene, rechts der Weg. */
 function zeitlinieEinrichten(){
   var s = document.getElementById("zlRoll"); if(!s) return;
-  var x0 = +s.dataset.x0, px = +s.dataset.pxtag, hx = +s.dataset.heute;
+  var x0 = +s.dataset.x0, px = +s.dataset.pxtag, hx = +s.dataset.heute, rahmen = null;
   function stdLinks(){ return Math.max(0, hx - s.clientWidth*0.35); }
   s.scrollLeft = UI.zlLinks!=null ? Math.max(0, (UI.zlLinks-x0)/86400000*px) : stdLinks();
-  s.addEventListener("scroll", function(){ tipWeg(); UI.zlLinks = x0 + s.scrollLeft/px*86400000; }, {passive:true});
+  zlAnpassen(true);
+  s.addEventListener("scroll", function(){
+    tipWeg(); UI.zlLinks = x0 + s.scrollLeft/px*86400000;
+    if(!rahmen) rahmen = requestAnimationFrame(function(){ rahmen = null; zlAnpassen(false); });
+  }, {passive:true});
   var hb = document.getElementById("zlHeute");
   if(hb) hb.addEventListener("click", function(){
     s.scrollTo({left:stdLinks(), behavior:"smooth"}); });
