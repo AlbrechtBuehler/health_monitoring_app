@@ -391,6 +391,18 @@
   .bz-info .if-fuss{font-size:12px;color:var(--faint);margin-top:9px}
   .info-frei{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:2px 0 0;background:var(--surface2)}
   .info-frei .bz-info{border-bottom:none}
+  /* Notizen am Labor (22.11.2026). Der Stift in der Farbe der Notizen im Merkzettel
+     (--warn): wer ihn dort kennt, liest ihn hier gleich. */
+  .bz-n .nz{font-size:12px;color:var(--warn);margin-left:6px}
+  .bz-info p.notiz{color:var(--ink)} .bz-info p.notiz b{color:var(--warn)}
+  .bz-notiz{padding:0 16px 11px;margin-top:-4px;border-bottom:1px solid var(--line2);font-size:13px;color:var(--muted)}
+  .bz-notiz b{color:var(--warn);font-weight:600}
+  .blatt-notiz{margin-top:14px;border:1px solid var(--line);border-radius:13px;padding:12px 16px;
+    font-size:14px;color:var(--muted);background:var(--surface2);white-space:pre-wrap}
+  .blatt-notiz b{color:var(--warn);font-weight:600}
+  .lab-z textarea.notiz{flex:1 1 100%;min-height:40px;font-size:14px;margin:0}
+  .lab-z .nplus{border:none;background:none;color:var(--faint);font-size:12.5px;padding:4px 2px;cursor:pointer}
+  .lab-z .nplus:hover{color:var(--akzent)}
   .docs{margin-top:18px;border:1px solid var(--line);border-radius:13px;padding:15px 18px;background:var(--surface2)}
   /* Merkzettel: EIN schwebendes Element fuer alle Bilder. Der Zustand haengt nicht am
      UI-Objekt - sonst zeichnete jede Mausbewegung die ganze Seite neu.
@@ -558,7 +570,7 @@ var STATE = { updated:"", patient:{}, domain:{}, weight:{points:[]}, body:{point
    Stufen und dieselbe Rechnung. Eine zweite Zeitraum-Mechanik daneben liefe auseinander.
    zeitFrei haelt den ANGEWANDTEN Bereich von «von–bis», zeitEntwurf das, was in den beiden
    Datumsfeldern steht - uebernommen wird erst beim Klick auf «anwenden». */
-var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null, labInfo:null,
+var UI = { seite:"wand", kz:null, bzView:"verlauf", akte:null, blatt:0, sicht:null, wahl:null, labInfo:null, labNotiz:null,
   zeit:{gewicht:"alles", bz:"28", bd:"28", rp:"alles", thq:"alles", bmi:"alles", export:"alles"}, zeitFrei:{}, zeitEntwurf:{},
   zlLinks:null,
   erfTag:0, erfAuf:"auto", erfWerte:{}, erfBz:[neueBzZeile()], erfBzAlt:{},
@@ -2707,8 +2719,7 @@ function zeichneAkten(){
    Fehlt ein Schluessel, fehlt einfach das ⓘ - ein neuer Wert in der Datei bricht nichts.
    In der Arztkopie steht nichts davon: die Fachperson braucht keine Uebersetzung. */
 var LAB_GRUPPE_KLAR = { "Stoffwechsel":"Blutzucker", "Fettstoffwechsel":"Blutfette",
-  "Elektrolyte":"Blutsalze", "Hämatologie":"Blutbild", "Entzündung":"Entzündung & Eiweiss",
-  "Hormone & Vitamine":"Schilddrüse, Vitamine, Eisen" };
+  "Elektrolyte":"Blutsalze", "Hämatologie":"Blutbild", "Entzündung":"Entzündung & Eiweiss" };
 var LAB_INFO = {
   /* Blutzucker */
   glucose:{k:"Blutzucker", was:"Wie viel Zucker im Moment der Blutentnahme im Blut ist. Aussagekräftig ist er nüchtern, nach dem Essen steigt er normal an.",
@@ -2762,17 +2773,17 @@ var LAB_INFO = {
   /* Blutsalze */
   natrium:{k:"Kochsalz im Blut", was:"Regelt den Wasserhaushalt des Körpers. Bleibt normalerweise sehr konstant.",
     hoch:"Meist zu wenig Flüssigkeit.", tief:"Kann durch Medikamente (z. B. Wassertabletten), sehr viel Trinken oder Hormonstörungen kommen. Stark tief macht müde und verwirrt."},
-  kalium:{k:"Kalium", was:"Wichtig für Nerven, Muskeln und den Herzrhythmus. Schon kleine Abweichungen zählen.",
+  kalium:{k:"Blutsalz für Herz und Muskeln", was:"Wichtig für Nerven, Muskeln und den Herzrhythmus. Schon kleine Abweichungen zählen.",
     hoch:"Kann den Herzrhythmus stören. Gründe sind Nieren, manche Medikamente, oft auch eine zu lange gestaute Blutprobe.",
     tief:"Kann Muskelschwäche und Herzrhythmusstörungen machen, z. B. durch Wassertabletten, Durchfall oder Erbrechen."},
-  chlorid:{k:"Chlorid", was:"Teil des Kochsalzes, bewegt sich meist zusammen mit dem Natrium. Hilft beim Wasser- und Säurehaushalt.",
+  chlorid:{k:"Blutsalz, Teil des Kochsalzes", was:"Teil des Kochsalzes, bewegt sich meist zusammen mit dem Natrium. Hilft beim Wasser- und Säurehaushalt.",
     hoch:"Meist zu wenig Flüssigkeit.", tief:"Z. B. nach Erbrechen oder durch Wassertabletten."},
-  calcium:{k:"Calcium", was:"Baustein der Knochen, wichtig für Muskeln, Nerven und Herz. Ein Teil davon ist im Blut an Eiweiss gebunden.",
+  calcium:{k:"Knochenmineral", was:"Baustein der Knochen, wichtig für Muskeln, Nerven und Herz. Ein Teil davon ist im Blut an Eiweiss gebunden.",
     hoch:"Kann von den Nebenschilddrüsen, von Medikamenten oder zu viel Vitamin D kommen.",
     tief:"Kann Kribbeln und Muskelkrämpfe machen. Häufig bei Vitamin-D-Mangel. Ist das Bluteiweiss tief, ist auch das Calcium scheinbar tief."},
   calcKorr:{k:"Calcium, auf das Eiweiss umgerechnet", was:"Das Calcium, umgerechnet auf ein normales Bluteiweiss (Albumin). Damit ein tiefes Eiweiss das Calcium nicht falsch tief aussehen lässt.",
     hoch:"Wie beim Calcium.", tief:"Wie beim Calcium."},
-  phosphat:{k:"Phosphat", was:"Arbeitet mit dem Calcium für die Knochen und wird für die Energie der Zellen gebraucht.",
+  phosphat:{k:"Knochen- und Energiemineral", was:"Arbeitet mit dem Calcium für die Knochen und wird für die Energie der Zellen gebraucht.",
     hoch:"Meist von den Nieren.", tief:"Z. B. bei Mangelernährung, Alkohol oder Vitamin-D-Mangel."},
   /* Entzündung & Eiweiss */
   crp:{k:"Entzündungswert", was:"Ein Eiweiss, das die Leber bei Entzündungen bildet. Steigt innert Stunden und fällt nach dem Abheilen schnell wieder.",
@@ -2899,13 +2910,25 @@ function labGruppe(g){ var k = !FROZEN && LAB_GRUPPE_KLAR[g];
 /* Die aufgeklappte Erklaerung. kl ist «hoch», «tief» oder leer - liegt der Wert ausserhalb,
    wird die passende Zeile hervorgehoben, damit man nicht beide lesen muss, um die eigene
    zu finden. Die Fusszeile steht in jeder Box, weil eine Box auch allein gelesen wird. */
-function labInfoBox(key, kl){
-  var i = LAB_INFO[key]; if(!i || FROZEN) return "";
+/* Notizen am Labor (Entscheid Albrecht vom 22.11.2026): eine je Blatt (panel.note - die
+   gab es in der Datei schon, die App zeigte sie nur nirgends) und eine je Wert auf einem
+   Blatt (panel.notes = {Schluessel: Text}), etwa «die Aerztin will es im April nochmals
+   sehen». Sie gehoeren zum Blatt und nicht zum Wert ueber die Jahre: was eine Aerztin am
+   05.11. sagt, gilt fuer DIESE Messung. In die Arztkopie gehen sie nur mit dem
+   Notiz-Schalter, wie die Notizen an den Messungen. */
+function labNotiz(p, key){ var n = zeigeNotizen() && p && p.notes && p.notes[key];
+  return n && String(n).trim() ? String(n) : ""; }
+function blattNotiz(p){ return zeigeNotizen() && p && p.note && String(p.note).trim()
+  ? '<div class="blatt-notiz"><b>Notiz zum Blatt</b> · '+esc(p.note)+'</div>' : ""; }
+function labInfoBox(key, kl, notiz){
+  var i = LAB_INFO[key]; if((!i && !notiz) || FROZEN) return "";
   return '<div class="bz-info">'
-    + '<p><b>Was es misst</b> · '+esc(i.was)+'</p>'
+    + (notiz?'<p class="notiz"><b>Deine Notiz</b> · '+esc(notiz)+'</p>':'')
+    + (!i ? '' : '<p><b>Was es misst</b> · '+esc(i.was)+'</p>'
     + (i.hoch?'<p'+(kl==="hoch"?' class="hoch"':'')+'><b>Über dem Bereich</b> · '+esc(i.hoch)+'</p>':'')
     + (i.tief?'<p'+(kl==="tief"?' class="tief"':'')+'><b>Unter dem Bereich</b> · '+esc(i.tief)+'</p>':'')
-    + '<div class="if-fuss">Allgemeine Erklärung. Was Dein Wert bedeutet, beurteilt die Ärztin.</div></div>';
+    + '<div class="if-fuss">Allgemeine Erklärung. Was Dein Wert bedeutet, beurteilt die Ärztin.</div>')
+    + '</div>';
 }
 
 /* Ein Laborblatt zum Lesen. Steht als eigene Funktion da, weil «Alle Blätter» dieselbe
@@ -2930,15 +2953,20 @@ function blattHtml(p, P){
       var offen = ref && ref[1] >= 9999;
       /* Offen ist hoechstens EIN Wert je Blatt; der Schluessel traegt das Datum, sonst
          klappte «Alle Blätter» denselben Wert auf jedem Blatt zugleich auf. */
-      var ik = p.date+"|"+pa.key, auf = (UI.labInfo === ik), klar = labKlar(pa);
+      var ik = p.date+"|"+pa.key, auf = (UI.labInfo === ik), klar = labKlar(pa), nz = labNotiz(p, pa.key);
       var name = esc(pa.label) + (pa.unit?' <span style="color:var(--faint)">'+esc(pa.unit)+'</span>':'');
-      h += '<div class="bz-row'+(auf?" info-auf":"")+'"><div>'
-        + (klar ? '<button class="bz-n'+(auf?" an":"")+'" data-labinfo="'+esc(ik)+'" aria-expanded="'+auf+'">'
-                  + name + '<span class="ii no-print">ⓘ</span><span class="klar">'+esc(klar)+'</span></button>'
+      /* In der Arztkopie gibt es nichts aufzuklappen: dort steht eine Notiz offen als
+         eigene Zeile unter dem Wert. */
+      var knopf = !FROZEN && (klar || nz);
+      h += '<div class="bz-row'+(auf||(FROZEN&&nz)?" info-auf":"")+'"><div>'
+        + (knopf ? '<button class="bz-n'+(auf?" an":"")+'" data-labinfo="'+esc(ik)+'" aria-expanded="'+auf+'">'
+                  + name + (klar?'<span class="ii no-print">ⓘ</span>':'') + (nz?'<span class="nz" title="Notiz">✎</span>':'')
+                  + (klar?'<span class="klar">'+esc(klar)+'</span>':'')+'</button>'
                 : name)+'</div>'
         + '<div class="w '+kl+'">'+nf(v, Math.abs(v)>=100?0:1)+'</div>'
         + '<div class="r">'+(!ref?"—":offen?"ab "+nf(ref[0],1):nf(ref[0],1)+"–"+nf(ref[1],1))+'</div></div>'
-        + (auf ? labInfoBox(pa.key, kl) : '');
+        + (auf ? labInfoBox(pa.key, kl, nz) : '')
+        + (FROZEN && nz ? '<div class="bz-notiz"><b>Notiz</b> · '+esc(nz)+'</div>' : '');
     });
   });
   return h + '</div>';
@@ -2976,7 +3004,7 @@ function akteLabor(){
         links: PA.map(function(x){
             return '<div style="margin-top:22px"><div class="k-name">Blatt '+esc(dmy(x.date))
               + ' <span style="color:var(--faint);font-weight:400">'+esc(x.source||"Quelle nicht vermerkt")+'</span></div>'
-              + blattHtml(x, P)+docsBlock(x.docs)+'</div>'; }).join("")
+              + blattHtml(x, P)+blattNotiz(x)+docsBlock(x.docs)+'</div>'; }).join("")
           + hinweis,
         listeKopf:PA.length+" Laborblätter", liste:liste });
     }
@@ -2984,7 +3012,7 @@ function akteLabor(){
     return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Laborblatt "+dmy(p.date),
       untertitel:(p.source||"Quelle nicht vermerkt")+" · "+zahl(Object.keys(p.values||{}).length,"Wert","Werte"),
       aktion:editKnopf("labor"), ansichten:ans,
-      links: blattHtml(p, P) + hinweis + docsBlock(p.docs),
+      links: blattHtml(p, P) + blattNotiz(p) + hinweis + docsBlock(p.docs),
       listeKopf:PA.length+" Laborblätter", liste:liste });
   }
 
@@ -2992,7 +3020,8 @@ function akteLabor(){
      ohne Messung wird die Linie fein gestrichelt: zwischen zwei Blättern liegen Jahre. */
   var mit = P.map(function(pa){
     var pts = PA.filter(function(p){ return p.values && p.values[pa.key]!=null; })
-      .map(function(p){ return {iso:p.date, v:+p.values[pa.key], ref:(p.refs&&p.refs[pa.key])||pa.ref}; })
+      .map(function(p){ return {iso:p.date, v:+p.values[pa.key], ref:(p.refs&&p.refs[pa.key])||pa.ref,
+        notiz:labNotiz(p, pa.key)}; })
       .sort(function(a,b){ return a.iso<b.iso?-1:1; });
     return {pa:pa, pts:pts};
   }).filter(function(x){ return x.pts.length>=3; });
@@ -3032,7 +3061,12 @@ function akteLabor(){
        Frage, ein Tipp mehr waere ein Umweg. Hervorgehoben wird, wo der juengste Wert liegt. */
     links: chips + verlaufBild(cur)
       + (LAB_INFO[cur.pa.key] && !FROZEN ? '<div class="info-frei">'+labInfoBox(cur.pa.key,
-          le.ref ? (le.v>le.ref[1] ? "hoch" : (le.v<le.ref[0] ? "tief" : "")) : "")+'</div>' : '') });
+          le.ref ? (le.v>le.ref[1] ? "hoch" : (le.v<le.ref[0] ? "tief" : "")) : "")+'</div>' : '')
+      /* Die Notizen zu diesem Wert von allen Blaettern, juengste oben - hier wird der Wert
+         ueber die Jahre gelesen, also auch, was zu ihm je gesagt wurde. */
+      + (function(){ var nn = cur.pts.filter(function(x){ return x.notiz; }).reverse();
+          return nn.length ? '<div class="blatt-notiz" style="white-space:normal">'+nn.map(function(x){
+            return '<div><b>Notiz '+esc(dmy(x.iso))+'</b> · '+esc(x.notiz)+'</div>'; }).join("")+'</div>' : ''; })() });
 }
 
 /* Ein Laborblatt von Hand berichtigen. Bearbeitet wird immer EIN Blatt - das in der Liste
@@ -3063,13 +3097,19 @@ function laborEdit(){
          allgemeinen Tabelle eine Grenze «dieses Blattes» - und genau das behauptet die
          Erklärzeile im Lesen ausdrücklich nicht. */
       var r = refs[pa.key] || [], vor = pa.ref || [];
+      /* Die Notiz zum Wert steht als Feld nur da, wo schon eine ist oder wo eben «+ Notiz»
+         gedrückt wurde. 75 leere Notizfelder machten die Maske unlesbar. */
+      var nzT = (p.notes||{})[pa.key], nzAuf = (nzT!=null) || UI.labNotiz===pa.key;
       felder += '<div class="lab-z"><div class="n">'+esc(pa.label)
         + (pa.unit?' <i>'+esc(pa.unit)+'</i>':'')
-        + (labKlar(pa)?'<span class="klar">'+esc(labKlar(pa))+'</span>':'')+'</div>'
+        + (labKlar(pa)?'<span class="klar">'+esc(labKlar(pa))+'</span>':'')
+        + (!nzAuf?'<button class="nplus" data-labnotiz="'+esc(pa.key)+'">+ Notiz</button>':'')+'</div>'
         + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="v" value="'+(vals[pa.key]!=null?esc(kf(vals[pa.key])):"")+'" placeholder="Wert">'
         + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="lo" value="'+(r[0]!=null?esc(kf(r[0])):"")+'" placeholder="'+(vor[0]!=null?esc(kf(vor[0])):"Ref von")+'">'
         + '<span class="bis">–</span>'
-        + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="hi" value="'+(r[1]!=null?esc(kf(r[1])):"")+'" placeholder="'+(vor[1]!=null?esc(kf(vor[1])):"bis")+'"></div>';
+        + '<input type="text" data-lab="'+esc(pa.key)+'" data-f="hi" value="'+(r[1]!=null?esc(kf(r[1])):"")+'" placeholder="'+(vor[1]!=null?esc(kf(vor[1])):"bis")+'">'
+        + (nzAuf?'<textarea class="notiz" data-lab="'+esc(pa.key)+'" data-f="n" placeholder="Notiz zu '+esc(pa.label)+' auf diesem Blatt">'+esc(nzT||"")+'</textarea>':'')
+        + '</div>';
     });
   });
   return aktenRahmen({ k:"labor", bereich:"Labor", titel:"Laborblatt bearbeiten",
@@ -3081,6 +3121,8 @@ function laborEdit(){
       +   '<div class="feld" style="grid-column:span 2"><div class="lbl">Quelle</div>'
       +     '<input type="text" data-labkopf="source" value="'+esc(p.source||"")+'" placeholder="Praxis, Labor…"></div>'
       + '</div>'
+      + '<div class="feld" style="margin-bottom:6px"><div class="lbl">Notiz zum Blatt</div>'
+      +   '<textarea class="notiz" data-labkopf="note" placeholder="Was zum ganzen Blatt gehört">'+esc(p.note||"")+'</textarea></div>'
       + felder
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">'
       +   '<button class="btn" id="labPlus" style="color:var(--akzent)">+ Blatt</button>'
@@ -3088,7 +3130,7 @@ function laborEdit(){
       + '</div>'
       + '<div class="bildtext">Ein leeres Wertfeld heisst «auf diesem Blatt nicht gemessen» und wird nicht '
       + 'gespeichert. Eine Referenz zählt nur, wenn von UND bis gesetzt sind. Ein Blatt ohne Datum wird beim '
-      + 'Speichern verworfen; angehängte Dokumente bleiben erhalten.</div></div>',
+      + 'Speichern verworfen; angehängte Dokumente bleiben erhalten. Eine leere Notiz wird nicht gespeichert.</div></div>',
     listeKopf:L.length+" Laborblätter",
     liste: L.map(function(x,n){
       return lz(x.date?dmy(x.date):"ohne Datum", String(Object.keys(x.values||{}).length),
@@ -3197,7 +3239,13 @@ var AKTEN_EDIT = {
           var x = p.refs[k];
           if(x && x[0]!=null && x[1]!=null) r[k] = [+x[0], +x[1]];
         });
-        q.refs = r; return q;
+        q.refs = r;
+        /* Leere Notizen gehen nicht in die Datei - ein geleertes Feld heisst «keine Notiz». */
+        var nn = {};
+        Object.keys(q.notes||{}).forEach(function(k){ var t = String(q.notes[k]||"").trim(); if(t) nn[k] = t; });
+        if(Object.keys(nn).length) q.notes = nn; else delete q.notes;
+        if(q.note!=null){ q.note = String(q.note).trim(); if(!q.note) delete q.note; }
+        return q;
       }).sort(function(a,b){ return a.date<b.date?1:-1; });
     }
   },
@@ -4169,7 +4217,7 @@ function exportModal(){
         return '<div class="exp-zeile" data-exp="'+b.k+'"><div class="exp-name">'+esc(b.t)
           + (mz?'<div style="font-size:12px;margin-top:2px">'+mz+'</div>':'')+'</div>'
           + '<button class="schieber'+(EXP_AN[b.k]?" an":"")+'"><span class="knopf"></span></button></div>'; }).join("")
-    + '<div class="exp-zeile" data-exp="__notizen"><div class="exp-name">Deine Notizen zu den Messungen<br>'
+    + '<div class="exp-zeile" data-exp="__notizen"><div class="exp-name">Deine Notizen zu Messungen und Labor<br>'
     +   '<span style="font-size:12px;color:var(--faint)">«nach Kaffee», «auf Arbeit, Stress» — Kontext für Dich, nicht Befund</span></div>'
     +   '<button class="schieber'+(EXP_NOTIZEN?" an":"")+'"><span class="knopf"></span></button></div>'
     + '<div class="exp-zeile" data-exp="__docs"><div class="exp-name">Dokumentpfade und Links<br>'
@@ -4251,6 +4299,9 @@ function exportZustand(){
       (d.rows||[]).forEach(function(r){ if(r.note) delete r.note;
         (r.values||[]).forEach(function(v){ if(v.note) delete v.note; }); });
     });
+    /* Seit dem 22.11.2026 auch die Notizen am Labor, je Blatt und je Wert. Die Blatt-Notiz
+       ging vorher immer mit - unsichtbar, aber im Dateitext. */
+    (S.lab.panels||[]).forEach(function(p){ delete p.note; delete p.notes; });
   }
   return S;
 }
@@ -4496,6 +4547,10 @@ document.addEventListener("click", function(e){
      als Wort statt als Nummer. Ohne diese Zeile wuerde +"alle" zu NaN, und die Liste
      zeigte gar nichts mehr. */
   /* ⓘ am Laborwert: zweiter Tipp klappt wieder zu, ein anderer Wert loest den ersten ab. */
+  /* «+ Notiz» in der Bearbeiten-Maske: das Feld erscheint, und der Cursor steht drin. */
+  if(t.dataset.labnotiz){ UI.labNotiz = t.dataset.labnotiz; zeichne();
+    var nf_ = document.querySelector('textarea[data-f="n"][data-lab="'+t.dataset.labnotiz+'"]');
+    if(nf_) nf_.focus(); return; }
   if(t.dataset.labinfo){ UI.labInfo = (UI.labInfo===t.dataset.labinfo) ? null : t.dataset.labinfo;
     zeichne(); return; }
   if(t.dataset.blatt!==undefined){
@@ -4510,7 +4565,7 @@ document.addEventListener("click", function(e){
   if(t.dataset.edit){ UI.edit = t.dataset.edit; UI.arbeit = null; UI.erfMeldung = null;
     if(UI.blatt==="alle") UI.blatt = 0;
     zeichne(); window.scrollTo(0,0); return; }
-  if(t.id==="editAbbruch"){ UI.edit = null; UI.arbeit = null; zeichne(); return; }
+  if(t.id==="editAbbruch"){ UI.edit = null; UI.arbeit = null; UI.labNotiz = null; zeichne(); return; }
   if(t.id==="editSpeichern"){ aktenSpeichern(); return; }
   /* Zeile hinzufuegen und entfernen bleibt je Bereich eigen: die Medikation haengt neue
      Praeparate unten an, Krankengeschichte und Labor stellen das Neue nach vorn - dort
@@ -4607,6 +4662,8 @@ document.addEventListener("input", function(e){
   /* Ein leeres Wertfeld heisst «nicht gemessen», nicht «null»: der Schluessel verschwindet
      aus dem Blatt. Stuende dort eine 0, faerbte das Blatt sie beim naechsten Oeffnen als
      Wert unter dem Referenzbereich - blau, und frei erfunden. */
+  if(i.dataset.lab && i.dataset.f==="n"){
+    var bn = laborBlatt(); bn.notes = bn.notes||{}; bn.notes[i.dataset.lab] = i.value; return; }
   if(i.dataset.lab){
     var b = laborBlatt(), k = i.dataset.lab, v = num(i.value);
     b.values = b.values||{}; b.refs = b.refs||{};
